@@ -78,45 +78,52 @@ app.get('/health', async (c) => {
 
 // === publish ===
 app.post('/api/publish', async (c) => {
-  const body = await c.req.json();
-  const exp = body.experience as Experience;
-
-  // 基础校验
-  if (!exp?.core?.what || !exp?.core?.tried || !exp?.core?.learned) {
-    return c.json({ error: '缺少必填字段：core.what, core.tried, core.learned' }, 400);
-  }
-
-  // 生成 embedding
-  const text = experienceToText({
-    what: exp.core.what,
-    context: exp.core.context || '',
-    tried: exp.core.tried,
-    learned: exp.core.learned,
-    tags: exp.tags || [],
-  });
-
-  let embedding: Float32Array | null = null;
   try {
-    embedding = await getEmbedding(text);
-  } catch (err) {
-    console.error('Embedding 生成失败，继续保存但不索引:', err);
+    const body = await c.req.json();
+    const exp = body.experience as Experience;
+
+    // 基础校验
+    if (!exp?.core?.what || !exp?.core?.tried || !exp?.core?.learned) {
+      return c.json({ error: '缺少必填字段：core.what, core.tried, core.learned' }, 400);
+    }
+
+    // 生成 embedding
+    const text = experienceToText({
+      what: exp.core.what,
+      context: exp.core.context || '',
+      tried: exp.core.tried,
+      learned: exp.core.learned,
+      tags: exp.tags || [],
+    });
+
+    let embedding: Float32Array | null = null;
+    try {
+      embedding = await getEmbedding(text);
+    } catch (err) {
+      console.error('Embedding 生成失败，继续保存但不索引:', err);
+    }
+
+    // 设置 publisher（确保必填字段有默认值）
+    const agentId = c.get('agentId');
+    exp.publisher = exp.publisher || {} as any;
+    exp.publisher.agent_id = agentId;
+    exp.publisher.platform = exp.publisher.platform || 'unknown';
+    exp.core.context = exp.core.context || '';
+
+    const id = await insertExperience(exp, embedding);
+
+    const response: PublishResponse = {
+      status: 'published',
+      experience_id: id,
+      indexed_tags: exp.tags || [],
+      published_at: exp.published_at || new Date().toISOString(),
+    };
+
+    return c.json(response, 201);
+  } catch (err: any) {
+    console.error('Publish 错误:', err);
+    return c.json({ error: err.message || 'Internal Server Error' }, 500);
   }
-
-  // 设置 publisher
-  const agentId = c.get('agentId');
-  exp.publisher = exp.publisher || {} as any;
-  exp.publisher.agent_id = agentId;
-
-  const id = await insertExperience(exp, embedding);
-
-  const response: PublishResponse = {
-    status: 'published',
-    experience_id: id,
-    indexed_tags: exp.tags || [],
-    published_at: exp.published_at || new Date().toISOString(),
-  };
-
-  return c.json(response, 201);
 });
 
 // === search ===
