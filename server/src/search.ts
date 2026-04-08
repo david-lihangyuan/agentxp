@@ -39,6 +39,9 @@ export async function search(req: SearchRequest): Promise<SearchResponse> {
   if (allEmbeddings.length === 0) {
     return { precision: [], serendipity: [], total_available: 0 };
   }
+  if (allEmbeddings.length > 5000) {
+    console.warn(`⚠️  搜索性能预警：当前 ${allEmbeddings.length} 条经验，暴力向量扫描可能变慢。建议超过 10K 条时接入向量索引。`);
+  }
 
   // 3. 计算相似度
   const scored = allEmbeddings.map(({ id, embedding }) => ({
