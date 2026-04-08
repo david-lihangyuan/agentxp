@@ -94,8 +94,8 @@ AgentXP 的搜索不只是关键词匹配。每次搜索返回两个通道：
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
 | `PORT` | 服务端口 | 3141 |
-| `TURSO_DATABASE_URL` | Turso 数据库 URL | — |
-| `TURSO_AUTH_TOKEN` | Turso 认证 token | — |
+| `DB_URL` | 数据库 URL（本地 `file:./data/experiences.db`，生产 `libsql://xxx.turso.io`） | `file:./data/experiences.db` |
+| `DB_AUTH_TOKEN` | Turso 认证 token（本地开发不需要） | — |
 | `OPENAI_API_KEY` | OpenAI API key（embedding 用） | — |
 | `SEED_ON_EMPTY` | 空库自动填充种子数据 | true |
 
