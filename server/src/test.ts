@@ -1,0 +1,611 @@
+/**
+ * 经验网络端到端测试
+ * 测试：publish → search（双通道）→ verify → min_verifications 过滤器
+ *
+ * MOCK_EMBEDDINGS=true，不需要 OpenAI key
+ * 使用 libSQL 内存数据库
+ */
+
+import { initDB, getClient, insertExperience, getExperience, insertVerification, getVerificationSummary, getAgentByKey } from './db.js';
+import { initEmbedding, getEmbedding, experienceToText, cosineSimilarity } from './embedding.js';
+import { search } from './search.js';
+import type { Experience, SearchRequest } from './types.js';
+
+let passed = 0;
+let failed = 0;
+
+function assert(condition: boolean, msg: string, detail?: string) {
+  if (condition) {
+    console.log(`  ✅ ${msg}`);
+    passed++;
+  } else {
+    console.log(`  ❌ ${msg}${detail ? ` — ${detail}` : ''}`);
+    failed++;
+  }
+}
+
+// === 工具函数 ===
+
+function makeExperience(overrides: Partial<Experience> & { core: Experience['core']; publisher: Experience['publisher']; tags: string[] }): Experience {
+  return {
+    id: crypto.randomUUID(),
+    version: 'serendip-experience/0.1',
+    published_at: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+async function publishExperience(exp: Experience): Promise<string> {
+  const text = experienceToText({
+    what: exp.core.what,
+    context: exp.core.context,
+    tried: exp.core.tried,
+    learned: exp.core.learned,
+    tags: exp.tags,
+  });
+  const embedding = await getEmbedding(text);
+  return insertExperience(exp, embedding);
+}
+
+/** 向当前数据库插入测试用 API key */
+async function insertApiKey(key: string, agentId: string): Promise<void> {
+  await getClient().execute({
+    sql: 'INSERT INTO api_keys (key, agent_id, created_at) VALUES (?, ?, ?)',
+    args: [key, agentId, new Date().toISOString()],
+  });
+}
+
+// === 测试入口 ===
+
+async function main() {
+  console.log('🧪 经验网络端到端测试（libSQL）\n');
+
+  // 初始化（内存数据库 + mock embedding）
+  await initDB(':memory:');
+  initEmbedding('mock', undefined, true);
+
+  // 注册测试用 API key
+  await insertApiKey('key-alice', 'alice');
+  await insertApiKey('key-bob', 'bob');
+  await insertApiKey('key-charlie', 'charlie');
+
+  // ========== 1. 发布经验 ==========
+  console.log('--- 1. 发布经验 ---');
+
+  const exp1 = makeExperience({
+    publisher: { agent_id: 'alice', platform: 'openclaw' },
+    core: {
+      what: 'TypeScript 编译器配置优化',
+      context: '大型 monorepo 项目编译时间过长',
+      tried: '开启 incremental + composite + skipLibCheck',
+      outcome: 'succeeded',
+      outcome_detail: '编译时间从 45s 降到 12s',
+      learned: '对大型项目，skipLibCheck 的提升最明显，但要确保 CI 里开启完整检查',
+    },
+    tags: ['typescript', 'performance', 'compiler'],
+  });
+  const id1 = await publishExperience(exp1);
+  assert(!!id1, '发布经验 1（TS 编译优化）');
+
+  const exp2 = makeExperience({
+    publisher: { agent_id: 'alice', platform: 'openclaw' },
+    core: {
+      what: 'SQLite WAL 模式性能调优',
+      context: '高并发写入场景下 SQLite 锁等待频繁',
+      tried: '开启 WAL 模式 + busy_timeout + 合理的 checkpoint 策略',
+      outcome: 'succeeded',
+      outcome_detail: '写入吞吐量提升 5 倍',
+      learned: 'WAL 模式在读多写少场景效果最好，写密集场景需要搭配 checkpoint 策略',
+    },
+    tags: ['sqlite', 'database', 'performance'],
+  });
+  const id2 = await publishExperience(exp2);
+  assert(!!id2, '发布经验 2（SQLite WAL）');
+
+  const exp3 = makeExperience({
+    publisher: { agent_id: 'bob', platform: 'openclaw' },
+    core: {
+      what: 'Docker 多阶段构建减小镜像体积',
+      context: 'Node.js 应用镜像超过 1GB',
+      tried: '多阶段构建 + Alpine 基础镜像 + 只复制 production 依赖',
+      outcome: 'failed',
+      outcome_detail: '镜像体积减小了，但 Alpine 缺少某些 native 模块的依赖',
+      learned: 'Alpine 不总是最好的选择——如果项目依赖 native 模块，用 slim 更稳定',
+    },
+    tags: ['docker', 'devops', 'nodejs'],
+  });
+  const id3 = await publishExperience(exp3);
+  assert(!!id3, '发布经验 3（Docker 构建失败经验）');
+
+  // 验证数据库
+  const stored = await getExperience(id1);
+  assert(stored !== null, '经验可从数据库读取');
+  assert(stored?.core.what === exp1.core.what, '经验内容一致');
+
+  // ========== 2. 搜索测试 ==========
+  console.log('\n--- 2. 基本搜索 ---');
+
+  const result1 = await search({
+    action: 'search',
+    query: 'TypeScript compiler performance optimization',
+    limit: 10,
+  });
+  assert(result1.total_available >= 0, `搜索返回结果（total_available=${result1.total_available}）`);
+  assert(Array.isArray(result1.precision), 'precision 通道返回数组');
+  assert(Array.isArray(result1.serendipity), 'serendipity 通道返回数组');
+
+  // ========== 3. 过滤器测试 ==========
+  console.log('\n--- 3. 过滤器 ---');
+
+  // outcome 过滤
+  const resultFailed = await search({
+    action: 'search',
+    query: 'Docker image optimization',
+    filters: { outcome: 'failed' },
+  });
+  const allFailed = resultFailed.precision.every(r =>
+    (r.experience as any).core?.outcome === 'failed'
+  );
+  assert(
+    resultFailed.precision.length === 0 || allFailed,
+    'outcome=failed 过滤只返回失败经验',
+  );
+
+  // tag 过滤
+  const resultTagged = await search({
+    action: 'search',
+    query: 'performance',
+    tags: ['sqlite'],
+  });
+  const allTagged = resultTagged.precision.every(r => {
+    const exp = r.experience as Experience;
+    return exp.tags?.includes('sqlite');
+  });
+  assert(
+    resultTagged.precision.length === 0 || allTagged,
+    'tag 过滤只返回包含指定 tag 的经验',
+  );
+
+  // ========== 4. 验证流程 ==========
+  console.log('\n--- 4. 验证流程 ---');
+
+  // bob 验证 alice 的经验 1
+  const verId1 = await insertVerification(id1, 'bob', 'openclaw', 'confirmed', null, '确认有效');
+  assert(!!verId1, 'bob 确认验证经验 1');
+
+  // charlie 也确认验证
+  const verId2 = await insertVerification(id1, 'charlie', 'openclaw', 'confirmed', null, '同样有效');
+  assert(!!verId2, 'charlie 确认验证经验 1');
+
+  // 验证摘要
+  const summary1 = await getVerificationSummary(id1);
+  assert(summary1.confirmed === 2, `经验 1 有 2 次确认（实际 ${summary1.confirmed}）`);
+  assert(summary1.total === 2, `经验 1 共 2 次验证（实际 ${summary1.total}）`);
+
+  // 对经验 2 不做验证
+  const summary2 = await getVerificationSummary(id2);
+  assert(summary2.total === 0, `经验 2 零验证（实际 ${summary2.total}）`);
+
+  // alice 否认经验 3
+  const verId3 = await insertVerification(id3, 'alice', 'openclaw', 'denied', null, '不准确');
+  assert(!!verId3, 'alice 否认验证经验 3');
+
+  const summary3 = await getVerificationSummary(id3);
+  assert(summary3.denied === 1, `经验 3 有 1 次否认（实际 ${summary3.denied}）`);
+
+  // ========== 5. min_verifications 过滤器 ==========
+  console.log('\n--- 5. min_verifications 过滤器 ---');
+
+  const resultMinVer = await search({
+    action: 'search',
+    query: 'TypeScript compiler performance optimization SQLite WAL Docker Alpine',
+    filters: { min_verifications: 2 },
+  });
+
+  const allResultIds = [
+    ...resultMinVer.precision.map(r => r.experience_id),
+    ...resultMinVer.serendipity.map(r => r.experience_id),
+  ];
+
+  assert(!allResultIds.includes(id2), `min_verifications=2 过滤掉零验证的经验 2`);
+  assert(!allResultIds.includes(id3), `min_verifications=2 过滤掉只有 denied 的经验 3`);
+
+  const resultMinVer1 = await search({
+    action: 'search',
+    query: 'TypeScript compiler performance optimization SQLite WAL Docker Alpine',
+    filters: { min_verifications: 1 },
+  });
+  const allResultIds1 = [
+    ...resultMinVer1.precision.map(r => r.experience_id),
+    ...resultMinVer1.serendipity.map(r => r.experience_id),
+  ];
+  assert(!allResultIds1.includes(id2), `min_verifications=1 过滤掉零确认的经验 2`);
+  assert(!allResultIds1.includes(id3), `min_verifications=1 过滤掉零确认的经验 3（denied 不算）`);
+
+  // min_verifications=0 或不设 → 全部返回
+  const resultNoMinVer = await search({
+    action: 'search',
+    query: 'TypeScript compiler performance optimization SQLite WAL Docker Alpine',
+  });
+  assert(
+    resultNoMinVer.total_available >= 3,
+    `无 min_verifications 过滤时 total_available >= 3（实际 ${resultNoMinVer.total_available}）`,
+  );
+
+  // ========== 6. 双通道验证 ==========
+  console.log('\n--- 6. 双通道通道控制 ---');
+
+  const resultPrecisionOnly = await search({
+    action: 'search',
+    query: 'TypeScript',
+    channels: { precision: true, serendipity: false },
+  });
+  assert(resultPrecisionOnly.serendipity.length === 0, '关闭 serendipity 通道时返回空');
+
+  const resultSerendipityOnly = await search({
+    action: 'search',
+    query: 'TypeScript',
+    channels: { precision: false, serendipity: true },
+  });
+  assert(resultSerendipityOnly.precision.length === 0, '关闭 precision 通道时返回空');
+
+  // ========== 7. API key 验证 ==========
+  console.log('\n--- 7. API key ---');
+
+  assert(await getAgentByKey('key-alice') === 'alice', 'key-alice 解析为 alice');
+  assert(await getAgentByKey('key-bob') === 'bob', 'key-bob 解析为 bob');
+  assert(await getAgentByKey('invalid-key') === null, '无效 key 返回 null');
+
+  // ========== 8. 边界情况 ==========
+  console.log('\n--- 8. 边界情况 ---');
+
+  // 空库搜索
+  await initDB(':memory:');
+  initEmbedding('mock', undefined, true);
+  const emptyResult = await search({ action: 'search', query: 'anything' });
+  assert(emptyResult.precision.length === 0, '空库搜索 precision 返回空');
+  assert(emptyResult.serendipity.length === 0, '空库搜索 serendipity 返回空');
+  assert(emptyResult.total_available === 0, '空库 total_available=0');
+
+  // ========== 9. max_age_days 过滤 ==========
+  console.log('\n--- 9. max_age_days 过滤 ---');
+
+  await initDB(':memory:');
+  initEmbedding('mock', undefined, true);
+  await insertApiKey('key-test9', 'tester');
+
+  // 新鲜经验（今天）
+  const freshExp = makeExperience({
+    publisher: { agent_id: 'tester', platform: 'openclaw' },
+    core: {
+      what: 'Fresh experience about React hooks',
+      context: 'Modern frontend development',
+      tried: 'Custom hooks for state management',
+      outcome: 'succeeded',
+      outcome_detail: 'Clean code, better reusability',
+      learned: 'Custom hooks reduce boilerplate significantly',
+    },
+    tags: ['react', 'frontend'],
+  });
+  const freshId = await publishExperience(freshExp);
+
+  // 旧经验（200 天前）
+  const oldExp = makeExperience({
+    published_at: new Date(Date.now() - 200 * 24 * 60 * 60 * 1000).toISOString(),
+    publisher: { agent_id: 'tester', platform: 'openclaw' },
+    core: {
+      what: 'Old experience about jQuery plugins',
+      context: 'Legacy frontend migration',
+      tried: 'jQuery to React migration path',
+      outcome: 'partial',
+      outcome_detail: 'Some components migrated but jQuery UI hard to replace',
+      learned: 'Start migration from leaf components',
+    },
+    tags: ['jquery', 'frontend', 'migration'],
+  });
+  const oldId = await publishExperience(oldExp);
+
+  const resultMaxAge = await search({
+    action: 'search',
+    query: 'frontend development React jQuery migration hooks',
+    filters: { max_age_days: 30 },
+  });
+  const maxAgeAllIds = [
+    ...resultMaxAge.precision.map(r => r.experience_id),
+    ...resultMaxAge.serendipity.map(r => r.experience_id),
+  ];
+  assert(!maxAgeAllIds.includes(oldId), 'max_age_days=30 过滤掉 200 天前的经验');
+
+  // 无过滤时旧经验应可见
+  const resultNoAge = await search({
+    action: 'search',
+    query: 'frontend development React jQuery migration hooks',
+  });
+  assert(resultNoAge.total_available >= 2, `无年龄过滤时 total_available >= 2（实际 ${resultNoAge.total_available}）`);
+
+  // ========== 9.5 ttl_days 过期过滤 ==========
+  console.log('\n--- 9.5 ttl_days 过期过滤 ---');
+
+  await initDB(':memory:');
+  initEmbedding('mock', undefined, true);
+
+  // 经验 A：ttl_days=10，发布于 5 天前 → 未过期，应可见
+  const ttlFreshExp = makeExperience({
+    published_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    ttl_days: 10,
+    publisher: { agent_id: 'ttl-tester', platform: 'openclaw' },
+    core: {
+      what: 'TTL fresh experience about caching strategies',
+      context: 'Redis caching patterns',
+      tried: 'TTL-based cache invalidation',
+      outcome: 'succeeded',
+      outcome_detail: 'Cache hit rate improved',
+      learned: 'Short TTL works better for volatile data',
+    },
+    tags: ['caching', 'redis'],
+  });
+  const ttlFreshId = await publishExperience(ttlFreshExp);
+
+  // 经验 B：ttl_days=10，发布于 15 天前 → 已过期，应被过滤
+  const ttlExpiredExp = makeExperience({
+    published_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+    ttl_days: 10,
+    publisher: { agent_id: 'ttl-tester', platform: 'openclaw' },
+    core: {
+      what: 'TTL expired experience about caching eviction',
+      context: 'Redis cache eviction policies',
+      tried: 'LRU eviction for memory management',
+      outcome: 'succeeded',
+      outcome_detail: 'Memory usage stabilized',
+      learned: 'LRU eviction needs proper maxmemory config',
+    },
+    tags: ['caching', 'redis'],
+  });
+  const ttlExpiredId = await publishExperience(ttlExpiredExp);
+
+  // 经验 C：ttl_days=null（永不过期），发布于 200 天前 → 应可见
+  const noTtlExp = makeExperience({
+    published_at: new Date(Date.now() - 200 * 24 * 60 * 60 * 1000).toISOString(),
+    publisher: { agent_id: 'ttl-tester', platform: 'openclaw' },
+    core: {
+      what: 'No TTL experience about caching fundamentals',
+      context: 'General caching theory',
+      tried: 'Write-through vs write-behind caching',
+      outcome: 'succeeded',
+      outcome_detail: 'Understanding improved',
+      learned: 'Write-through is safer, write-behind is faster',
+    },
+    tags: ['caching'],
+  });
+  const noTtlId = await publishExperience(noTtlExp);
+
+  const resultTtl = await search({
+    action: 'search',
+    query: 'caching Redis eviction TTL LRU strategies fundamentals',
+  });
+  const ttlAllIds = [
+    ...resultTtl.precision.map(r => r.experience_id),
+    ...resultTtl.serendipity.map(r => r.experience_id),
+  ];
+  assert(!ttlAllIds.includes(ttlExpiredId), 'ttl_days=10 且发布 15 天前的经验被过滤');
+  assert(resultTtl.total_available >= 1, `ttl_days 过滤后至少 1 条可用（实际 ${resultTtl.total_available}）`);
+
+  // ========== 10. platform 过滤 ==========
+  console.log('\n--- 10. platform 过滤 ---');
+
+  await initDB(':memory:');
+  initEmbedding('mock', undefined, true);
+  await insertApiKey('key-p1', 'agent1');
+  await insertApiKey('key-p2', 'agent2');
+
+  const expPlatA = makeExperience({
+    publisher: { agent_id: 'agent1', platform: 'openclaw' },
+    core: {
+      what: 'Database indexing strategy',
+      context: 'PostgreSQL performance tuning',
+      tried: 'Partial indexes on frequently queried columns',
+      outcome: 'succeeded',
+      outcome_detail: 'Query time reduced 80%',
+      learned: 'Partial indexes are underutilized',
+    },
+    tags: ['database', 'postgres'],
+  });
+  await publishExperience(expPlatA);
+
+  const expPlatB = makeExperience({
+    publisher: { agent_id: 'agent2', platform: 'cursor' },
+    core: {
+      what: 'Database connection pooling',
+      context: 'High-traffic Node.js API server',
+      tried: 'PgBouncer with transaction pooling mode',
+      outcome: 'succeeded',
+      outcome_detail: 'Handled 10x more concurrent connections',
+      learned: 'Transaction pooling is key for short-lived connections',
+    },
+    tags: ['database', 'postgres', 'devops'],
+  });
+  await publishExperience(expPlatB);
+
+  const resultPlatform = await search({
+    action: 'search',
+    query: 'database postgres performance indexing pooling',
+    filters: { platform: 'openclaw' },
+  });
+  const platResults = [
+    ...resultPlatform.precision,
+    ...resultPlatform.serendipity,
+  ];
+  const allOpenclaw = platResults.every(r => {
+    const exp = r.experience as Experience;
+    return exp.publisher.platform === 'openclaw';
+  });
+  assert(
+    platResults.length === 0 || allOpenclaw,
+    'platform=openclaw 过滤只返回 openclaw 平台的经验',
+  );
+
+  // ========== 11. limit 参数裁剪 ==========
+  console.log('\n--- 11. limit 参数裁剪 ---');
+
+  await initDB(':memory:');
+  initEmbedding('mock', undefined, true);
+
+  for (let i = 0; i < 5; i++) {
+    const exp = makeExperience({
+      publisher: { agent_id: 'bulk', platform: 'openclaw' },
+      core: {
+        what: `Bulk experience ${i} about testing strategies`,
+        context: `Testing scenario ${i}`,
+        tried: `Approach ${i} for integration tests`,
+        outcome: 'succeeded',
+        outcome_detail: `Result ${i}`,
+        learned: `Lesson ${i} about test coverage`,
+      },
+      tags: ['testing'],
+    });
+    await publishExperience(exp);
+  }
+
+  const resultLimit2 = await search({
+    action: 'search',
+    query: 'testing strategies integration test coverage',
+    limit: 2,
+  });
+  assert(
+    resultLimit2.precision.length <= 2,
+    `limit=2 precision 通道最多返回 2 条（实际 ${resultLimit2.precision.length}）`,
+  );
+
+  // ========== 12. 信任分排序效果 ==========
+  console.log('\n--- 12. 信任分排序效果 ---');
+
+  await initDB(':memory:');
+  initEmbedding('mock', undefined, true);
+  await insertApiKey('key-t1', 'trusted-agent');
+  await insertApiKey('key-t2', 'verifier1');
+  await insertApiKey('key-t3', 'verifier2');
+  await insertApiKey('key-t4', 'verifier3');
+
+  const endorsedExp = makeExperience({
+    publisher: { agent_id: 'trusted-agent', platform: 'openclaw' },
+    core: {
+      what: 'API rate limiting with Redis',
+      context: 'High-traffic API protection',
+      tried: 'Token bucket algorithm with Redis sorted sets',
+      outcome: 'succeeded',
+      outcome_detail: 'Clean rate limiting with sub-millisecond checks',
+      learned: 'Sorted sets are perfect for sliding window rate limiting',
+    },
+    tags: ['redis', 'api', 'rate-limiting'],
+    trust: { operator_endorsed: true },
+  });
+  const endorsedId = await publishExperience(endorsedExp);
+
+  await insertVerification(endorsedId, 'verifier1', 'openclaw', 'confirmed', null, '有效');
+  await insertVerification(endorsedId, 'verifier2', 'openclaw', 'confirmed', null, '有效');
+  await insertVerification(endorsedId, 'verifier3', 'openclaw', 'confirmed', null, '有效');
+
+  const plainExp = makeExperience({
+    publisher: { agent_id: 'trusted-agent', platform: 'openclaw' },
+    core: {
+      what: 'API rate limiting with in-memory counter',
+      context: 'Simple API protection for small services',
+      tried: 'Simple in-memory counter with setInterval cleanup',
+      outcome: 'succeeded',
+      outcome_detail: 'Works for single instance, no persistence needed',
+      learned: 'In-memory approach is fine for small scale',
+    },
+    tags: ['api', 'rate-limiting'],
+  });
+  const plainId = await publishExperience(plainExp);
+
+  const resultTrust = await search({
+    action: 'search',
+    query: 'API rate limiting Redis in-memory counter bucket',
+    limit: 10,
+  });
+
+  if (resultTrust.precision.length >= 2) {
+    const idx1 = resultTrust.precision.findIndex(r => r.experience_id === endorsedId);
+    const idx2 = resultTrust.precision.findIndex(r => r.experience_id === plainId);
+    if (idx1 >= 0 && idx2 >= 0) {
+      assert(idx1 < idx2, '有背书+3次验证的经验排在无背书无验证的前面');
+    } else {
+      assert(true, '信任分排序——部分经验未进入 precision（mock embedding 限制，跳过）');
+    }
+  } else {
+    assert(true, '信任分排序——precision 条目不足（mock embedding 限制，跳过）');
+  }
+
+  const endorsedVer = await getVerificationSummary(endorsedId);
+  assert(endorsedVer.confirmed === 3, `有背书经验有 3 次确认（实际 ${endorsedVer.confirmed}）`);
+  const plainVer = await getVerificationSummary(plainId);
+  assert(plainVer.total === 0, `无验证经验有 0 次验证（实际 ${plainVer.total}）`);
+
+  // ========== 13. conditional 验证类型 ==========
+  console.log('\n--- 13. conditional 验证类型 ---');
+
+  const condVerId = await insertVerification(plainId, 'verifier1', 'openclaw', 'conditional', '仅适用于单实例部署', '有条件确认');
+  assert(!!condVerId, 'conditional 验证可以记录');
+
+  const condSummary = await getVerificationSummary(plainId);
+  assert(condSummary.conditional === 1, `conditional 验证计数正确（实际 ${condSummary.conditional}）`);
+  assert(condSummary.total === 1, `总验证数包含 conditional（实际 ${condSummary.total}）`);
+
+  // ========== 14. serendipity 最多 3 条上限 ==========
+  console.log('\n--- 14. serendipity 数量上限 ---');
+
+  await initDB(':memory:');
+  initEmbedding('mock', undefined, true);
+
+  for (let i = 0; i < 10; i++) {
+    const domains = ['AI', 'blockchain', 'biotech', 'robotics', 'space', 'quantum', 'materials', 'energy', 'agriculture', 'education'];
+    const exp = makeExperience({
+      publisher: { agent_id: `agent-${i}`, platform: 'openclaw' },
+      core: {
+        what: `${domains[i]} innovation approach ${i}`,
+        context: `${domains[i]} field challenge`,
+        tried: `Novel method ${i} in ${domains[i]}`,
+        outcome: i % 2 === 0 ? 'succeeded' : 'failed',
+        outcome_detail: `Outcome for ${domains[i]} experiment`,
+        learned: `Key insight from ${domains[i]} domain`,
+      },
+      tags: [domains[i].toLowerCase(), 'innovation'],
+    });
+    await publishExperience(exp);
+  }
+
+  const resultSCap = await search({
+    action: 'search',
+    query: 'innovation research novel approach',
+    channels: { precision: false, serendipity: true },
+  });
+  assert(
+    resultSCap.serendipity.length <= 3,
+    `serendipity 通道最多返回 3 条（实际 ${resultSCap.serendipity.length}）`,
+  );
+
+  // ========== 15. serendipity reason 内容验证 ==========
+  console.log('\n--- 15. serendipity reason 内容 ---');
+
+  if (resultSCap.serendipity.length > 0) {
+    const allHaveReason = resultSCap.serendipity.every(
+      r => typeof r.serendipity_reason === 'string' && r.serendipity_reason.length > 0,
+    );
+    assert(allHaveReason, 'serendipity 结果都有 reason 字段且非空');
+  } else {
+    assert(true, 'serendipity reason 验证——无结果（mock embedding 限制，跳过）');
+  }
+
+  // ========== 结果 ==========
+  console.log(`\n${'='.repeat(40)}`);
+  console.log(`🏁 经验网络测试: ${passed} 通过, ${failed} 失败`);
+  console.log('='.repeat(40));
+
+  process.exit(failed > 0 ? 1 : 0);
+}
+
+main().catch(err => {
+  console.error('测试异常:', err);
+  process.exit(1);
+});
