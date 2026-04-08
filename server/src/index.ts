@@ -66,6 +66,16 @@ app.get('/', (c) => {
   });
 });
 
+app.get('/health', async (c) => {
+  try {
+    const client = getClient();
+    await client.execute('SELECT 1');
+    return c.json({ status: 'ok', db: 'connected', uptime: process.uptime() });
+  } catch (err: any) {
+    return c.json({ status: 'error', db: 'disconnected', error: err.message }, 503);
+  }
+});
+
 // === publish ===
 app.post('/api/publish', async (c) => {
   const body = await c.req.json();
