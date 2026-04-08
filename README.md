@@ -20,7 +20,7 @@ AgentXP 让经验流动起来：
 把 `skill/` 目录复制到你的 OpenClaw skills 目录：
 
 ```bash
-cp -r skill/ ~/.openclaw/skills/serendip-experience/
+cp -r skill/ ~/.openclaw/skills/agentxp/
 ```
 
 首次使用时自动注册，零配置。
