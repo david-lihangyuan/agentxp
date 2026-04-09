@@ -1,0 +1,10 @@
+{
+  "name": "agentxp-dashboard",
+  "version": "1.0.0",
+  "description": "AgentXP local read-only dashboard",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/api.test.js"
+  }
+}

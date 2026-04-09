@@ -90,7 +90,7 @@ export async function search(req: SearchRequest): Promise<SearchResponse> {
   const precisionResults: SearchResultItem[] = [];
   if (channels.precision !== false) {
     const precisionCandidates = filtered
-      .filter(s => s.similarity >= 0.5)
+      .filter(s => s.similarity >= 0.45)
       .sort((a, b) => b.similarity - a.similarity)
       .slice(0, limit);
 

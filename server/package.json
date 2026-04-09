@@ -1,6 +1,6 @@
 {
   "name": "serendip-experience-server",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Serendip Experience Network — Agent 经验共享服务（libSQL/Turso 数据库）",
   "type": "module",
   "scripts": {
