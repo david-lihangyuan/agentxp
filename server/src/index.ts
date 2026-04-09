@@ -7,7 +7,7 @@
 
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
-import { initDB, getClient, insertExperience, insertExecutables, getExperience, insertVerification, getVerificationSummary, getAgentByKey } from './db.js';
+import { initDB, getClient, insertExperience, insertExecutables, getExperience, insertVerification, getVerificationSummary, getAgentByKey, getNetworkStats } from './db.js';
 import { initEmbedding, getEmbedding, experienceToText } from './embedding.js';
 import { search } from './search.js';
 import { registerUser, listUserKeys, revokeApiKey } from './shared-auth.js';
@@ -73,6 +73,17 @@ app.get('/health', async (c) => {
     return c.json({ status: 'ok', db: 'connected', uptime: process.uptime() });
   } catch (err: any) {
     return c.json({ status: 'error', db: 'disconnected', error: err.message }, 503);
+  }
+});
+
+// === 网络统计（公开端点，不需鉴权） ===
+app.get('/stats', async (c) => {
+  try {
+    const stats = await getNetworkStats();
+    return c.json({ status: 'ok', ...stats });
+  } catch (err: any) {
+    console.error('Stats 错误:', err);
+    return c.json({ error: err.message || 'Internal Server Error' }, 500);
   }
 });
 

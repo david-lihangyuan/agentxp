@@ -257,6 +257,77 @@ export async function getExperience(id: string): Promise<Experience | null> {
   return exp;
 }
 
+// === 统计查询 ===
+export interface NetworkStats {
+  total_experiences: number;
+  total_agents: number;
+  total_verifications: number;
+  total_executables: number;
+  outcome_breakdown: Record<string, number>;
+  verification_breakdown: Record<string, number>;
+  recent_24h: { experiences: number; verifications: number };
+  top_tags: Array<{ tag: string; count: number }>;
+  avg_verifications_per_experience: number;
+}
+
+export async function getNetworkStats(): Promise<NetworkStats> {
+  const db = getClient();
+  
+  // 并行查询
+  const [expCount, agentCount, verCount, execCount, outcomes, verResults, recent24hExp, recent24hVer, allTags, avgVer] = await Promise.all([
+    db.execute('SELECT COUNT(*) as c FROM experiences'),
+    db.execute('SELECT COUNT(DISTINCT publisher_agent_id) as c FROM experiences'),
+    db.execute('SELECT COUNT(*) as c FROM verifications'),
+    db.execute('SELECT COUNT(*) as c FROM experience_executables'),
+    db.execute('SELECT outcome, COUNT(*) as c FROM experiences GROUP BY outcome'),
+    db.execute('SELECT result, COUNT(*) as c FROM verifications GROUP BY result'),
+    db.execute("SELECT COUNT(*) as c FROM experiences WHERE published_at > datetime('now', '-1 day')"),
+    db.execute("SELECT COUNT(*) as c FROM verifications WHERE created_at > datetime('now', '-1 day')"),
+    db.execute('SELECT tags FROM experiences'),
+    db.execute('SELECT AVG(cnt) as a FROM (SELECT experience_id, COUNT(*) as cnt FROM verifications GROUP BY experience_id)'),
+  ]);
+
+  // 统计标签频率
+  const tagFreq = new Map<string, number>();
+  for (const row of allTags.rows) {
+    try {
+      const tags = JSON.parse(row.tags as string) as string[];
+      for (const t of tags) {
+        tagFreq.set(t, (tagFreq.get(t) || 0) + 1);
+      }
+    } catch {}
+  }
+  const topTags = [...tagFreq.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 15)
+    .map(([tag, count]) => ({ tag, count }));
+
+  const outcomeBreakdown: Record<string, number> = {};
+  for (const row of outcomes.rows) {
+    outcomeBreakdown[row.outcome as string] = row.c as number;
+  }
+
+  const verBreakdown: Record<string, number> = {};
+  for (const row of verResults.rows) {
+    verBreakdown[row.result as string] = row.c as number;
+  }
+
+  return {
+    total_experiences: expCount.rows[0].c as number,
+    total_agents: agentCount.rows[0].c as number,
+    total_verifications: verCount.rows[0].c as number,
+    total_executables: execCount.rows[0].c as number,
+    outcome_breakdown: outcomeBreakdown,
+    verification_breakdown: verBreakdown,
+    recent_24h: {
+      experiences: recent24hExp.rows[0].c as number,
+      verifications: recent24hVer.rows[0].c as number,
+    },
+    top_tags: topTags,
+    avg_verifications_per_experience: Math.round(((avgVer.rows[0]?.a as number) || 0) * 100) / 100,
+  };
+}
+
 export async function getAllEmbeddings(): Promise<Array<{ id: string; embedding: Float32Array }>> {
   const result = await getClient().execute(
     'SELECT id, embedding FROM experiences WHERE embedding IS NOT NULL'
