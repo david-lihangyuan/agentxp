@@ -122,7 +122,7 @@ export async function getNetworkHealth(): Promise<NetworkHealthReport> {
     db.execute('SELECT COUNT(*) as c FROM experiences').then(r => Number(r.rows[0].c)),
     db.execute('SELECT COUNT(DISTINCT publisher_agent_id) as c FROM experiences').then(r => Number(r.rows[0].c)),
     db.execute('SELECT COUNT(*) as c FROM verifications').then(r => Number(r.rows[0].c)),
-    db.execute("SELECT COUNT(*) as c FROM experiences WHERE agent_context IS NOT NULL AND agent_context != 'null'").then(r => Number(r.rows[0].c)),
+    db.execute('SELECT COUNT(*) as c FROM experience_executables').then(r => Number(r.rows[0].c)),
 
     // 供给侧
     db.execute({ sql: 'SELECT COUNT(*) as c FROM experiences WHERE published_at >= ?', args: [iso24h] }).then(r => Number(r.rows[0].c)),
