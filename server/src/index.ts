@@ -131,62 +131,88 @@ app.post('/api/publish', async (c) => {
 
 // === search ===
 app.post('/api/search', searchLimiter, async (c) => {
-  const body = await c.req.json() as SearchRequest;
+  try {
+    const body = await c.req.json() as SearchRequest;
 
-  if (!body.query) {
-    return c.json({ error: '缺少 query 字段' }, 400);
+    if (!body.query) {
+      return c.json({ error: '缺少 query 字段' }, 400);
+    }
+
+    // limit 上界检查（SPEC: 最大 50）
+    if (body.limit !== undefined) {
+      body.limit = Math.min(Math.max(1, body.limit), 50);
+    }
+
+    const results = await search(body);
+    return c.json(results);
+  } catch (err: any) {
+    console.error('Search 错误:', err);
+    return c.json({ error: err.message || 'Internal Server Error' }, 500);
   }
-
-  const results = await search(body);
-  return c.json(results);
 });
 
 // === verify ===
 app.post('/api/verify', async (c) => {
-  const body = await c.req.json() as VerifyRequest;
+  try {
+    const body = await c.req.json() as VerifyRequest;
 
-  if (!body.experience_id || !body.result) {
-    return c.json({ error: '缺少 experience_id 或 result' }, 400);
+    if (!body.experience_id || !body.result) {
+      return c.json({ error: '缺少 experience_id 或 result' }, 400);
+    }
+
+    // result 合法值校验
+    const validResults = ['confirmed', 'denied', 'conditional'];
+    if (!validResults.includes(body.result)) {
+      return c.json({ error: `result 必须是 ${validResults.join('/')} 之一` }, 400);
+    }
+
+    // 检查经验存在
+    const exp = await getExperience(body.experience_id);
+    if (!exp) {
+      return c.json({ error: '经验不存在' }, 404);
+    }
+
+    // 不能验证自己
+    const agentId = c.get('agentId');
+    if (exp.publisher.agent_id === agentId) {
+      return c.json({ error: '不能验证自己的经验' }, 403);
+    }
+
+    const verificationId = await insertVerification(
+      body.experience_id,
+      agentId,
+      body.verifier?.platform || 'unknown',
+      body.result,
+      body.conditions,
+      body.notes,
+    );
+
+    const summary = await getVerificationSummary(body.experience_id);
+
+    const response: VerifyResponse = {
+      status: 'recorded',
+      verification_id: verificationId,
+      experience_verification_summary: summary,
+    };
+
+    return c.json(response);
+  } catch (err: any) {
+    console.error('Verify 错误:', err);
+    return c.json({ error: err.message || 'Internal Server Error' }, 500);
   }
-
-  // 检查经验存在
-  const exp = await getExperience(body.experience_id);
-  if (!exp) {
-    return c.json({ error: '经验不存在' }, 404);
-  }
-
-  // 不能验证自己
-  const agentId = c.get('agentId');
-  if (exp.publisher.agent_id === agentId) {
-    return c.json({ error: '不能验证自己的经验' }, 403);
-  }
-
-  const verificationId = await insertVerification(
-    body.experience_id,
-    agentId,
-    body.verifier?.platform || 'unknown',
-    body.result,
-    body.conditions,
-    body.notes,
-  );
-
-  const summary = await getVerificationSummary(body.experience_id);
-
-  const response: VerifyResponse = {
-    status: 'recorded',
-    verification_id: verificationId,
-    experience_verification_summary: summary,
-  };
-
-  return c.json(response);
 });
 
 // === 单条查询 ===
 app.get('/api/experiences/:id', async (c) => {
-  const exp = await getExperience(c.req.param('id'));
-  if (!exp) return c.json({ error: '经验不存在' }, 404);
-  const summary = await getVerificationSummary(exp.id);
-  return c.json({ experience: exp, verification_summary: summary });
+  try {
+    const exp = await getExperience(c.req.param('id'));
+    if (!exp) return c.json({ error: '经验不存在' }, 404);
+    const summary = await getVerificationSummary(exp.id);
+    return c.json({ experience: exp, verification_summary: summary });
+  } catch (err: any) {
+    console.error('GetExperience 错误:', err);
+    return c.json({ error: err.message || 'Internal Server Error' }, 500);
+  }
 });
 
 // === 用户 key 管理（需鉴权） ===
