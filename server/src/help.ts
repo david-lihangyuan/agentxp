@@ -14,11 +14,11 @@
  * - 不匹配自己
  */
 
-import { getClient } from './db.js';
+import { getClient, insertExperience } from './db.js';
 import { getEmbedding, experienceToText } from './embedding.js';
 import { adjustCredits, hasEnoughCredits, CREDIT_RULES } from './credits.js';
 import { randomUUID } from 'node:crypto';
-import type { DiagnosticReport, DiagnosticTemplate, DiagnosticCheck, ProblemCategory } from './types.js';
+import type { DiagnosticReport, DiagnosticTemplate, DiagnosticCheck, ProblemCategory, Experience } from './types.js';
 
 // === 类型 ===
 
@@ -693,12 +693,13 @@ export async function respondToHelp(
 
 /**
  * 标记求助已解决
+ * 自动触发对话沉淀：把求助 + 回复整理为经验并发布
  */
 export async function resolveHelp(
   requestId: string,
   requesterId: string,
   resolutionExperienceId?: string,
-): Promise<{ request: HelpRequest; bonus_credits: number }> {
+): Promise<{ request: HelpRequest; bonus_credits: number; distilled_experience_id?: string }> {
   const db = getClient();
 
   // 检查求助存在且是自己发起的
@@ -717,28 +718,172 @@ export async function resolveHelp(
 
   const now = new Date().toISOString();
 
+  // 获取所有回复（用于沉淀）
+  const respResult = await db.execute({
+    sql: 'SELECT * FROM help_responses WHERE request_id = ? ORDER BY created_at ASC',
+    args: [requestId],
+  });
+  const responses = respResult.rows.map(rowToHelpResponse);
+
+  // 对话沉淀：自动将求助 + 回复整理为经验
+  let distilledExpId: string | undefined;
+  if (!resolutionExperienceId && responses.length > 0) {
+    try {
+      distilledExpId = await distillHelpToExperience(helpReq, responses, requesterId);
+    } catch (err) {
+      console.error('对话沉淀失败（不阻塞解决流程）:', err);
+    }
+  }
+
+  const finalExpId = resolutionExperienceId ?? distilledExpId ?? null;
+
   // 更新状态
   await db.execute({
     sql: "UPDATE help_requests SET status = 'resolved', resolved_at = ?, updated_at = ?, resolution_experience_id = ? WHERE id = ?",
-    args: [now, now, resolutionExperienceId ?? null, requestId],
+    args: [now, now, finalExpId, requestId],
   });
 
   // 给所有响应者额外 help_resolved 积分（他们的诊断报告帮助了求助者）
-  const respResult = await db.execute({
-    sql: 'SELECT responder_id FROM help_responses WHERE request_id = ?',
-    args: [requestId],
-  });
-
   let bonusTotal = 0;
-  for (const row of respResult.rows) {
-    const responderId = row.responder_id as string;
-    await adjustCredits(responderId, CREDIT_RULES.help_resolved, 'help_resolved', requestId);
+  for (const resp of responses) {
+    await adjustCredits(resp.responder_id, CREDIT_RULES.help_resolved, 'help_resolved', requestId);
     bonusTotal += CREDIT_RULES.help_resolved;
   }
 
-  const updatedReq = { ...helpReq, status: 'resolved' as HelpStatus, resolved_at: now, resolution_experience_id: resolutionExperienceId ?? null };
+  const updatedReq = { ...helpReq, status: 'resolved' as HelpStatus, resolved_at: now, resolution_experience_id: finalExpId };
 
-  return { request: updatedReq, bonus_credits: bonusTotal };
+  return { request: updatedReq, bonus_credits: bonusTotal, distilled_experience_id: distilledExpId };
+}
+
+// === 对话沉淀 ===
+
+/**
+ * 将已解决的求助对话蒸馏为一条经验并发布
+ *
+ * 组装逻辑（无需 LLM）：
+ * - what: 求助描述的前 100 字
+ * - context: 求助的 tags + diagnostics 摘要
+ * - tried: 求助者描述的问题 + 尝试过的诊断
+ * - outcome: 'succeeded'（已解决）
+ * - outcome_detail: 响应者的修复建议摘要
+ * - learned: 从诊断报告的 root_cause + fix_steps 提取，或从回复文本提取核心教训
+ * - tags: 求助的 tags + 'distilled-from-help'
+ *
+ * 发布者为求助者（经验属于遇到问题的人）
+ */
+async function distillHelpToExperience(
+  helpReq: HelpRequest,
+  responses: HelpResponse[],
+  requesterId: string,
+): Promise<string> {
+  // --- 组装 what ---
+  const what = helpReq.description.slice(0, 100);
+
+  // --- 组装 context ---
+  const contextParts: string[] = [];
+  if (helpReq.tags.length > 0) {
+    contextParts.push(`领域: ${helpReq.tags.join(', ')}`);
+  }
+  if (helpReq.diagnostics) {
+    // 取诊断信息的前 200 字作为上下文
+    contextParts.push(`诊断摘要: ${helpReq.diagnostics.slice(0, 200)}`);
+  }
+  contextParts.push('来源: AgentXP 求助对话沉淀');
+  const context = contextParts.join(' | ').slice(0, 300);
+
+  // --- 组装 tried ---
+  const triedParts: string[] = [`问题描述: ${helpReq.description}`];
+  if (helpReq.diagnostics) {
+    triedParts.push(`已收集的诊断信息: ${helpReq.diagnostics.slice(0, 200)}`);
+  }
+  const tried = triedParts.join('\n').slice(0, 500);
+
+  // --- 从回复中提取 outcome_detail 和 learned ---
+  let outcomeDetail = '';
+  let learned = '';
+
+  // 优先使用结构化诊断报告（信息密度更高）
+  const structuredResponse = responses.find(r => r.diagnostic_report);
+  if (structuredResponse?.diagnostic_report) {
+    const report = structuredResponse.diagnostic_report;
+    // outcome_detail: 修复步骤
+    outcomeDetail = `修复方案: ${report.fix_steps.join('; ')}`.slice(0, 500);
+    // learned: root_cause 是最核心的教训
+    const learnedParts: string[] = [`根因: ${report.root_cause}`];
+    if (report.notes) learnedParts.push(report.notes);
+    learned = learnedParts.join('. ').slice(0, 500);
+  } else {
+    // 没有结构化报告，用回复文本
+    const allContent = responses.map(r => r.content).join('\n---\n');
+    outcomeDetail = `诊断回复: ${allContent}`.slice(0, 500);
+    // 从回复文本提取教训（取前 500 字作为 learned）
+    learned = `通过 AgentXP 求助获得诊断: ${allContent.slice(0, 450)}`;
+    learned = learned.slice(0, 500);
+  }
+
+  // 确保 tried 和 learned 满足最低 20 字符门槛
+  if (tried.length < 20) {
+    // 不太可能发生（description 至少有内容），但防御性处理
+    throw new Error('沉淀内容不足: tried 太短');
+  }
+  if (learned.length < 20) {
+    throw new Error('沉淀内容不足: learned 太短');
+  }
+
+  // --- 组装标签 ---
+  const tags = [...helpReq.tags];
+  if (!tags.includes('distilled-from-help')) {
+    tags.push('distilled-from-help');
+  }
+  // 限制标签数量
+  const finalTags = tags.slice(0, 20);
+
+  // --- 生成 embedding ---
+  const text = experienceToText({
+    what,
+    context,
+    tried,
+    learned,
+    tags: finalTags,
+  });
+  let embedding: Float32Array | null = null;
+  try {
+    embedding = await getEmbedding(text);
+  } catch (err) {
+    console.error('沉淀经验 embedding 生成失败:', err);
+  }
+
+  // --- 发布经验 ---
+  const experience: Experience = {
+    id: randomUUID(),
+    version: 'serendip-experience/0.1',
+    published_at: new Date().toISOString(),
+    publisher: {
+      agent_id: requesterId,
+      platform: 'agentxp-distill',
+    },
+    core: {
+      what,
+      context,
+      tried,
+      outcome: 'succeeded',
+      outcome_detail: outcomeDetail,
+      learned,
+    },
+    tags: finalTags,
+    agent_context: {
+      platform: 'agentxp-distill',
+      custom: {
+        source: 'help_resolution',
+        help_request_id: helpReq.id,
+        responder_ids: responses.map(r => r.responder_id),
+      },
+    },
+    trust: { operator_endorsed: false },
+  };
+
+  const expId = await insertExperience(experience, embedding);
+  return expId;
 }
 
 /**

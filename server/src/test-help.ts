@@ -3,7 +3,7 @@
  * 运行: MOCK_EMBEDDINGS=true tsx src/test-help.ts
  */
 
-import { initDB, getClient, insertExperience } from './db.js';
+import { initDB, getClient, insertExperience, getExperience } from './db.js';
 import { initEmbedding, getEmbedding } from './embedding.js';
 import { migrateHelp, createHelpRequest, getHelpInbox, respondToHelp, resolveHelp, getHelpRequestDetail, getMyHelpRequests, getHelpRequestCountToday, getHelpResponseCountToday, matchDiagnosticTemplate, validateDiagnosticReport, diagnosticReportToText, DIAGNOSTIC_TEMPLATES, DAILY_HELP_REQUEST_LIMIT, DAILY_HELP_RESPONSE_LIMIT } from './help.js';
 import type { DiagnosticReport } from './types.js';
@@ -548,6 +548,228 @@ async function testStructuredDiagnosticResponse() {
   assert(detail!.responses[0].diagnostic_report?.root_cause.includes('DNS') === true, '详情中的根因正确');
 }
 
+async function testDistillWithStructuredReport() {
+  console.log('\n=== 对话沉淀（结构化报告） ===');
+
+  // 用新用户做这个测试，避免每日限额冲突
+  const db = getClient();
+  await registerUser(db, { agent_id: 'distill-requester', name: 'DR' });
+  await registerUser(db, { agent_id: 'distill-helper', name: 'DH' });
+  await adjustCredits('distill-requester', 50, 'test_distill');
+  await adjustCredits('distill-helper', 50, 'test_distill');
+
+  // helper 发布一条经验用于匹配
+  const embedding = await getEmbedding('nginx proxy configuration issue');
+  await insertExperience({
+    id: randomUUID(),
+    version: 'serendip-experience/0.1',
+    published_at: new Date().toISOString(),
+    publisher: { agent_id: 'distill-helper', platform: 'test' },
+    core: {
+      what: 'Nginx reverse proxy configuration for Node.js',
+      context: 'Ubuntu 22.04 server with PM2',
+      tried: 'Configured Nginx as reverse proxy for Node.js Express app running on port 3000',
+      outcome: 'succeeded',
+      outcome_detail: 'Proxy works with websocket support',
+      learned: 'Need proxy_set_header for websocket and proper upstream timeout settings',
+    },
+    tags: ['nginx', 'proxy', 'nodejs'],
+  }, embedding);
+
+  // 发起求助
+  const helpResult = await createHelpRequest(
+    'distill-requester',
+    'Nginx reverse proxy returns 502 Bad Gateway when Node.js app restarts',
+    ['nginx', 'proxy', '502'],
+    'simple',
+    'curl localhost:3000 → OK\ncurl nginx-host → 502\nnginx error log: connect() failed (111: Connection refused)',
+  );
+
+  // 手动插入匹配
+  await db.execute({
+    sql: `INSERT OR IGNORE INTO help_matches (id, request_id, agent_id, match_score, matched_experience_ids, matched_tags, created_at)
+          VALUES (?, ?, 'distill-helper', 0.85, '[]', '["nginx","proxy"]', ?)`,
+    args: [randomUUID(), helpResult.request.id, new Date().toISOString()],
+  });
+
+  // 用结构化诊断报告回复
+  const report: DiagnosticReport = {
+    category: 'configuration',
+    environment: 'Ubuntu 22.04, Nginx 1.24, Node.js 20',
+    checks: [
+      { name: 'Node.js 进程', status: 'pass', command: 'pm2 status', output: 'online' },
+      { name: '直接访问', status: 'pass', command: 'curl localhost:3000', output: '200 OK' },
+      { name: 'Nginx upstream', status: 'fail', command: 'nginx -T | grep upstream', note: '缺少 upstream 配置块' },
+    ],
+    root_cause: 'Nginx 配置缺少 upstream 块和重启重试机制，当 Node.js 重启时 Nginx 无法自动重连',
+    fix_steps: [
+      '添加 upstream 块并设置 max_fails=3 fail_timeout=30s',
+      '在 location 块添加 proxy_next_upstream error timeout',
+      '重载 Nginx 配置: nginx -s reload',
+    ],
+    confidence: 0.9,
+    notes: 'PM2 重启期间约 2-5 秒端口不可用，需要 Nginx 容忍短暂失联',
+  };
+
+  await respondToHelp(helpResult.request.id, 'distill-helper', '', report);
+
+  // 解决（应触发自动沉淀）
+  const resolveResult = await resolveHelp(helpResult.request.id, 'distill-requester');
+
+  assert(resolveResult.distilled_experience_id !== undefined, '沉淀生成了经验 ID');
+  assert(resolveResult.request.resolution_experience_id === resolveResult.distilled_experience_id, '求助记录关联了沉淀经验');
+
+  // 检查沉淀的经验内容
+  const exp = await getExperience(resolveResult.distilled_experience_id!);
+  assert(exp !== null, '沉淀经验存在于数据库');
+  assert(exp!.core.what.includes('Nginx'), '沉淀 what 包含问题描述');
+  assert(exp!.core.tried.includes('问题描述'), '沉淀 tried 包含原始描述');
+  assert(exp!.core.outcome === 'succeeded', '沉淀 outcome 为 succeeded');
+  assert(exp!.core.learned.includes('根因'), '沉淀 learned 包含根因分析');
+  assert(exp!.core.learned.includes('Nginx'), '沉淀 learned 包含具体内容');
+  assert(exp!.core.outcome_detail.includes('修复方案'), '沉淀 outcome_detail 包含修复步骤');
+  assert(exp!.tags.includes('distilled-from-help'), '沉淀标签包含 distilled-from-help');
+  assert(exp!.tags.includes('nginx'), '沉淀标签保留原始标签');
+  assert(exp!.publisher.agent_id === 'distill-requester', '沉淀发布者为求助者');
+  assert(exp!.publisher.platform === 'agentxp-distill', '沉淀平台标识正确');
+
+  // 检查 agent_context 源信息
+  assert(exp!.agent_context?.custom?.source === 'help_resolution', '沉淀源信息正确');
+  assert((exp!.agent_context?.custom?.help_request_id as string) === helpResult.request.id, '关联求助 ID 正确');
+}
+
+async function testDistillWithPlainText() {
+  console.log('\n=== 对话沉淀（纯文本回复） ===');
+
+  const db = getClient();
+  await registerUser(db, { agent_id: 'distill-req-2', name: 'DR2' });
+  await registerUser(db, { agent_id: 'distill-help-2', name: 'DH2' });
+  await adjustCredits('distill-req-2', 50, 'test_distill_2');
+  await adjustCredits('distill-help-2', 50, 'test_distill_2');
+
+  // helper 发布经验
+  const embedding = await getEmbedding('pm2 cluster mode memory leak');
+  await insertExperience({
+    id: randomUUID(),
+    version: 'serendip-experience/0.1',
+    published_at: new Date().toISOString(),
+    publisher: { agent_id: 'distill-help-2', platform: 'test' },
+    core: {
+      what: 'PM2 cluster mode memory management',
+      context: 'Production Node.js server',
+      tried: 'Configured PM2 cluster mode with max_memory_restart parameter to handle memory leaks',
+      outcome: 'succeeded',
+      outcome_detail: 'Memory stays stable under load',
+      learned: 'PM2 max_memory_restart combined with graceful shutdown prevents OOM kills',
+    },
+    tags: ['pm2', 'nodejs', 'memory'],
+  }, embedding);
+
+  // 发起求助
+  const helpResult = await createHelpRequest(
+    'distill-req-2',
+    'PM2 cluster mode processes keep crashing with OOM errors after running for a few hours',
+    ['pm2', 'memory', 'oom'],
+    'simple',
+  );
+
+  // 插入匹配
+  await db.execute({
+    sql: `INSERT OR IGNORE INTO help_matches (id, request_id, agent_id, match_score, matched_experience_ids, matched_tags, created_at)
+          VALUES (?, ?, 'distill-help-2', 0.8, '[]', '["pm2","memory"]', ?)`,
+    args: [randomUUID(), helpResult.request.id, new Date().toISOString()],
+  });
+
+  // 用纯文本回复（没有结构化报告）
+  await respondToHelp(
+    helpResult.request.id,
+    'distill-help-2',
+    '你的 PM2 OOM 问题很可能是因为没有设置 max_memory_restart。\n\n建议：\n1. 在 ecosystem.config.js 加 max_memory_restart: "500M"\n2. 同时检查代码是否有内存泄漏（比如未关闭的数据库连接、未清理的定时器）\n3. pm2 restart all --update-env 重启生效',
+  );
+
+  // 解决
+  const resolveResult = await resolveHelp(helpResult.request.id, 'distill-req-2');
+
+  assert(resolveResult.distilled_experience_id !== undefined, '纯文本回复也能沉淀');
+
+  const exp = await getExperience(resolveResult.distilled_experience_id!);
+  assert(exp !== null, '沉淀经验存在');
+  assert(exp!.core.learned.includes('AgentXP'), '纯文本沉淀 learned 包含来源标识');
+  assert(exp!.tags.includes('distilled-from-help'), '标签正确');
+  assert(exp!.tags.includes('pm2'), '保留原始标签');
+}
+
+async function testDistillSkippedWhenExplicitId() {
+  console.log('\n=== 对话沉淀跳过（手动提供经验 ID） ===');
+
+  const db = getClient();
+  await registerUser(db, { agent_id: 'distill-req-3', name: 'DR3' });
+  await registerUser(db, { agent_id: 'distill-help-3', name: 'DH3' });
+  await adjustCredits('distill-req-3', 50, 'test_distill_3');
+  await adjustCredits('distill-help-3', 50, 'test_distill_3');
+
+  // helper 发布经验
+  const embedding = await getEmbedding('test skip distill');
+  await insertExperience({
+    id: randomUUID(),
+    version: 'serendip-experience/0.1',
+    published_at: new Date().toISOString(),
+    publisher: { agent_id: 'distill-help-3', platform: 'test' },
+    core: {
+      what: 'Generic experience for testing distill skip',
+      context: 'Test context for distillation skip test',
+      tried: 'Testing the distill skip path when explicit experience ID is provided',
+      outcome: 'succeeded',
+      outcome_detail: 'Works as expected',
+      learned: 'When explicit resolution ID is given, auto distill should be skipped entirely',
+    },
+    tags: ['test'],
+  }, embedding);
+
+  // 发起求助
+  const helpResult = await createHelpRequest(
+    'distill-req-3',
+    'Test request for manual resolution ID with enough characters to pass validation',
+    ['test'],
+    'simple',
+  );
+
+  // 插入匹配 + 回复
+  await db.execute({
+    sql: `INSERT OR IGNORE INTO help_matches (id, request_id, agent_id, match_score, matched_experience_ids, matched_tags, created_at)
+          VALUES (?, ?, 'distill-help-3', 0.8, '[]', '["test"]', ?)`,
+    args: [randomUUID(), helpResult.request.id, new Date().toISOString()],
+  });
+  await respondToHelp(helpResult.request.id, 'distill-help-3', 'Here is the manual diagnosis with enough detail for testing purposes.');
+
+  // 用手动提供的经验 ID 解决
+  const manualExpId = 'manual-exp-id-12345';
+  const resolveResult = await resolveHelp(helpResult.request.id, 'distill-req-3', manualExpId);
+
+  assert(resolveResult.distilled_experience_id === undefined, '手动提供 ID 时不触发沉淀');
+  assert(resolveResult.request.resolution_experience_id === manualExpId, '使用手动提供的 ID');
+}
+
+async function testDistillSkippedWhenNoResponses() {
+  console.log('\n=== 对话沉淀跳过（无回复） ===');
+
+  const db = getClient();
+  await registerUser(db, { agent_id: 'distill-req-4', name: 'DR4' });
+  await adjustCredits('distill-req-4', 50, 'test_distill_4');
+
+  // 发起求助，但没人回复就解决了
+  const helpResult = await createHelpRequest(
+    'distill-req-4',
+    'Test request that gets resolved without any responses for distill skip test',
+    ['test'],
+    'simple',
+  );
+
+  const resolveResult = await resolveHelp(helpResult.request.id, 'distill-req-4');
+
+  assert(resolveResult.distilled_experience_id === undefined, '无回复时不触发沉淀');
+}
+
 async function main() {
   console.log('🆘 求助系统测试开始\n');
   const startTime = Date.now();
@@ -578,6 +800,12 @@ async function main() {
   await testDiagnosticReportValidation();
   await testDiagnosticReportToText();
   await testStructuredDiagnosticResponse();
+
+  // 对话沉淀
+  await testDistillWithStructuredReport();
+  await testDistillWithPlainText();
+  await testDistillSkippedWhenExplicitId();
+  await testDistillSkippedWhenNoResponses();
 
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log(`\n${'='.repeat(50)}`);

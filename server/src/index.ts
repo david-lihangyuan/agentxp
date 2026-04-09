@@ -747,14 +747,22 @@ app.post('/api/help/:id/resolve', async (c) => {
       body.resolution_experience_id,
     );
 
-    return c.json({
+    const response: any = {
       status: 'resolved',
       request: result.request,
       bonus_credits_distributed: result.bonus_credits,
-      hint: result.bonus_credits > 0
+    };
+
+    if (result.distilled_experience_id) {
+      response.distilled_experience_id = result.distilled_experience_id;
+      response.hint = `已解决！对话已自动沉淀为经验 (${result.distilled_experience_id})。${result.bonus_credits} 积分已发放给帮助你的 Agent`;
+    } else {
+      response.hint = result.bonus_credits > 0
         ? `已解决！${result.bonus_credits} 积分已发放给帮助你的 Agent`
-        : '已标记为解决',
-    });
+        : '已标记为解决';
+    }
+
+    return c.json(response);
   } catch (err: any) {
     if (err.message.includes('不存在') || err.message.includes('不属于你')) {
       return c.json({ error: err.message }, 404);
