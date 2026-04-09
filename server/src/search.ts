@@ -4,10 +4,10 @@
  * serendipity：中等相似度意外发现
  */
 
-import { getAllEmbeddings, getExperiencesByIds, getVerificationSummary } from './db.js';
+import { getAllEmbeddings, getExperiencesByIds, getExecutablesByIds, getVerificationSummary } from './db.js';
 import { getEmbedding, experienceToText, cosineSimilarity } from './embedding.js';
 import { applyBaseFilters, timeDecay } from './base-filters.js';
-import type { SearchRequest, SearchResponse, SearchResultItem, SerendipityResultItem, Experience } from './types.js';
+import type { SearchRequest, SearchResponse, SearchResultItem, SerendipityResultItem, Experience, ExecutableContent, ExecutableType } from './types.js';
 
 // SPEC §4.1 信任分计算
 function trustScore(exp: Experience, verSummary: { confirmed: number; denied: number; conditional: number }): number {
@@ -51,7 +51,7 @@ export async function search(req: SearchRequest): Promise<SearchResponse> {
 
   // 4. 获取经验详情（批量）
   const allIds = scored.map(s => s.id);
-  const experiences = await getExperiencesByIds(allIds);
+  const experiences = await getExperiencesByIds(allIds, true);
   const expMap = new Map(experiences.map(e => [e.id, e]));
 
   // 5. 验证缓存 + 应用过滤器
@@ -106,6 +106,8 @@ export async function search(req: SearchRequest): Promise<SearchResponse> {
         match_score: Math.round(finalScore * 1000) / 1000,
         experience: exp,
         verification_summary: verSum,
+        has_executable: !!(exp.executable && exp.executable.length > 0),
+        executable_types: exp.executable?.map(e => e.type as ExecutableType),
       });
     }
 
@@ -168,6 +170,8 @@ export async function search(req: SearchRequest): Promise<SearchResponse> {
         serendipity_reason: reason,
         experience: exp,
         verification_summary: verSum,
+        has_executable: !!(exp.executable && exp.executable.length > 0),
+        executable_types: exp.executable?.map(e => e.type as ExecutableType),
       });
     }
 

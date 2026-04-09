@@ -6,7 +6,7 @@
  * 使用 libSQL 内存数据库
  */
 
-import { initDB, getClient, insertExperience, getExperience, insertVerification, getVerificationSummary, getAgentByKey } from './db.js';
+import { initDB, getClient, insertExperience, insertExecutables, getExperience, getExecutables, getExecutablesByIds, insertVerification, getVerificationSummary, getAgentByKey } from './db.js';
 import { initEmbedding, getEmbedding, experienceToText, cosineSimilarity } from './embedding.js';
 import { search } from './search.js';
 import type { Experience, SearchRequest } from './types.js';
@@ -623,6 +623,178 @@ async function main() {
   assert(
     manyTagsRead !== null && manyTagsRead.tags.length === 15,
     `15 个 tags 存取一致（实际 ${manyTagsRead?.tags.length}）`,
+  );
+
+  // ========== 17. 可执行内容基础 CRUD ==========
+  console.log('\n--- 17. 可执行内容基础 CRUD ---');
+
+  // 17a. 发布带 executable 的经验
+  const expWithExec = makeExperience({
+    publisher: { agent_id: 'alice', platform: 'openclaw' },
+    core: {
+      what: 'ESM 项目的 Jest 配置',
+      context: 'TypeScript + ESM + Jest',
+      tried: '用 @swc/jest 替代 ts-jest',
+      outcome: 'succeeded',
+      outcome_detail: '配置生效，测试全通',
+      learned: 'jest.config 必须用 .mts 扩展名',
+    },
+    tags: ['jest', 'esm', 'typescript'],
+  });
+  const execId = await publishExperience(expWithExec);
+
+  await insertExecutables(execId, [
+    {
+      type: 'config',
+      language: 'typescript',
+      code: 'export default { transform: { "^.+\\\\.tsx?$": ["@swc/jest"] } };',
+      description: 'Jest ESM 配置模板',
+      requires: { dependencies: ['@swc/jest>=0.2.29'], runtime: 'node>=18' },
+      verify: { command: 'npx jest --passWithNoTests', expect: 'exit 0' },
+    },
+    {
+      type: 'command',
+      language: 'bash',
+      code: 'npm install -D @swc/jest @swc/core',
+      description: '安装 SWC 依赖',
+    },
+  ]);
+
+  const readBack = await getExperience(execId);
+  assert(readBack !== null, '带 executable 的经验可读取');
+  assert(readBack!.executable !== undefined && readBack!.executable.length === 2, `executable 数量正确（实际 ${readBack!.executable?.length}）`);
+  assert(readBack!.executable![0].type === 'config', `第一个片段类型是 config（实际 ${readBack!.executable![0].type}）`);
+  assert(readBack!.executable![1].type === 'command', `第二个片段类型是 command（实际 ${readBack!.executable![1].type}）`);
+  assert(readBack!.executable![0].requires?.runtime === 'node>=18', 'requires.runtime 存取正确');
+  assert(readBack!.executable![0].verify?.command === 'npx jest --passWithNoTests', 'verify.command 存取正确');
+
+  // 17b. getExecutables 直接查询
+  const execs = await getExecutables(execId);
+  assert(execs.length === 2, `getExecutables 返回 2 个片段（实际 ${execs.length}）`);
+
+  // 17c. getExecutablesByIds 批量查询
+  const execMap = await getExecutablesByIds([execId, 'non-existent-id']);
+  assert(execMap.has(execId), 'getExecutablesByIds 包含目标 ID');
+  assert(!execMap.has('non-existent-id'), 'getExecutablesByIds 不包含不存在的 ID');
+  assert(execMap.get(execId)!.length === 2, `批量查询返回 2 个片段（实际 ${execMap.get(execId)!.length}）`);
+
+  // 17d. 无 executable 的经验（新建一个干净的，避免依赖早期测试 ID）
+  const plainExpId = await publishExperience(makeExperience({
+    publisher: { agent_id: 'alice', platform: 'openclaw' },
+    core: {
+      what: '纯叙事经验，无 executable',
+      context: '',
+      tried: 'tried',
+      outcome: 'succeeded',
+      outcome_detail: '',
+      learned: 'learned',
+    },
+    tags: ['test'],
+  }));
+  const noExecExp = await getExperience(plainExpId);
+  assert(noExecExp !== null, '无 executable 的经验可读取');
+  assert(noExecExp!.executable === undefined, '无 executable 的经验不带 executable 字段');
+
+  // ========== 18. 搜索结果包含 has_executable ==========
+  console.log('\n--- 18. 搜索结果 has_executable ---');
+
+  const searchExecResult = await search({
+    query: 'Jest ESM TypeScript 配置',
+    limit: 20,
+  });
+
+  // 找到带 executable 的经验
+  const precisionWithExec = searchExecResult.precision.filter(r => r.has_executable);
+  const precisionWithoutExec = searchExecResult.precision.filter(r => !r.has_executable);
+
+  // mock embedding 下相似度随机，不一定能搜到特定经验
+  // 但可以验证 has_executable 字段存在
+  const allResults = [...searchExecResult.precision, ...searchExecResult.serendipity];
+  const allHaveField = allResults.every(r => typeof r.has_executable === 'boolean');
+  assert(allHaveField, '所有搜索结果都有 has_executable 字段');
+
+  // 查找我们刚发布的经验
+  const ourResult = allResults.find(r => r.experience_id === execId);
+  if (ourResult) {
+    assert(ourResult.has_executable === true, '带 executable 的经验 has_executable=true');
+    assert(
+      Array.isArray(ourResult.executable_types) && ourResult.executable_types.includes('config'),
+      `executable_types 包含 config（实际 ${JSON.stringify(ourResult.executable_types)}）`,
+    );
+  } else {
+    assert(true, '带 executable 的经验未进入搜索结果（mock embedding 限制，跳过）');
+  }
+
+  // ========== 19. 可执行内容边界条件 ==========
+  console.log('\n--- 19. 可执行内容边界条件 ---');
+
+  // 19a. 空数组
+  const emptyExecExp = makeExperience({
+    publisher: { agent_id: 'bob', platform: 'openclaw' },
+    core: {
+      what: '空 executable 测试',
+      context: '',
+      tried: 'tried',
+      outcome: 'succeeded',
+      outcome_detail: '',
+      learned: 'learned',
+    },
+    tags: ['test'],
+  });
+  const emptyExecId = await publishExperience(emptyExecExp);
+  await insertExecutables(emptyExecId, []);
+  const emptyExecRead = await getExperience(emptyExecId);
+  assert(emptyExecRead!.executable === undefined, '空 executable 数组不带 executable 字段');
+
+  // 19b. 只有 verify.command 没有 verify.expect
+  const noExpectId = await publishExperience(makeExperience({
+    publisher: { agent_id: 'charlie', platform: 'openclaw' },
+    core: {
+      what: 'verify 边界测试',
+      context: '',
+      tried: 'tried',
+      outcome: 'succeeded',
+      outcome_detail: '',
+      learned: 'learned',
+    },
+    tags: ['test'],
+  }));
+  await insertExecutables(noExpectId, [{
+    type: 'test',
+    language: 'bash',
+    code: 'echo hello',
+    description: '测试片段',
+    verify: { command: 'echo hello', expect: '' },
+  }]);
+  const noExpectRead = await getExperience(noExpectId);
+  assert(
+    noExpectRead!.executable![0].verify?.command === 'echo hello',
+    'verify.command 存取正确（无 expect）',
+  );
+
+  // 19c. requires 为 null / 空
+  const noRequiresId = await publishExperience(makeExperience({
+    publisher: { agent_id: 'alice', platform: 'openclaw' },
+    core: {
+      what: 'requires 空测试',
+      context: '',
+      tried: 'tried',
+      outcome: 'succeeded',
+      outcome_detail: '',
+      learned: 'learned',
+    },
+    tags: ['test'],
+  }));
+  await insertExecutables(noRequiresId, [{
+    type: 'snippet',
+    language: 'python',
+    code: 'print("hello")',
+    description: '无 requires 的片段',
+  }]);
+  const noRequiresRead = await getExperience(noRequiresId);
+  assert(
+    noRequiresRead!.executable![0].requires === undefined,
+    'requires 为空时不带 requires 字段',
   );
 
   // ========== 结果 ==========

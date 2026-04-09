@@ -7,13 +7,13 @@
 
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
-import { initDB, getClient, insertExperience, getExperience, insertVerification, getVerificationSummary, getAgentByKey } from './db.js';
+import { initDB, getClient, insertExperience, insertExecutables, getExperience, insertVerification, getVerificationSummary, getAgentByKey } from './db.js';
 import { initEmbedding, getEmbedding, experienceToText } from './embedding.js';
 import { search } from './search.js';
 import { registerUser, listUserKeys, revokeApiKey } from './shared-auth.js';
 import { autoSeedIfEmpty } from './demo-seed.js';
 import { createRateLimiter, API_RATE_LIMIT, REGISTER_RATE_LIMIT, SEARCH_RATE_LIMIT } from './shared-rate-limit.js';
-import type { Experience, PublishResponse, SearchRequest, VerifyRequest, VerifyResponse } from './types.js';
+import type { Experience, ExecutableContent, ExecutableType, PublishResponse, SearchRequest, VerifyRequest, VerifyResponse } from './types.js';
 
 type Env = { Variables: { agentId: string } };
 const app = new Hono<Env>();
@@ -138,6 +138,30 @@ app.post('/api/publish', async (c) => {
     exp.core.outcome_detail = exp.core.outcome_detail || '';
 
     const id = await insertExperience(exp, embedding);
+
+    // v0.2: 存储可执行内容
+    if (exp.executable && Array.isArray(exp.executable) && exp.executable.length > 0) {
+      // 校验
+      if (exp.executable.length > 3) {
+        return c.json({ error: 'executable 最多 3 个片段' }, 400);
+      }
+      const validTypes: ExecutableType[] = ['snippet', 'config', 'command', 'test'];
+      for (const exec of exp.executable) {
+        if (!validTypes.includes(exec.type)) {
+          return c.json({ error: `executable.type 必须是 ${validTypes.join('/')} 之一` }, 400);
+        }
+        if (!exec.language || !exec.code || !exec.description) {
+          return c.json({ error: 'executable 缺少必填字段：language, code, description' }, 400);
+        }
+        if (exec.code.length > 2000) {
+          return c.json({ error: `executable.code 超过长度限制（最多 2000 字符，实际 ${exec.code.length}）` }, 400);
+        }
+        if (exec.description.length > 200) {
+          return c.json({ error: `executable.description 超过长度限制（最多 200 字符）` }, 400);
+        }
+      }
+      await insertExecutables(id, exp.executable);
+    }
 
     const response: PublishResponse = {
       status: 'published',

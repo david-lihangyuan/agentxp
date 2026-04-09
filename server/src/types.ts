@@ -1,6 +1,7 @@
 /**
- * Serendip Experience Protocol v0.1 — TypeScript 类型定义
- * 直接从 SPEC-experience-v0.1.md 翻译
+ * Serendip Experience Protocol v0.2 — TypeScript 类型定义
+ * v0.1：从 SPEC-experience-v0.1.md 翻译
+ * v0.2：新增 ExecutableContent（经验可执行化）
  */
 
 // === 核心数据结构 ===
@@ -48,6 +49,31 @@ export interface Experience {
 
   agent_context?: AgentContext;
   trust?: Trust;
+
+  // v0.2：可执行内容（可选，最多 3 个片段）
+  executable?: ExecutableContent[];
+}
+
+// === v0.2 可执行内容 ===
+
+export type ExecutableType = 'snippet' | 'config' | 'command' | 'test';
+
+export interface ExecutableContent {
+  type: ExecutableType;
+  language: string;      // 'typescript' | 'python' | 'bash' | 'json' | 'yaml' | ...
+  code: string;          // 代码/配置/命令内容，≤ 2000 字
+  description: string;   // 一句话说明，≤ 200 字
+
+  requires?: {
+    runtime?: string;         // 'node>=18' | 'python>=3.10' | ...
+    dependencies?: string[];  // ['@swc/jest', 'typescript>=5.0']
+    env?: string[];           // ['OPENAI_API_KEY', 'DATABASE_URL']
+  };
+
+  verify?: {
+    command: string;   // 验证命令
+    expect: string;    // 预期输出或退出码
+  };
 }
 
 // === 接口请求/响应 ===
@@ -89,6 +115,9 @@ export interface SearchResultItem {
   match_score: number; // 0-1
   experience: Partial<Experience>;
   verification_summary: VerificationSummary;
+  // v0.2
+  has_executable: boolean;
+  executable_types?: ExecutableType[];
 }
 
 export interface SerendipityResultItem extends SearchResultItem {
@@ -115,6 +144,9 @@ export interface VerifyRequest {
   conditions?: string | null;
   notes?: string | null;
   signature?: string;
+  // v0.2
+  verification_method?: 'manual' | 'automated';
+  execution_log?: string;  // 自动验证时的执行日志，≤ 1000 字
 }
 
 export interface VerificationSummary {

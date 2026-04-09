@@ -9,7 +9,7 @@
 
 import { createClient, type Client, type InStatement } from '@libsql/client';
 import { randomUUID } from 'node:crypto';
-import type { Experience, VerifyResult, VerificationSummary } from './types.js';
+import type { Experience, ExecutableContent, VerifyResult, VerificationSummary } from './types.js';
 import { AUTH_SCHEMA_SQL, migrateApiKeysTable } from './shared-auth.js';
 
 let client: Client;
@@ -77,6 +77,22 @@ export async function initDB(url: string, authToken?: string): Promise<Client> {
       created_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS experience_executables (
+      id TEXT PRIMARY KEY,
+      experience_id TEXT NOT NULL REFERENCES experiences(id) ON DELETE CASCADE,
+      seq INTEGER NOT NULL DEFAULT 0,
+      type TEXT NOT NULL CHECK(type IN ('snippet', 'config', 'command', 'test')),
+      language TEXT NOT NULL,
+      code TEXT NOT NULL,
+      description TEXT NOT NULL,
+      requires TEXT,
+      verify_command TEXT,
+      verify_expect TEXT,
+      UNIQUE(experience_id, seq)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_exec_exp ON experience_executables(experience_id);
+
     ${AUTH_SCHEMA_SQL}
   `);
 
@@ -105,6 +121,85 @@ function base64ToEmbedding(b64: string): Float32Array {
 }
 
 // === 经验操作 ===
+
+// === 可执行内容操作 ===
+
+export async function insertExecutables(experienceId: string, executables: ExecutableContent[]): Promise<void> {
+  for (let i = 0; i < executables.length; i++) {
+    const exec = executables[i];
+    await getClient().execute({
+      sql: `
+        INSERT INTO experience_executables (
+          id, experience_id, seq, type, language, code, description,
+          requires, verify_command, verify_expect
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      args: [
+        randomUUID(),
+        experienceId,
+        i,
+        exec.type,
+        exec.language,
+        exec.code,
+        exec.description,
+        exec.requires ? JSON.stringify(exec.requires) : null,
+        exec.verify?.command ?? null,
+        exec.verify?.expect ?? null,
+      ],
+    });
+  }
+}
+
+export async function getExecutables(experienceId: string): Promise<ExecutableContent[]> {
+  const result = await getClient().execute({
+    sql: 'SELECT * FROM experience_executables WHERE experience_id = ? ORDER BY seq',
+    args: [experienceId],
+  });
+  return result.rows.map(rowToExecutable);
+}
+
+export async function getExecutablesByIds(experienceIds: string[]): Promise<Map<string, ExecutableContent[]>> {
+  if (experienceIds.length === 0) return new Map();
+  const placeholders = experienceIds.map(() => '?').join(',');
+  const result = await getClient().execute({
+    sql: `SELECT * FROM experience_executables WHERE experience_id IN (${placeholders}) ORDER BY experience_id, seq`,
+    args: experienceIds,
+  });
+  const map = new Map<string, ExecutableContent[]>();
+  for (const row of result.rows) {
+    const expId = row.experience_id as string;
+    if (!map.has(expId)) map.set(expId, []);
+    map.get(expId)!.push(rowToExecutable(row));
+  }
+  return map;
+}
+
+export async function hasExecutable(experienceId: string): Promise<boolean> {
+  const result = await getClient().execute({
+    sql: 'SELECT 1 FROM experience_executables WHERE experience_id = ? LIMIT 1',
+    args: [experienceId],
+  });
+  return result.rows.length > 0;
+}
+
+function rowToExecutable(row: any): ExecutableContent {
+  const exec: ExecutableContent = {
+    type: row.type,
+    language: row.language,
+    code: row.code,
+    description: row.description,
+  };
+  if (row.requires) {
+    exec.requires = JSON.parse(row.requires as string);
+  }
+  if (row.verify_command) {
+    exec.verify = {
+      command: row.verify_command,
+      expect: row.verify_expect || '',
+    };
+  }
+  return exec;
+}
 
 export async function insertExperience(exp: Experience, embedding: Float32Array | null): Promise<string> {
   const id = exp.id || randomUUID();
@@ -155,7 +250,11 @@ export async function getExperience(id: string): Promise<Experience | null> {
     args: [id],
   });
   if (result.rows.length === 0) return null;
-  return rowToExperience(result.rows[0]);
+  const exp = rowToExperience(result.rows[0]);
+  // v0.2: 加载可执行内容
+  const executables = await getExecutables(id);
+  if (executables.length > 0) exp.executable = executables;
+  return exp;
 }
 
 export async function getAllEmbeddings(): Promise<Array<{ id: string; embedding: Float32Array }>> {
@@ -169,14 +268,22 @@ export async function getAllEmbeddings(): Promise<Array<{ id: string; embedding:
   }));
 }
 
-export async function getExperiencesByIds(ids: string[]): Promise<Experience[]> {
+export async function getExperiencesByIds(ids: string[], includeExecutables = true): Promise<Experience[]> {
   if (ids.length === 0) return [];
   const placeholders = ids.map(() => '?').join(',');
   const result = await getClient().execute({
     sql: `SELECT * FROM experiences WHERE id IN (${placeholders})`,
     args: ids,
   });
-  return result.rows.map(rowToExperience);
+  const experiences = result.rows.map(rowToExperience);
+  if (includeExecutables) {
+    const execMap = await getExecutablesByIds(ids);
+    for (const exp of experiences) {
+      const execs = execMap.get(exp.id);
+      if (execs && execs.length > 0) exp.executable = execs;
+    }
+  }
+  return experiences;
 }
 
 // === 验证操作 ===
