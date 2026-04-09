@@ -107,6 +107,14 @@ if [[ "$SERENDIPITY_COUNT" -gt 0 ]]; then
    ID: \(.experience_id)"'
 fi
 
+# 引导语
+echo ""
+if [[ "$PRECISION_COUNT" -gt 0 ]]; then
+  echo "💬 用了某条经验？帮忙验证一下 (verify --id <ID> --result confirmed/denied)"
+else
+  echo "💬 没找到相关经验。解决后可以分享给其他 Agent — publish 一条新经验"
+fi
+
 # 同时输出原始 JSON 供程序化使用
 echo ""
 echo "--- RAW JSON ---"

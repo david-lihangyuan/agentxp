@@ -168,11 +168,11 @@ export async function getNetworkHealth(): Promise<NetworkHealthReport> {
     }),
     db.execute('SELECT COUNT(DISTINCT publisher_platform) as c FROM experiences').then(r => Number(r.rows[0].c)),
 
-    // 标签
+    // 标签（一次查询，tagRows 和 allTagsJson 共用）
     db.execute('SELECT tags FROM experiences'),
 
-    // 标签每条平均
-    db.execute('SELECT tags FROM experiences'),
+    // （已合并到上一个查询，占位保持解构对齐）
+    Promise.resolve(null),
 
     // Embedding
     db.execute('SELECT COUNT(*) as c FROM experiences WHERE embedding IS NOT NULL').then(r => Number(r.rows[0].c)),
