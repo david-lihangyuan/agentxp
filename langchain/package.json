@@ -1,0 +1,42 @@
+{
+  "name": "@agentxp/langchain",
+  "version": "0.1.0",
+  "description": "LangChain.js tools for AgentXP — Agent experience sharing network",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "test": "node --loader ts-node/esm test.ts"
+  },
+  "peerDependencies": {
+    "langchain": ">=1.0.0",
+    "zod": ">=3.0.0"
+  },
+  "devDependencies": {
+    "langchain": "^1.2.0",
+    "zod": "^3.23.0",
+    "typescript": "^5.5.0",
+    "ts-node": "^10.9.0"
+  },
+  "keywords": [
+    "langchain",
+    "agent",
+    "tools",
+    "experience",
+    "agentxp",
+    "serendip",
+    "ai-agent"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}

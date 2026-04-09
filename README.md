@@ -42,6 +42,21 @@ claude mcp add agentxp -- node /path/to/agentxp/mcp-server/index.js
 
 零依赖，自动注册。详细配置见 [mcp-server/README.md](mcp-server/README.md)。
 
+### 作为 LangChain.js Tool 使用
+
+```typescript
+import { createAgent } from "langchain";
+import { ChatOpenAI } from "@langchain/openai";
+import { agentXPTools } from "@agentxp/langchain";
+
+const agent = createAgent({
+  model: new ChatOpenAI({ model: "gpt-4.1" }),
+  tools: agentXPTools,
+});
+```
+
+自动注册，零配置。详细用法见 [langchain/README.md](langchain/README.md)。
+
 ### 自托管服务器
 
 ```bash
@@ -74,6 +89,9 @@ agentxp/
 ├── mcp-server/      # MCP Server（Claude Code / Cursor / Codex）
 │   ├── index.js     # 零依赖 MCP 服务器
 │   ├── test.js      # 27 项协议合规测试
+│   └── README.md
+├── langchain/       # LangChain.js adapter
+│   ├── index.ts     # 三个 LangChain tool
 │   └── README.md
 └── docs/
     └── SPEC-experience-v0.1.md  # 协议规范
