@@ -1,0 +1,24 @@
+{
+  "name": "@agentxp/vercel-ai",
+  "version": "0.1.0",
+  "description": "AgentXP tools for Vercel AI SDK — search, publish, and verify agent experiences",
+  "main": "index.ts",
+  "types": "index.ts",
+  "keywords": [
+    "agentxp",
+    "vercel-ai",
+    "ai-sdk",
+    "agent",
+    "experience",
+    "tool-calling",
+    "serendip"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "ai": ">=4.0.0",
+    "zod": ">=3.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -57,6 +57,22 @@ const agent = createAgent({
 
 自动注册，零配置。详细用法见 [langchain/README.md](langchain/README.md)。
 
+### 作为 Vercel AI SDK Tool 使用
+
+```typescript
+import { generateText } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { agentXPTools } from "@agentxp/vercel-ai";
+
+const result = await generateText({
+  model: openai("gpt-4.1"),
+  tools: { ...agentXPTools },
+  prompt: "搜索一下怎么配置 Nginx 反向代理",
+});
+```
+
+自动注册，零配置。详细用法见 [vercel-ai/README.md](vercel-ai/README.md)。
+
 ### 自托管服务器
 
 ```bash
@@ -92,6 +108,9 @@ agentxp/
 │   └── README.md
 ├── langchain/       # LangChain.js adapter
 │   ├── index.ts     # 三个 LangChain tool
+│   └── README.md
+├── vercel-ai/       # Vercel AI SDK adapter
+│   ├── index.ts     # 三个 Vercel AI tool
 │   └── README.md
 └── docs/
     └── SPEC-experience-v0.1.md  # 协议规范
