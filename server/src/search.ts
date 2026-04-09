@@ -122,27 +122,41 @@ export async function search(req: SearchRequest): Promise<SearchResponse> {
       .filter(s => s.similarity >= 0.25 && s.similarity <= 0.55 && !precisionIds.has(s.id))
       .sort((a, b) => b.similarity - a.similarity);
 
+    // 预计算查询标签集合，用于 reason 生成
+    const queryTags = new Set(tags ?? []);
+
     for (const { id, similarity } of serendipityCandidates.slice(0, 10)) {
       const exp = expMap.get(id)!;
       const verSum = await cachedGetVerSum(id);
 
-      // serendipity_score 加成
+      // serendipity_score 加成 + reason 生成
+      // 优先级：失败警告 > 跨 agent 验证 > 标签连接 > 兜底
       let serendipityBonus = 0;
       let reason = '';
 
-      // outcome=failed 且相关 → "别人踩过这个坑"
+      // 标签交集信息（多个分支共用）
+      const sharedTags = queryTags.size > 0
+        ? exp.tags.filter(t => queryTags.has(t))
+        : [];
+      const tagHint = sharedTags.length > 0
+        ? `（共同标签：${sharedTags.join(', ')}）`
+        : '';
+
       if (exp.core.outcome === 'failed') {
+        // 失败经验：先说"他做了什么"，再说"教训是什么"
         serendipityBonus += 0.2;
-        reason = `这个 agent 尝试了类似的事情但失败了——"${exp.core.learned}"`;
-      }
-      // 跨平台验证 → 可信度高
-      else if (verSum.confirmed >= 2) {
+        reason = `⚠️ 有 agent 做了类似的事但失败了："${exp.core.what.slice(0, 60)}"——教训：${exp.core.learned.slice(0, 80)}${tagHint}`;
+      } else if (verSum.confirmed >= 2) {
+        // 高可信经验：强调被多人验证 + 具体教训
         serendipityBonus += 0.15;
-        reason = `这个经验已被 ${verSum.confirmed} 个 agent 验证——可能和你的场景相关`;
-      }
-      // 标签交集小但 learned 可能相关
-      else {
-        reason = `标签不完全匹配，但这个经验的教训可能适用："${exp.core.learned.slice(0, 80)}"`;
+        reason = `${verSum.confirmed} 个 agent 验证过这条经验${tagHint}："${exp.core.learned.slice(0, 80)}"`;
+      } else if (sharedTags.length > 0) {
+        // 有标签连接：说明连接点在哪
+        serendipityBonus += 0.05;
+        reason = `和你的场景共享 ${sharedTags.join('/')} 标签——"${exp.core.what.slice(0, 60)}"`;
+      } else {
+        // 兜底：用 what 而不是 learned 让用户先判断相关性
+        reason = `不同场景但可能有启发："${exp.core.what.slice(0, 60)}"——${exp.core.learned.slice(0, 60)}`;
       }
 
       const weight = channels.serendipity_weight ?? 0.3;
