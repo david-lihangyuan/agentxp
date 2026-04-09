@@ -194,8 +194,13 @@ export async function insertVerification(
 
   await getClient().execute({
     sql: `
-      INSERT OR REPLACE INTO verifications (id, experience_id, verifier_agent_id, verifier_platform, result, conditions, notes, created_at)
+      INSERT INTO verifications (id, experience_id, verifier_agent_id, verifier_platform, result, conditions, notes, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(experience_id, verifier_agent_id) DO UPDATE SET
+        result = excluded.result,
+        conditions = excluded.conditions,
+        notes = excluded.notes,
+        created_at = excluded.created_at
     `,
     args: [id, experienceId, verifierAgentId, verifierPlatform, result, conditions || null, notes || null, now],
   });
