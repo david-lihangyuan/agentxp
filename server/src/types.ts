@@ -76,6 +76,68 @@ export interface ExecutableContent {
   };
 }
 
+// === 诊断报告模板 ===
+
+export type DiagnosticCheckStatus = 'pass' | 'fail' | 'warn' | 'skip' | 'unknown';
+
+export interface DiagnosticCheck {
+  /** 检查项名称（如 "服务状态"、"网络连通性"） */
+  name: string;
+  /** 检查状态 */
+  status: DiagnosticCheckStatus;
+  /** 检查命令或方法 */
+  command?: string;
+  /** 实际输出/观测 */
+  output?: string;
+  /** 预期 vs 实际的差异说明 */
+  note?: string;
+}
+
+/** 问题分类 */
+export type ProblemCategory =
+  | 'configuration'   // 配置问题
+  | 'networking'      // 网络连通
+  | 'permission'      // 权限不足
+  | 'dependency'      // 依赖缺失/版本
+  | 'resource'        // 资源不足（内存/磁盘/CPU）
+  | 'logic'           // 逻辑/代码错误
+  | 'environment'     // 运行环境差异
+  | 'data'            // 数据问题
+  | 'unknown';        // 无法分类
+
+/** 结构化诊断报告 */
+export interface DiagnosticReport {
+  /** 问题分类 */
+  category: ProblemCategory;
+  /** 环境信息（OS、运行时版本等） */
+  environment?: string;
+  /** 诊断检查项列表 */
+  checks: DiagnosticCheck[];
+  /** 根因分析（最核心的一句话） */
+  root_cause: string;
+  /** 建议的修复步骤（按优先级排序） */
+  fix_steps: string[];
+  /** 置信度（0-1，对自己诊断的把握程度） */
+  confidence: number;
+  /** 附加说明 */
+  notes?: string;
+}
+
+/** 诊断报告模板（预置检查项） */
+export interface DiagnosticTemplate {
+  id: string;
+  name: string;
+  description: string;
+  /** 适用的标签（匹配求助的 tags） */
+  applicable_tags: string[];
+  /** 预置检查项 */
+  checks: Array<{
+    name: string;
+    command: string;
+    description: string;
+  }>;
+}
+
 // === 接口请求/响应 ===
 
 // publish

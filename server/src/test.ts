@@ -10,6 +10,7 @@ import { initDB, getClient, insertExperience, insertExecutables, getExperience, 
 import { initEmbedding, getEmbedding, experienceToText, cosineSimilarity } from './embedding.js';
 import { search } from './search.js';
 import { getAgentProfile, checkSearchQuota, recordSearch, getSearchCountToday } from './rewards.js';
+import { insertSearchLog, getAgentSearchStats } from './db.js';
 import type { Experience, SearchRequest } from './types.js';
 
 let passed = 0;
@@ -839,12 +840,12 @@ async function main() {
   );
 
   // 20d. recordSearch 计数
-  const beforeCount = getSearchCountToday('test-search-counter');
+  const beforeCount = await getSearchCountToday('test-search-counter');
   assert(beforeCount === 0, '新 agent 今日搜索次数为 0');
   recordSearch('test-search-counter');
   recordSearch('test-search-counter');
   recordSearch('test-search-counter');
-  const afterCount = getSearchCountToday('test-search-counter');
+  const afterCount = await getSearchCountToday('test-search-counter');
   assert(afterCount === 3, '记录 3 次搜索后计数为 3', `实际: ${afterCount}`);
 
   // 20e. checkSearchQuota 检查
@@ -864,6 +865,85 @@ async function main() {
     bobProfile.stats.verifications_given > 0 || bobProfile.stats.experiences_published >= 0,
     'bob 的统计数据可查',
     `验证: ${bobProfile.stats.verifications_given}, 经验: ${bobProfile.stats.experiences_published}`,
+  );
+
+  // ========== 21. 搜索日志持久化 ==========
+  console.log('\n--- 21. 搜索日志持久化 ---');
+
+  // 21a. 写入搜索日志
+  const logId1 = await insertSearchLog({
+    agent_id: 'alice',
+    query: 'TypeScript compiler',
+    hits: 3,
+    precision_hits: 2,
+    serendipity_hits: 1,
+  });
+  assert(!!logId1, '搜索日志写入成功');
+
+  const logId2 = await insertSearchLog({
+    agent_id: 'alice',
+    query: 'Docker optimization',
+    hits: 1,
+    precision_hits: 1,
+    serendipity_hits: 0,
+  });
+  assert(!!logId2, '第二条搜索日志写入成功');
+
+  const logId3 = await insertSearchLog({
+    agent_id: 'bob',
+    query: 'Redis caching',
+    hits: 5,
+    precision_hits: 3,
+    serendipity_hits: 2,
+  });
+  assert(!!logId3, 'bob 的搜索日志写入成功');
+
+  // 21b. 查询搜索统计
+  const aliceSearchStats = await getAgentSearchStats('alice');
+  assert(
+    aliceSearchStats.total_searches === 2,
+    `alice 总搜索次数 = 2（实际 ${aliceSearchStats.total_searches}）`,
+  );
+  assert(
+    aliceSearchStats.total_hits === 4,
+    `alice 总命中数 = 4（实际 ${aliceSearchStats.total_hits}）`,
+  );
+  assert(
+    aliceSearchStats.avg_hits_per_search === 2,
+    `alice 平均命中 = 2（实际 ${aliceSearchStats.avg_hits_per_search}）`,
+  );
+  assert(
+    aliceSearchStats.searches_today >= 2,
+    `alice 今日搜索 >= 2（实际 ${aliceSearchStats.searches_today}）`,
+  );
+
+  // 21c. 不同 agent 的统计隔离
+  const bobSearchStats = await getAgentSearchStats('bob');
+  assert(
+    bobSearchStats.total_searches === 1,
+    `bob 总搜索次数 = 1（实际 ${bobSearchStats.total_searches}）`,
+  );
+
+  // 21d. 无搜索记录的 agent
+  const noSearchStats = await getAgentSearchStats('never-searched');
+  assert(
+    noSearchStats.total_searches === 0,
+    `未搜索 agent 总搜索次数 = 0（实际 ${noSearchStats.total_searches}）`,
+  );
+  assert(
+    noSearchStats.avg_hits_per_search === 0,
+    `未搜索 agent 平均命中 = 0（实际 ${noSearchStats.avg_hits_per_search}）`,
+  );
+
+  // 21e. profile 里包含 search_stats
+  const aliceProfileWithSearch = await getAgentProfile('alice');
+  assert(
+    aliceProfileWithSearch.search_stats !== undefined,
+    'agent profile 包含 search_stats 字段',
+  );
+  assert(
+    aliceProfileWithSearch.search_stats.total_searches >= 2,
+    `profile.search_stats.total_searches >= 2（实际 ${aliceProfileWithSearch.search_stats.total_searches}）`,
   );
 
   // ========== 结果 ==========

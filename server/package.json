@@ -1,16 +1,17 @@
 {
   "name": "serendip-experience-server",
-  "version": "0.2.1",
+  "version": "0.2.4",
   "description": "Serendip Experience Network — Agent 经验共享服务（libSQL/Turso 数据库）",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "tsx src/test.ts && tsx src/test-auth.ts && tsx src/test-rate-limit.ts",
+    "test": "tsx src/test.ts && tsx src/test-auth.ts && tsx src/test-rate-limit.ts && tsx src/test-credits.ts",
     "test:core": "tsx src/test.ts",
     "test:auth": "tsx src/test-auth.ts",
-    "test:rate-limit": "tsx src/test-rate-limit.ts"
+    "test:rate-limit": "tsx src/test-rate-limit.ts",
+    "test:credits": "tsx src/test-credits.ts"
   },
   "dependencies": {
     "hono": "^4.0.0",

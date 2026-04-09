@@ -93,11 +93,32 @@ export async function initDB(url: string, authToken?: string): Promise<Client> {
 
     CREATE INDEX IF NOT EXISTS idx_exec_exp ON experience_executables(experience_id);
 
+    CREATE TABLE IF NOT EXISTS search_logs (
+      id TEXT PRIMARY KEY,
+      agent_id TEXT NOT NULL,
+      query TEXT NOT NULL,
+      hits INTEGER NOT NULL DEFAULT 0,
+      precision_hits INTEGER NOT NULL DEFAULT 0,
+      serendipity_hits INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_search_logs_agent ON search_logs(agent_id);
+    CREATE INDEX IF NOT EXISTS idx_search_logs_time ON search_logs(created_at);
+
     ${AUTH_SCHEMA_SQL}
   `);
 
   // 运行时迁移：给旧 api_keys 表加 user_id 和 name 列
   await migrateApiKeysTable(client);
+
+  // 运行时迁移：积分系统
+  const { migrateCredits } = await import('./credits.js');
+  await migrateCredits();
+
+  // 运行时迁移：求助系统
+  const { migrateHelp } = await import('./help.js');
+  await migrateHelp();
 
   return client;
 }
@@ -410,6 +431,254 @@ export async function getAgentByKey(key: string): Promise<string | null> {
     args: [key],
   });
   return result.rows.length > 0 ? (result.rows[0].agent_id as string) : null;
+}
+
+// === Browse (浏览/过滤) ===
+
+export interface BrowseOptions {
+  tag?: string;
+  agent_id?: string;
+  outcome?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export async function browseExperiences(opts: BrowseOptions): Promise<{ experiences: Experience[]; total: number }> {
+  const db = getClient();
+  const conditions: string[] = [];
+  const args: any[] = [];
+
+  if (opts.tag) {
+    // tags 存为 JSON 数组，用 LIKE 模糊匹配
+    conditions.push("tags LIKE '%' || ? || '%'");
+    args.push('"' + opts.tag + '"');
+  }
+  if (opts.agent_id) {
+    conditions.push('publisher_agent_id = ?');
+    args.push(opts.agent_id);
+  }
+  if (opts.outcome && opts.outcome !== 'any') {
+    conditions.push('outcome = ?');
+    args.push(opts.outcome);
+  }
+
+  const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+  const limit = Math.min(Math.max(opts.limit || 20, 1), 50);
+  const offset = Math.max(opts.offset || 0, 0);
+
+  const [countResult, dataResult] = await Promise.all([
+    db.execute({ sql: `SELECT COUNT(*) as c FROM experiences ${where}`, args }),
+    db.execute({ sql: `SELECT * FROM experiences ${where} ORDER BY published_at DESC LIMIT ? OFFSET ?`, args: [...args, limit, offset] }),
+  ]);
+
+  return {
+    experiences: dataResult.rows.map(rowToExperience),
+    total: countResult.rows[0].c as number,
+  };
+}
+
+// === Discover (随机探索) ===
+
+export async function discoverExperiences(excludeAgentId: string, limit: number = 5): Promise<Experience[]> {
+  const db = getClient();
+  // 随机取经验，排除自己发布的，优先近期 + 有验证的
+  const result = await db.execute({
+    sql: `
+      SELECT e.*, 
+        (SELECT COUNT(*) FROM verifications v WHERE v.experience_id = e.id AND v.result = 'confirmed') as confirm_count
+      FROM experiences e
+      WHERE e.publisher_agent_id != ?
+      ORDER BY 
+        confirm_count DESC,
+        RANDOM()
+      LIMIT ?
+    `,
+    args: [excludeAgentId, limit],
+  });
+  return result.rows.map(rowToExperience);
+}
+
+// === Agent Profile ===
+
+export interface AgentProfile {
+  agent_id: string;
+  registered_at: string | null;
+  contributions: {
+    total: number;
+    by_outcome: Record<string, number>;
+    recent_7d: number;
+  };
+  verifications_received: {
+    confirmed: number;
+    denied: number;
+    conditional: number;
+    total: number;
+  };
+  verifications_given: number;
+  experiences: Array<{
+    id: string;
+    what: string;
+    outcome: string;
+    published_at: string;
+    verified: number;
+  }>;
+}
+
+export async function getAgentStats(agentId: string): Promise<AgentProfile | null> {
+  const db = getClient();
+
+  // 查询注册时间
+  const regResult = await db.execute({
+    sql: "SELECT MIN(created_at) as registered_at FROM api_keys WHERE agent_id = ?",
+    args: [agentId],
+  });
+  const registeredAt = regResult.rows[0]?.registered_at as string | null;
+
+  // 查询发布的经验
+  const expResult = await db.execute({
+    sql: "SELECT id, what, outcome, published_at FROM experiences WHERE publisher_agent_id = ? ORDER BY published_at DESC",
+    args: [agentId],
+  });
+
+  if (expResult.rows.length === 0 && !registeredAt) {
+    return null;
+  }
+
+  // 统计 outcome 分布
+  const byOutcome: Record<string, number> = {};
+  for (const row of expResult.rows) {
+    const o = row.outcome as string;
+    byOutcome[o] = (byOutcome[o] || 0) + 1;
+  }
+
+  // 最近 7 天的贡献
+  const recent7dResult = await db.execute({
+    sql: "SELECT COUNT(*) as c FROM experiences WHERE publisher_agent_id = ? AND published_at > datetime('now', '-7 days')",
+    args: [agentId],
+  });
+  const recent7d = recent7dResult.rows[0].c as number;
+
+  // 获取每条经验的验证数
+  const expIds = expResult.rows.map(r => r.id as string);
+  const verReceivedMap: Record<string, number> = {};
+  if (expIds.length > 0) {
+    const placeholders = expIds.map(() => '?').join(',');
+    const verResult = await db.execute({
+      sql: `SELECT experience_id, COUNT(*) as c FROM verifications WHERE experience_id IN (${placeholders}) GROUP BY experience_id`,
+      args: expIds,
+    });
+    for (const row of verResult.rows) {
+      verReceivedMap[row.experience_id as string] = row.c as number;
+    }
+  }
+
+  // 汇总收到的验证
+  const verSummaryResult = expIds.length > 0
+    ? await db.execute({
+        sql: `SELECT result, COUNT(*) as c FROM verifications WHERE experience_id IN (${expIds.map(() => '?').join(',')}) GROUP BY result`,
+        args: expIds,
+      })
+    : { rows: [] };
+  const verReceived = { confirmed: 0, denied: 0, conditional: 0, total: 0 };
+  for (const row of verSummaryResult.rows) {
+    const key = row.result as 'confirmed' | 'denied' | 'conditional';
+    const cnt = row.c as number;
+    verReceived[key] = cnt;
+    verReceived.total += cnt;
+  }
+
+  // 给他人的验证数
+  const verGivenResult = await db.execute({
+    sql: "SELECT COUNT(*) as c FROM verifications WHERE verifier_agent_id = ?",
+    args: [agentId],
+  });
+  const verGiven = verGivenResult.rows[0].c as number;
+
+  return {
+    agent_id: agentId,
+    registered_at: registeredAt,
+    contributions: {
+      total: expResult.rows.length,
+      by_outcome: byOutcome,
+      recent_7d: recent7d,
+    },
+    verifications_received: verReceived,
+    verifications_given: verGiven,
+    experiences: expResult.rows.map(r => ({
+      id: r.id as string,
+      what: r.what as string,
+      outcome: r.outcome as string,
+      published_at: r.published_at as string,
+      verified: verReceivedMap[r.id as string] || 0,
+    })),
+  };
+}
+
+// === 搜索日志操作 ===
+
+export interface SearchLogEntry {
+  agent_id: string;
+  query: string;
+  hits: number;
+  precision_hits: number;
+  serendipity_hits: number;
+}
+
+export async function insertSearchLog(entry: SearchLogEntry): Promise<string> {
+  const id = randomUUID();
+  const now = new Date().toISOString();
+  await getClient().execute({
+    sql: `INSERT INTO search_logs (id, agent_id, query, hits, precision_hits, serendipity_hits, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    args: [id, entry.agent_id, entry.query, entry.hits, entry.precision_hits, entry.serendipity_hits, now],
+  });
+  return id;
+}
+
+export interface AgentSearchStats {
+  total_searches: number;
+  total_hits: number;
+  searches_today: number;
+  hits_today: number;
+  avg_hits_per_search: number;
+}
+
+export async function getAgentSearchStats(agentId: string): Promise<AgentSearchStats> {
+  const db = getClient();
+  const [totalResult, todayResult] = await Promise.all([
+    db.execute({
+      sql: `SELECT COUNT(*) as cnt, COALESCE(SUM(hits), 0) as total_hits FROM search_logs WHERE agent_id = ?`,
+      args: [agentId],
+    }),
+    db.execute({
+      sql: `SELECT COUNT(*) as cnt, COALESCE(SUM(hits), 0) as total_hits FROM search_logs WHERE agent_id = ? AND created_at >= date('now')`,
+      args: [agentId],
+    }),
+  ]);
+
+  const totalSearches = totalResult.rows[0].cnt as number;
+  const totalHits = totalResult.rows[0].total_hits as number;
+  const searchesToday = todayResult.rows[0].cnt as number;
+  const hitsToday = todayResult.rows[0].total_hits as number;
+
+  return {
+    total_searches: totalSearches,
+    total_hits: totalHits,
+    searches_today: searchesToday,
+    hits_today: hitsToday,
+    avg_hits_per_search: totalSearches > 0 ? Math.round((totalHits / totalSearches) * 100) / 100 : 0,
+  };
+}
+
+/**
+ * 获取 agent 今日搜索次数（用于配额检查，从 DB 查询）
+ */
+export async function getSearchCountTodayFromDB(agentId: string): Promise<number> {
+  const result = await getClient().execute({
+    sql: `SELECT COUNT(*) as cnt FROM search_logs WHERE agent_id = ? AND created_at >= date('now')`,
+    args: [agentId],
+  });
+  return result.rows[0].cnt as number;
 }
 
 // === 工具函数 ===

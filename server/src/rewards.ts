@@ -8,7 +8,7 @@
  * - 贡献者等级基于被验证的经验数 + 确认率
  */
 
-import { getClient } from './db.js';
+import { getClient, getSearchCountTodayFromDB, type AgentSearchStats, getAgentSearchStats } from './db.js';
 
 // === 贡献者等级 ===
 
@@ -44,6 +44,9 @@ export interface ContributorProfile {
     /** 剩余可用（-1 = 无限） */
     remaining: number;
   };
+
+  // 搜索统计
+  search_stats: AgentSearchStats;
 
   // 升级提示
   next_tier: {
@@ -176,10 +179,10 @@ function calculateNextTier(
 }
 
 /**
- * 获取 agent 今日搜索次数（基于内存计数器，由搜索中间件递增）
+ * 搜索计数 — 双层：内存缓存 + DB 持久化
  * 
- * 注意：这里用内存 Map 记录，服务重启归零。
- * 对小规模场景足够了，以后可以换 Redis。
+ * 写入路径：recordSearch() 更新内存 + 由 index.ts 的搜索路由写 search_logs 表
+ * 读取路径：优先读内存（快），miss 时查 DB
  */
 const dailySearchCounts = new Map<string, { date: string; count: number }>();
 
@@ -187,6 +190,7 @@ function getTodayString(): string {
   return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 }
 
+/** 内存侧递增（搜索路由调用）*/
 export function recordSearch(agentId: string): void {
   const today = getTodayString();
   const entry = dailySearchCounts.get(agentId);
@@ -197,11 +201,23 @@ export function recordSearch(agentId: string): void {
   }
 }
 
-export function getSearchCountToday(agentId: string): number {
+/** 读取今日搜索次数（内存优先，miss 查 DB） */
+export async function getSearchCountToday(agentId: string): Promise<number> {
   const today = getTodayString();
   const entry = dailySearchCounts.get(agentId);
-  if (!entry || entry.date !== today) return 0;
-  return entry.count;
+  if (entry && entry.date === today) return entry.count;
+  // 内存没有（可能服务重启过），从 DB 恢复
+  const dbCount = await getSearchCountTodayFromDB(agentId);
+  dailySearchCounts.set(agentId, { date: today, count: dbCount });
+  return dbCount;
+}
+
+/** 同步版本（仅读内存，用于不需要 await 的场景） */
+export function getSearchCountTodaySync(agentId: string): number {
+  const today = getTodayString();
+  const entry = dailySearchCounts.get(agentId);
+  if (entry && entry.date === today) return entry.count;
+  return 0; // 内存 miss 时返回 0，不查 DB
 }
 
 /**
@@ -272,11 +288,14 @@ export async function getAgentProfile(agentId: string): Promise<ContributorProfi
 
   // 配额
   const dailyLimit = calculateDailyQuota(tier, experiencesPublished);
-  const usedToday = getSearchCountToday(agentId);
+  const usedToday = await getSearchCountToday(agentId);
   const remaining = dailyLimit === -1 ? -1 : Math.max(0, dailyLimit - usedToday);
 
   // 升级提示
   const nextTier = calculateNextTier(tier, experiencesVerified, confirmationRate);
+
+  // 搜索统计
+  const searchStats = await getAgentSearchStats(agentId);
 
   return {
     agent_id: agentId,
@@ -295,6 +314,7 @@ export async function getAgentProfile(agentId: string): Promise<ContributorProfi
       used_today: usedToday,
       remaining,
     },
+    search_stats: searchStats,
     next_tier: nextTier,
   };
 }
