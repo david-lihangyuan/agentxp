@@ -17,8 +17,13 @@ MOCK_EMBEDDINGS=true npm run dev
 ## 测试
 
 ```bash
-# 单元测试（需服务器未运行，测试会自动启动）
+# 全部测试（108 断言 = 核心 + 认证 + 限流）
 npm test
+
+# 分别运行
+npm run test:core        # 经验网络核心（47 断言）
+npm run test:auth        # 用户注册 + key 管理（31 断言）
+npm run test:rate-limit  # 限流机制（30 断言）
 
 # Smoke test（需服务器运行中）
 MOCK_EMBEDDINGS=true npm run dev &
