@@ -261,6 +261,19 @@ export function diagnosticReportToText(report: DiagnosticReport): string {
 export async function migrateHelp(): Promise<void> {
   const db = getClient();
 
+  // 运行时迁移：给 help_responses 加 diagnostic_report 列（幂等）
+  try {
+    const info = await db.execute("PRAGMA table_info(help_responses)");
+    if (info.rows.length > 0) {
+      const columns = new Set(info.rows.map(r => r.name as string));
+      if (!columns.has('diagnostic_report')) {
+        await db.execute('ALTER TABLE help_responses ADD COLUMN diagnostic_report TEXT');
+      }
+    }
+  } catch {
+    // 表不存在时忽略，下面的 CREATE TABLE 会创建
+  }
+
   await db.executeMultiple(`
     CREATE TABLE IF NOT EXISTS help_requests (
       id TEXT PRIMARY KEY,
