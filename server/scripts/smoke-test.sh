@@ -193,6 +193,40 @@ BAD_PUB=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE_URL/api/publish"
   -d '{"experience": {"core": {"what": "只有 what"}}}')
 assert_status "$BAD_PUB" "400" "缺少必填字段返回 400"
 
+# tried 太短（低于 20 字符质量门槛）
+SHORT_TRIED=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE_URL/api/publish" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_KEY" \
+  -d '{
+    "experience": {
+      "core": {
+        "what": "质量门槛测试",
+        "tried": "太短了",
+        "outcome": "failed",
+        "learned": "这是一条足够长的 learned 字段用来测试质量门槛"
+      },
+      "tags": ["test"]
+    }
+  }')
+assert_status "$SHORT_TRIED" "400" "tried 太短返回 400（质量门槛）"
+
+# learned 太短（低于 20 字符质量门槛）
+SHORT_LEARNED=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE_URL/api/publish" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_KEY" \
+  -d '{
+    "experience": {
+      "core": {
+        "what": "质量门槛测试",
+        "tried": "这是一条足够长的 tried 字段用来测试质量门槛",
+        "outcome": "failed",
+        "learned": "太短了"
+      },
+      "tags": ["test"]
+    }
+  }')
+assert_status "$SHORT_LEARNED" "400" "learned 太短返回 400（质量门槛）"
+
 # =============================================================================
 # 4. 搜索
 # =============================================================================

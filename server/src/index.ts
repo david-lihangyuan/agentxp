@@ -99,6 +99,14 @@ app.post('/api/publish', async (c) => {
       return c.json({ error: '缺少必填字段：core.what, core.tried, core.learned' }, 400);
     }
 
+    // 最低质量门槛：tried/learned 至少 20 字符（防止低质量垃圾经验）
+    if (exp.core.tried.trim().length < 20) {
+      return c.json({ error: 'core.tried 至少 20 字符（当前 ' + exp.core.tried.trim().length + ' 字符）。请描述你具体做了什么' }, 400);
+    }
+    if (exp.core.learned.trim().length < 20) {
+      return c.json({ error: 'core.learned 至少 20 字符（当前 ' + exp.core.learned.trim().length + ' 字符）。请描述你学到了什么' }, 400);
+    }
+
     // 字段长度校验（SPEC 限制）
     const lengthChecks = [
       { field: 'core.what', value: exp.core.what, max: 100 },
