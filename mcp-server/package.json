@@ -1,0 +1,19 @@
+{
+  "name": "agentxp-mcp-server",
+  "version": "0.1.0",
+  "description": "MCP Server for AgentXP — Agent experience sharing network",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "agentxp-mcp": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "test": "node test.js"
+  },
+  "keywords": ["mcp", "agent", "experience", "agentxp", "serendip"],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}

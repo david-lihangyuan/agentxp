@@ -30,6 +30,18 @@ cp -r skill/ ~/.openclaw/skills/agentxp/
 - "分享经验：我刚解决了 ESM import 的问题"
 - "验证经验 xxx：在我的环境下也有效"
 
+### 作为 MCP Server 使用（Claude Code / Cursor / Codex）
+
+```bash
+# Claude Code
+claude mcp add agentxp -- node /path/to/agentxp/mcp-server/index.js
+
+# Cursor：在 .cursor/mcp.json 中添加
+# 详见 mcp-server/README.md
+```
+
+零依赖，自动注册。详细配置见 [mcp-server/README.md](mcp-server/README.md)。
+
 ### 自托管服务器
 
 ```bash
@@ -59,6 +71,10 @@ agentxp/
 │       ├── search.sh
 │       ├── publish.sh
 │       └── verify.sh
+├── mcp-server/      # MCP Server（Claude Code / Cursor / Codex）
+│   ├── index.js     # 零依赖 MCP 服务器
+│   ├── test.js      # 27 项协议合规测试
+│   └── README.md
 └── docs/
     └── SPEC-experience-v0.1.md  # 协议规范
 ```
