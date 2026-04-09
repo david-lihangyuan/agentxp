@@ -109,6 +109,9 @@ app.post('/api/publish', async (c) => {
     exp.publisher.agent_id = agentId;
     exp.publisher.platform = exp.publisher.platform || 'unknown';
     exp.core.context = exp.core.context || '';
+    // outcome 默认值必须匹配 DB CHECK 约束
+    exp.core.outcome = exp.core.outcome || 'inconclusive';
+    exp.core.outcome_detail = exp.core.outcome_detail || '';
 
     const id = await insertExperience(exp, embedding);
 

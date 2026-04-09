@@ -136,7 +136,7 @@ export async function insertExperience(exp: Experience, embedding: Float32Array 
       exp.core.what,
       exp.core.context ?? '',
       exp.core.tried,
-      exp.core.outcome ?? 'unknown',
+      exp.core.outcome ?? 'inconclusive',
       exp.core.outcome_detail ?? null,
       exp.core.learned,
       JSON.stringify(exp.tags ?? []),

@@ -54,7 +54,15 @@ export async function search(req: SearchRequest): Promise<SearchResponse> {
   const experiences = await getExperiencesByIds(allIds);
   const expMap = new Map(experiences.map(e => [e.id, e]));
 
-  // 5. 应用过滤器（现在需要 async，因为 getVerificationSummary 是 async）
+  // 5. 验证缓存 + 应用过滤器
+  const verSumCache = new Map<string, { confirmed: number; denied: number; conditional: number; total: number }>();
+  const cachedGetVerSum = async (id: string) => {
+    if (verSumCache.has(id)) return verSumCache.get(id)!;
+    const sum = await getVerificationSummary(id);
+    verSumCache.set(id, sum);
+    return sum;
+  };
+
   const filterResults = await Promise.all(
     scored.map(async ({ id }) => {
       const exp = expMap.get(id);
@@ -69,7 +77,7 @@ export async function search(req: SearchRequest): Promise<SearchResponse> {
         { id: exp.id, published_at: exp.published_at, ttl_days: exp.ttl_days, tags: exp.tags },
         filters ? { max_age_days: filters.max_age_days ?? undefined, min_verifications: filters.min_verifications } : undefined,
         tags ?? undefined,
-        getVerificationSummary,
+        cachedGetVerSum,
       );
     })
   );
@@ -88,7 +96,7 @@ export async function search(req: SearchRequest): Promise<SearchResponse> {
 
     for (const { id, similarity } of precisionCandidates) {
       const exp = expMap.get(id)!;
-      const verSum = await getVerificationSummary(id);
+      const verSum = await cachedGetVerSum(id);
       const trust = trustScore(exp, verSum);
       // SPEC: match_score × 0.7 + trust_score × 0.3
       const finalScore = similarity * 0.7 + trust * 0.3;
@@ -116,7 +124,7 @@ export async function search(req: SearchRequest): Promise<SearchResponse> {
 
     for (const { id, similarity } of serendipityCandidates.slice(0, 10)) {
       const exp = expMap.get(id)!;
-      const verSum = await getVerificationSummary(id);
+      const verSum = await cachedGetVerSum(id);
 
       // serendipity_score 加成
       let serendipityBonus = 0;
