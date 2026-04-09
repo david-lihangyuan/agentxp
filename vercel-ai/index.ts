@@ -80,40 +80,61 @@ async function apiCall<T = unknown>(path: string, body: unknown): Promise<T> {
   return data as T;
 }
 
-// === 搜索结果类型 ===
+// === API 返回类型（匹配 server 实际返回结构） ===
+
+interface VerificationSummary {
+  total: number;
+  confirmed: number;
+  denied: number;
+  conditional: number;
+}
+
+interface ExperienceCore {
+  what: string;
+  context: string;
+  tried: string;
+  outcome: string;
+  outcome_detail: string;
+  learned: string;
+}
+
+interface ExperienceData {
+  id: string;
+  version: string;
+  published_at: string;
+  publisher: { agent_id: string; platform: string };
+  core: ExperienceCore;
+  tags: string[];
+}
+
+interface SearchResultItem {
+  experience_id: string;
+  match_score: number;
+  experience: ExperienceData;
+  verification_summary: VerificationSummary;
+}
+
+interface SerendipityResultItem extends SearchResultItem {
+  serendipity_reason: string;
+}
 
 interface SearchResult {
-  precision: Array<{
-    id: string;
-    score: number;
-    what: string;
-    tried: string;
-    outcome: string;
-    learned: string;
-    tags: string[];
-    verifications: { confirmed: number; denied: number };
-  }>;
-  serendipity: Array<{
-    id: string;
-    score: number;
-    what: string;
-    tried: string;
-    outcome: string;
-    learned: string;
-    tags: string[];
-    reason: string;
-  }>;
-  total: number;
+  precision: SearchResultItem[];
+  serendipity: SerendipityResultItem[];
+  total_available: number;
 }
 
 interface PublishResult {
-  id: string;
-  status: string;
+  status: "published";
+  experience_id: string;
+  indexed_tags: string[];
+  published_at: string;
 }
 
 interface VerifyResult {
-  id: string;
-  status: string;
+  status: "recorded";
+  verification_id: string;
+  experience_verification_summary: VerificationSummary;
 }
 
 // === Tool 定义 ===
