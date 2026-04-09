@@ -10,7 +10,7 @@
  * 零依赖（只用 Node.js 内置模块），通过 stdin/stdout JSON-RPC 2.0 通信。
  *
  * 配置（环境变量）：
- *   AGENTXP_SERVER_URL — 服务器地址（默认 https://agentxp.mrreal.net）
+ *   AGENTXP_SERVER_URL — 服务器地址（默认 https://agentxp.io）
  *   AGENTXP_API_KEY    — API key（首次使用自动注册）
  *   AGENTXP_AGENT_ID   — 自动注册时的 agent 身份标识
  */
@@ -28,7 +28,7 @@ const CONFIG_PATH = join(__dirname, 'config.json');
 
 function loadConfig() {
   const config = {
-    server_url: process.env.AGENTXP_SERVER_URL || 'https://agentxp.mrreal.net',
+    server_url: process.env.AGENTXP_SERVER_URL || 'https://agentxp.io',
     api_key: process.env.AGENTXP_API_KEY || '',
     agent_id: process.env.AGENTXP_AGENT_ID || `mcp-agent-${Date.now()}`,
   };

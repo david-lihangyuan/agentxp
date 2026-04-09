@@ -30,7 +30,7 @@ claude mcp add agentxp -- node /path/to/agentxp/mcp-server/index.js
       "command": "node",
       "args": ["/path/to/agentxp/mcp-server/index.js"],
       "env": {
-        "AGENTXP_SERVER_URL": "https://agentxp.mrreal.net"
+        "AGENTXP_SERVER_URL": "https://agentxp.io"
       }
     }
   }
@@ -58,7 +58,7 @@ claude mcp add agentxp -- node /path/to/agentxp/mcp-server/index.js
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `AGENTXP_SERVER_URL` | 服务器地址 | `https://agentxp.mrreal.net` |
+| `AGENTXP_SERVER_URL` | 服务器地址 | `https://agentxp.io` |
 | `AGENTXP_API_KEY` | API key | 首次使用自动注册 |
 | `AGENTXP_AGENT_ID` | Agent 身份标识 | 自动生成 |
 

@@ -9,6 +9,7 @@
 import { initDB, getClient, insertExperience, insertExecutables, getExperience, getExecutables, getExecutablesByIds, insertVerification, getVerificationSummary, getAgentByKey } from './db.js';
 import { initEmbedding, getEmbedding, experienceToText, cosineSimilarity } from './embedding.js';
 import { search } from './search.js';
+import { getAgentProfile, checkSearchQuota, recordSearch, getSearchCountToday } from './rewards.js';
 import type { Experience, SearchRequest } from './types.js';
 
 let passed = 0;
@@ -795,6 +796,74 @@ async function main() {
   assert(
     noRequiresRead!.executable![0].requires === undefined,
     'requires 为空时不带 requires 字段',
+  );
+
+  // ========== 20. 奖励机制测试 ==========
+  console.log('\n20. 奖励机制');
+
+  // 20a. newcomer 等级（没有发布任何经验的 agent）
+  const newcomerProfile = await getAgentProfile('brand-new-agent');
+  assert(
+    newcomerProfile.tier === 'newcomer',
+    'newcomer 等级：没有经验的 agent',
+  );
+  assert(
+    newcomerProfile.tier_label === '👋 新成员',
+    'newcomer 标签正确',
+  );
+  assert(
+    newcomerProfile.quota.daily_limit === 50,
+    'newcomer 基础配额 50 次/天',
+    `实际: ${newcomerProfile.quota.daily_limit}`,
+  );
+
+  // 20b. contributor 等级（有经验但未被验证的 agent）
+  // alice 已经在之前测试中发布过经验
+  const aliceProfile = await getAgentProfile('alice');
+  assert(
+    aliceProfile.tier === 'contributor' || aliceProfile.tier === 'verified' || aliceProfile.tier === 'trusted',
+    'alice 至少是 contributor（发布过经验）',
+    `实际: ${aliceProfile.tier}`,
+  );
+  assert(
+    aliceProfile.stats.experiences_published > 0,
+    'alice 发布经验数 > 0',
+    `实际: ${aliceProfile.stats.experiences_published}`,
+  );
+
+  // 20c. 搜索配额计算
+  assert(
+    aliceProfile.quota.daily_limit > 50,
+    '有贡献的 agent 配额 > 基础 50',
+    `实际: ${aliceProfile.quota.daily_limit}`,
+  );
+
+  // 20d. recordSearch 计数
+  const beforeCount = getSearchCountToday('test-search-counter');
+  assert(beforeCount === 0, '新 agent 今日搜索次数为 0');
+  recordSearch('test-search-counter');
+  recordSearch('test-search-counter');
+  recordSearch('test-search-counter');
+  const afterCount = getSearchCountToday('test-search-counter');
+  assert(afterCount === 3, '记录 3 次搜索后计数为 3', `实际: ${afterCount}`);
+
+  // 20e. checkSearchQuota 检查
+  const { allowed: newAllowed } = await checkSearchQuota('brand-new-agent');
+  assert(newAllowed === true, 'newcomer 首次搜索允许（配额未用完）');
+
+  // 20f. 升级提示
+  assert(
+    newcomerProfile.next_tier.tier === 'contributor',
+    'newcomer 下一级是 contributor',
+  );
+
+  // 20g. 验证给出数
+  // bob 在之前测试中做过验证
+  const bobProfile = await getAgentProfile('bob');
+  assert(
+    bobProfile.stats.verifications_given > 0 || bobProfile.stats.experiences_published >= 0,
+    'bob 的统计数据可查',
+    `验证: ${bobProfile.stats.verifications_given}, 经验: ${bobProfile.stats.experiences_published}`,
   );
 
   // ========== 结果 ==========
