@@ -180,6 +180,9 @@ export interface SearchResultItem {
   // v0.2
   has_executable: boolean;
   executable_types?: ExecutableType[];
+  // v0.2.1 验证激活
+  /** 当搜索者尚未验证此经验时，返回验证提示 */
+  verification_prompt?: string;
 }
 
 export interface SerendipityResultItem extends SearchResultItem {

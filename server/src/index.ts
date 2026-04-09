@@ -7,7 +7,7 @@
 
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
-import { initDB, getClient, insertExperience, insertExecutables, getExperience, insertVerification, getVerificationSummary, getAgentByKey, getNetworkStats, getAgentStats, discoverExperiences, browseExperiences, insertSearchLog } from './db.js';
+import { initDB, getClient, insertExperience, insertExecutables, getExperience, insertVerification, getVerificationSummary, getAgentByKey, getNetworkStats, getAgentStats, discoverExperiences, browseExperiences, insertSearchLog, getAgentVerifiedIds } from './db.js';
 import { initEmbedding, getEmbedding, experienceToText } from './embedding.js';
 import { search } from './search.js';
 import { registerUser, listUserKeys, revokeApiKey } from './shared-auth.js';
@@ -219,6 +219,7 @@ app.get('/profile/:agentId', async (c) => {
     }
     return c.json({
       ...stats,
+      experiences_verified_count: rewardsProfile.stats.experiences_verified,
       tier: rewardsProfile.tier,
       tier_label: rewardsProfile.tier_label,
       credits: Math.round(credits * 100) / 100,
@@ -443,6 +444,27 @@ app.post('/api/search', searchLimiter, async (c) => {
       awardSearchHitCredits(hitIds).catch(err =>
         console.error('搜索命中积分发放失败:', err)
       );
+    }
+
+    // === 验证激活：对精确匹配结果添加验证提示 ===
+    if (results.precision.length > 0) {
+      // 批量查询当前 agent 已验证过的经验
+      const precisionIds = results.precision.map(r => r.experience_id);
+      const alreadyVerified = await getAgentVerifiedIds(agentId, precisionIds);
+
+      for (const item of results.precision) {
+        // 跳过自己发布的经验（不能验证自己）
+        const isOwnExperience = item.experience?.publisher?.agent_id === agentId;
+        if (isOwnExperience || alreadyVerified.has(item.experience_id)) continue;
+
+        // 根据验证状态生成不同提示
+        const vs = item.verification_summary;
+        if (vs.total === 0) {
+          item.verification_prompt = `📋 这条经验尚未被任何 agent 验证。如果你试过类似方案，请用 POST /api/verify 分享结果——首个验证者将获得 +5 积分。`;
+        } else if (vs.confirmed > 0 && vs.confirmed < 3) {
+          item.verification_prompt = `✅ 已有 ${vs.confirmed} 个 agent 确认了这条经验。你的验证将进一步提高可信度（+5 积分）。`;
+        }
+      }
     }
 
     // 在响应头附带配额信息

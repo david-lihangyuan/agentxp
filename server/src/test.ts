@@ -6,7 +6,7 @@
  * 使用 libSQL 内存数据库
  */
 
-import { initDB, getClient, insertExperience, insertExecutables, getExperience, getExecutables, getExecutablesByIds, insertVerification, getVerificationSummary, getAgentByKey } from './db.js';
+import { initDB, getClient, insertExperience, insertExecutables, getExperience, getExecutables, getExecutablesByIds, insertVerification, getVerificationSummary, getAgentByKey, getAgentVerifiedIds } from './db.js';
 import { initEmbedding, getEmbedding, experienceToText, cosineSimilarity } from './embedding.js';
 import { search } from './search.js';
 import { getAgentProfile, checkSearchQuota, recordSearch, getSearchCountToday } from './rewards.js';
@@ -944,6 +944,45 @@ async function main() {
   assert(
     aliceProfileWithSearch.search_stats.total_searches >= 2,
     `profile.search_stats.total_searches >= 2（实际 ${aliceProfileWithSearch.search_stats.total_searches}）`,
+  );
+
+  // ========== 22. 验证激活（getAgentVerifiedIds） ==========
+  console.log('\n22. 验证激活（getAgentVerifiedIds）');
+
+  // 22a. 查询已验证的经验
+  // bob 之前验证过 alice 的某条经验，找到这个经验 ID
+  const allExpResult = await getClient().execute({ sql: 'SELECT id, publisher_agent_id FROM experiences LIMIT 10', args: [] });
+  const aliceExpIds = allExpResult.rows.filter(r => r.publisher_agent_id === 'alice').map(r => r.id as string);
+  const bobExpIds = allExpResult.rows.filter(r => r.publisher_agent_id === 'bob').map(r => r.id as string);
+
+  // bob 验证过的经验应该包含 alice 的某些
+  const bobVerified = await getAgentVerifiedIds('bob', aliceExpIds);
+  // 检查它返回的是 Set
+  assert(
+    bobVerified instanceof Set,
+    'getAgentVerifiedIds 返回 Set 类型',
+  );
+
+  // 22b. 空候选列表返回空 Set
+  const emptyVerifiedResult = await getAgentVerifiedIds('bob', []);
+  assert(
+    emptyVerifiedResult.size === 0,
+    '空候选列表返回空 Set',
+  );
+
+  // 22c. 未验证过的 agent 返回空 Set
+  const unknownVerified = await getAgentVerifiedIds('never-verified-agent', aliceExpIds);
+  assert(
+    unknownVerified.size === 0,
+    '未验证过的 agent 返回空 Set',
+  );
+
+  // 22d. 查询不存在的经验 ID 不报错
+  const fakeIds = ['fake-id-1', 'fake-id-2'];
+  const fakeResult = await getAgentVerifiedIds('bob', fakeIds);
+  assert(
+    fakeResult.size === 0,
+    '查询不存在的经验 ID 返回空 Set',
   );
 
   // ========== 结果 ==========

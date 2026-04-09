@@ -423,6 +423,21 @@ export async function getVerificationSummary(experienceId: string): Promise<Veri
   return summary;
 }
 
+/**
+ * 查询某个 agent 已经验证过的经验 ID 集合（从给定候选列表中筛选）
+ */
+export async function getAgentVerifiedIds(agentId: string, candidateIds: string[]): Promise<Set<string>> {
+  if (candidateIds.length === 0) return new Set();
+  const db = getClient();
+  // 批量查询，用 IN 子句
+  const placeholders = candidateIds.map(() => '?').join(',');
+  const result = await db.execute({
+    sql: `SELECT DISTINCT experience_id FROM verifications WHERE verifier_agent_id = ? AND experience_id IN (${placeholders})`,
+    args: [agentId, ...candidateIds],
+  });
+  return new Set(result.rows.map(r => r.experience_id as string));
+}
+
 // === API key ===
 
 export async function getAgentByKey(key: string): Promise<string | null> {
