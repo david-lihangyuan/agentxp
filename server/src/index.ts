@@ -87,6 +87,30 @@ app.post('/api/publish', async (c) => {
       return c.json({ error: '缺少必填字段：core.what, core.tried, core.learned' }, 400);
     }
 
+    // 字段长度校验（SPEC 限制）
+    const lengthChecks = [
+      { field: 'core.what', value: exp.core.what, max: 100 },
+      { field: 'core.context', value: exp.core.context, max: 300 },
+      { field: 'core.tried', value: exp.core.tried, max: 500 },
+      { field: 'core.outcome_detail', value: exp.core.outcome_detail, max: 500 },
+      { field: 'core.learned', value: exp.core.learned, max: 500 },
+    ];
+    for (const check of lengthChecks) {
+      if (check.value && check.value.length > check.max) {
+        return c.json({ error: `${check.field} 超过长度限制（最多 ${check.max} 字符，实际 ${check.value.length}）` }, 400);
+      }
+    }
+
+    // outcome 合法值校验（避免 DB CHECK 约束返回 500）
+    if (exp.core.outcome && !['succeeded', 'failed', 'partial', 'inconclusive'].includes(exp.core.outcome)) {
+      return c.json({ error: `outcome 必须是 succeeded/failed/partial/inconclusive 之一` }, 400);
+    }
+
+    // tags 数量限制
+    if (exp.tags && exp.tags.length > 20) {
+      return c.json({ error: 'tags 最多 20 个' }, 400);
+    }
+
     // 生成 embedding
     const text = experienceToText({
       what: exp.core.what,

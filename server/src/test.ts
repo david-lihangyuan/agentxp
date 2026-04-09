@@ -597,6 +597,49 @@ async function main() {
     assert(true, 'serendipity reason 验证——无结果（mock embedding 限制，跳过）');
   }
 
+  // ========== 16. Publish 输入校验 ==========
+  console.log('\n--- 16. Publish 输入校验 ---');
+
+  // 16a. what 超长
+  try {
+    const longWhat = makeExperience({
+      core: { what: 'x'.repeat(101), context: '', tried: 'tried', outcome: 'succeeded', outcome_detail: '', learned: 'learned' },
+      publisher: { agent_id: 'test', platform: 'test' },
+      tags: [],
+    });
+    await insertExperience(longWhat, null);
+    // insertExperience 不做长度校验（是 API 层做的），所以这里测试的是逻辑连通性
+    assert(true, 'what 超长经验可以写入 DB（校验在 API 层）');
+  } catch (err) {
+    assert(false, 'what 超长经验写入失败', String(err));
+  }
+
+  // 16b. outcome 非法值——DB CHECK 约束应拦截
+  try {
+    const badOutcome = makeExperience({
+      core: { what: 'test', context: '', tried: 'tried', outcome: 'unknown' as any, outcome_detail: '', learned: 'learned' },
+      publisher: { agent_id: 'test', platform: 'test' },
+      tags: [],
+    });
+    await insertExperience(badOutcome, null);
+    assert(false, '非法 outcome 应被 DB 拒绝');
+  } catch (err) {
+    assert(true, '非法 outcome 被 DB CHECK 约束拦截');
+  }
+
+  // 16c. tags 存储和读取一致性
+  const manyTags = makeExperience({
+    core: { what: 'tags test', context: '', tried: 'tried', outcome: 'succeeded', outcome_detail: '', learned: 'learned' },
+    publisher: { agent_id: 'test', platform: 'test' },
+    tags: Array.from({ length: 15 }, (_, i) => `tag-${i}`),
+  });
+  const manyTagsId = await insertExperience(manyTags, null);
+  const manyTagsRead = await getExperience(manyTagsId);
+  assert(
+    manyTagsRead !== null && manyTagsRead.tags.length === 15,
+    `15 个 tags 存取一致（实际 ${manyTagsRead?.tags.length}）`,
+  );
+
   // ========== 结果 ==========
   console.log(`\n${'='.repeat(40)}`);
   console.log(`🏁 经验网络测试: ${passed} 通过, ${failed} 失败`);
