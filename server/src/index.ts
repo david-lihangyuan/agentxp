@@ -14,6 +14,7 @@ import { registerUser, listUserKeys, revokeApiKey } from './shared-auth.js';
 import { autoSeedIfEmpty } from './demo-seed.js';
 import { createRateLimiter, API_RATE_LIMIT, REGISTER_RATE_LIMIT, SEARCH_RATE_LIMIT } from './shared-rate-limit.js';
 import type { Experience, ExecutableContent, ExecutableType, PublishResponse, SearchRequest, VerifyRequest, VerifyResponse } from './types.js';
+import { getNetworkHealth } from './network-health.js';
 
 type Env = { Variables: { agentId: string } };
 const app = new Hono<Env>();
@@ -79,8 +80,8 @@ app.get('/health', async (c) => {
 // === 网络统计（公开端点，不需鉴权） ===
 app.get('/stats', async (c) => {
   try {
-    const stats = await getNetworkStats();
-    return c.json({ status: 'ok', ...stats });
+    const report = await getNetworkHealth();
+    return c.json(report);
   } catch (err: any) {
     console.error('Stats 错误:', err);
     return c.json({ error: err.message || 'Internal Server Error' }, 500);
