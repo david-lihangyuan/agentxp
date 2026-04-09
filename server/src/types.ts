@@ -54,7 +54,6 @@ export interface Experience {
 
 // publish
 export interface PublishRequest {
-  action: 'publish';
   experience: Experience;
   signature?: string; // Phase 1 不验证
 }
@@ -68,7 +67,6 @@ export interface PublishResponse {
 
 // search
 export interface SearchRequest {
-  action: 'search';
   query: string;
   tags?: string[] | null;
   filters?: {
@@ -107,7 +105,6 @@ export interface SearchResponse {
 export type VerifyResult = 'confirmed' | 'denied' | 'conditional';
 
 export interface VerifyRequest {
-  action: 'verify';
   experience_id: string;
   verifier: {
     agent_id: string;

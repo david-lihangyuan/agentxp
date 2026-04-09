@@ -126,7 +126,6 @@ async function main() {
   console.log('\n--- 2. 基本搜索 ---');
 
   const result1 = await search({
-    action: 'search',
     query: 'TypeScript compiler performance optimization',
     limit: 10,
   });
@@ -139,7 +138,6 @@ async function main() {
 
   // outcome 过滤
   const resultFailed = await search({
-    action: 'search',
     query: 'Docker image optimization',
     filters: { outcome: 'failed' },
   });
@@ -153,7 +151,6 @@ async function main() {
 
   // tag 过滤
   const resultTagged = await search({
-    action: 'search',
     query: 'performance',
     tags: ['sqlite'],
   });
@@ -197,7 +194,6 @@ async function main() {
   console.log('\n--- 5. min_verifications 过滤器 ---');
 
   const resultMinVer = await search({
-    action: 'search',
     query: 'TypeScript compiler performance optimization SQLite WAL Docker Alpine',
     filters: { min_verifications: 2 },
   });
@@ -211,7 +207,6 @@ async function main() {
   assert(!allResultIds.includes(id3), `min_verifications=2 过滤掉只有 denied 的经验 3`);
 
   const resultMinVer1 = await search({
-    action: 'search',
     query: 'TypeScript compiler performance optimization SQLite WAL Docker Alpine',
     filters: { min_verifications: 1 },
   });
@@ -224,7 +219,6 @@ async function main() {
 
   // min_verifications=0 或不设 → 全部返回
   const resultNoMinVer = await search({
-    action: 'search',
     query: 'TypeScript compiler performance optimization SQLite WAL Docker Alpine',
   });
   assert(
@@ -236,14 +230,12 @@ async function main() {
   console.log('\n--- 6. 双通道通道控制 ---');
 
   const resultPrecisionOnly = await search({
-    action: 'search',
     query: 'TypeScript',
     channels: { precision: true, serendipity: false },
   });
   assert(resultPrecisionOnly.serendipity.length === 0, '关闭 serendipity 通道时返回空');
 
   const resultSerendipityOnly = await search({
-    action: 'search',
     query: 'TypeScript',
     channels: { precision: false, serendipity: true },
   });
@@ -262,7 +254,7 @@ async function main() {
   // 空库搜索
   await initDB(':memory:');
   initEmbedding('mock', undefined, true);
-  const emptyResult = await search({ action: 'search', query: 'anything' });
+  const emptyResult = await search({ query: 'anything' });
   assert(emptyResult.precision.length === 0, '空库搜索 precision 返回空');
   assert(emptyResult.serendipity.length === 0, '空库搜索 serendipity 返回空');
   assert(emptyResult.total_available === 0, '空库 total_available=0');
@@ -306,7 +298,6 @@ async function main() {
   const oldId = await publishExperience(oldExp);
 
   const resultMaxAge = await search({
-    action: 'search',
     query: 'frontend development React jQuery migration hooks',
     filters: { max_age_days: 30 },
   });
@@ -318,7 +309,6 @@ async function main() {
 
   // 无过滤时旧经验应可见
   const resultNoAge = await search({
-    action: 'search',
     query: 'frontend development React jQuery migration hooks',
   });
   assert(resultNoAge.total_available >= 2, `无年龄过滤时 total_available >= 2（实际 ${resultNoAge.total_available}）`);
@@ -380,7 +370,6 @@ async function main() {
   const noTtlId = await publishExperience(noTtlExp);
 
   const resultTtl = await search({
-    action: 'search',
     query: 'caching Redis eviction TTL LRU strategies fundamentals',
   });
   const ttlAllIds = [
@@ -427,7 +416,6 @@ async function main() {
   await publishExperience(expPlatB);
 
   const resultPlatform = await search({
-    action: 'search',
     query: 'database postgres performance indexing pooling',
     filters: { platform: 'openclaw' },
   });
@@ -467,7 +455,6 @@ async function main() {
   }
 
   const resultLimit2 = await search({
-    action: 'search',
     query: 'testing strategies integration test coverage',
     limit: 2,
   });
@@ -520,7 +507,6 @@ async function main() {
   const plainId = await publishExperience(plainExp);
 
   const resultTrust = await search({
-    action: 'search',
     query: 'API rate limiting Redis in-memory counter bucket',
     limit: 10,
   });
@@ -576,7 +562,6 @@ async function main() {
   }
 
   const resultSCap = await search({
-    action: 'search',
     query: 'innovation research novel approach',
     channels: { precision: false, serendipity: true },
   });

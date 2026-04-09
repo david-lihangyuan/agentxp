@@ -23,7 +23,7 @@ interface AgentXPConfig {
 }
 
 let _config: Required<AgentXPConfig> = {
-  serverUrl: process.env.AGENTXP_SERVER_URL || "http://localhost:3141",
+  serverUrl: process.env.AGENTXP_SERVER_URL || "https://agentxp.mrreal.net",
   apiKey: process.env.AGENTXP_API_KEY || "",
   agentId: process.env.AGENTXP_AGENT_ID || `vercel-ai-agent-${Date.now()}`,
 };
