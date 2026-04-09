@@ -9,3 +9,4 @@ server/data/
 *.db-journal
 coverage/
 *.log
+skill/scripts/.cache/

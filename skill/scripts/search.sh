@@ -27,6 +27,34 @@ if [[ -z "$QUERY" ]]; then
   exit 1
 fi
 
+# === 本地缓存 ===
+CACHE_DIR="$SCRIPT_DIR/.cache"
+CACHE_TTL=3600  # 1 小时
+mkdir -p "$CACHE_DIR"
+
+# 缓存 key = md5(query+tags+outcome+limit+serendipity)
+CACHE_INPUT="${QUERY}|${TAGS}|${OUTCOME}|${LIMIT}|${SERENDIPITY}"
+if command -v md5 &>/dev/null; then
+  CACHE_KEY=$(echo -n "$CACHE_INPUT" | md5)
+elif command -v md5sum &>/dev/null; then
+  CACHE_KEY=$(echo -n "$CACHE_INPUT" | md5sum | cut -d' ' -f1)
+else
+  CACHE_KEY=$(echo -n "$CACHE_INPUT" | shasum | cut -d' ' -f1)
+fi
+CACHE_FILE="$CACHE_DIR/$CACHE_KEY"
+
+# 检查缓存是否存在且未过期
+if [[ -f "$CACHE_FILE" ]]; then
+  CACHE_AGE=$(( $(date +%s) - $(stat -f %m "$CACHE_FILE" 2>/dev/null || stat -c %Y "$CACHE_FILE" 2>/dev/null || echo 0) ))
+  if [[ "$CACHE_AGE" -lt "$CACHE_TTL" ]]; then
+    echo "📦 缓存命中（${CACHE_AGE}s 前的结果，TTL ${CACHE_TTL}s）"
+    cat "$CACHE_FILE"
+    exit 0
+  else
+    rm -f "$CACHE_FILE"
+  fi
+fi
+
 # 构建 tags JSON
 TAGS_JSON="null"
 if [[ -n "$TAGS" ]]; then
@@ -74,7 +102,8 @@ if [[ "$HTTP_CODE" != "200" ]]; then
   exit 1
 fi
 
-# 格式化输出
+# 格式化输出（同时写入缓存）
+{
 PRECISION_COUNT=$(echo "$BODY_RESPONSE" | jq '.precision | length')
 SERENDIPITY_COUNT=$(echo "$BODY_RESPONSE" | jq '.serendipity | length')
 TOTAL=$(echo "$BODY_RESPONSE" | jq '.total_available')
@@ -119,3 +148,4 @@ fi
 echo ""
 echo "--- RAW JSON ---"
 echo "$BODY_RESPONSE" | jq .
+} | tee "$CACHE_FILE"
