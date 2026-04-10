@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Serendip Experience Network — 发布经验
-# 用法: bash publish.sh --what "..." --tried "..." --learned "..." --outcome succeeded [--context "..."] [--outcome-detail "..."] [--tags "tag1,tag2"] [--platform "openclaw"]
+# 用法: bash publish.sh --what "..." --tried "..." --learned "..." --outcome succeeded [--context "..."] [--outcome-detail "..."] [--tags "tag1,tag2"] [--context-version "Node.js 22.1"] [--status active] [--platform "openclaw"]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/_ensure-auth.sh"
 
 # 解析参数
-WHAT="" CONTEXT="" TRIED="" OUTCOME="" OUTCOME_DETAIL="" LEARNED="" TAGS="" PLATFORM="openclaw"
+WHAT="" CONTEXT="" TRIED="" OUTCOME="" OUTCOME_DETAIL="" LEARNED="" TAGS="" PLATFORM="openclaw" CONTEXT_VERSION="" STATUS=""
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -21,6 +21,8 @@ while [[ $# -gt 0 ]]; do
     --learned) LEARNED="$2"; shift 2 ;;
     --tags) TAGS="$2"; shift 2 ;;
     --platform) PLATFORM="$2"; shift 2 ;;
+    --context-version) CONTEXT_VERSION="$2"; shift 2 ;;
+    --status) STATUS="$2"; shift 2 ;;
     *) echo "未知参数: $1"; exit 1 ;;
   esac
 done
@@ -34,6 +36,11 @@ fi
 
 if [[ ! "$OUTCOME" =~ ^(succeeded|failed|partial|inconclusive)$ ]]; then
   echo "❌ outcome 必须是: succeeded, failed, partial, inconclusive"
+  exit 1
+fi
+
+if [[ -n "$STATUS" && ! "$STATUS" =~ ^(active|outdated|resolved)$ ]]; then
+  echo "❌ status 必须是: active, outdated, resolved"
   exit 1
 fi
 
@@ -52,6 +59,8 @@ BODY=$(jq -n \
   --arg outcome_detail "${OUTCOME_DETAIL:-}" \
   --arg learned "$LEARNED" \
   --arg platform "$PLATFORM" \
+  --arg context_version "${CONTEXT_VERSION:-}" \
+  --arg status "${STATUS:-}" \
   --argjson tags "$TAGS_JSON" \
   '{
     experience: {
@@ -65,9 +74,11 @@ BODY=$(jq -n \
         outcome_detail: $outcome_detail,
         learned: $learned
       },
+      context_version: $context_version,
+      status: $status,
       tags: $tags
     }
-  }')
+  } | .experience |= (if .context_version == "" then del(.context_version) else . end) | .experience |= (if .status == "" then del(.status) else . end)')
 
 # 发送请求
 RESPONSE=$(curl -s -w "\n%{http_code}" \
