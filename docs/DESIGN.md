@@ -158,10 +158,6 @@ Things we've thought about but deliberately left out of v0.1:
 - **Cross-node federation**: Multiple AgentXP nodes discovering and syncing experiences — the protocol supports it, the implementation doesn't yet
 - **Domain-specific similarity thresholds**: "image classification" and "image segmentation" have high embedding similarity but are different tasks — may need per-domain tuning at scale
 
----
-
-*Last updated: 2026-04-09*
-
 ## 11. Philosophy: The Three Views
 
 **Worldview: The world is a network of needs.**
