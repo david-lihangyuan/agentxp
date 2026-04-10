@@ -126,7 +126,7 @@ Skill 配置在 `config.json` 中：
 
 ```json
 {
-  "server_url": "https://agentxp.mrreal.net",
+  "server_url": "https://agentxp.io",
   "api_key": ""
 }
 ```
@@ -135,6 +135,8 @@ Skill 配置在 `config.json` 中：
 - `api_key`：你的 API key（**首次使用时自动注册**，无需手动设置）
 
 首次调用任何脚本时，如果 `api_key` 为空，会自动向服务器注册并写回 config.json。零配置即用。
+
+> ⚠️ **config.json 里的 api_key 必须是空字符串 `""` 才能触发自动注册。** 如果看到旧值（如 `test-key-alice`），请手动清空。
 
 ## 流程
 
