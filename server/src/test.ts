@@ -12,6 +12,7 @@ import { search } from './search.js';
 import { getAgentProfile, checkSearchQuota, recordSearch, getSearchCountToday } from './rewards.js';
 import { insertSearchLog, getAgentSearchStats } from './db.js';
 import type { Experience, SearchRequest } from './types.js';
+import { detectSensitiveContent, classifyRisk } from './sanitize.js';
 
 let passed = 0;
 let failed = 0;
@@ -1137,6 +1138,146 @@ async function main() {
   // 删除不存在的经验返回 false
   const deleteFake = await deleteExperience('nonexistent-id');
   assert(deleteFake === false, `删除不存在的经验返回 false (${deleteFake})`);
+
+  // ========== 脱敏检测测试 ==========
+  console.log('\n📋 脱敏检测测试...');
+
+  // 1. 检测 OpenAI API key
+  const r1 = detectSensitiveContent({
+    tried: 'I used sk-1234567890abcdefghijklmnopqrstuvwxyz to call the API',
+  });
+  assert(r1.found === true, '检测到 OpenAI API key');
+  assert(r1.matches.some(m => m.type === 'api_key'), 'API key 类型正确');
+  assert(r1.matches[0].masked.startsWith('sk-1') && r1.matches[0].masked.includes('...'), `API key 已遮蔽 (${r1.matches[0].masked})`);
+
+  // 2. 检测 GitHub PAT
+  const r2 = detectSensitiveContent({
+    learned: 'Use ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef1234 for auth',
+  });
+  assert(r2.found === true, '检测到 GitHub PAT');
+  assert(r2.matches.some(m => m.type === 'api_key' && m.field === 'core.learned'), 'GitHub PAT 在 learned 字段');
+
+  // 3. 检测 JWT token
+  const r3 = detectSensitiveContent({
+    tried: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c',
+  });
+  assert(r3.found === true, '检测到 JWT token');
+
+  // 4. 检测密码赋值
+  const r4 = detectSensitiveContent({
+    tried: 'Set password=MySecretPass123! in the config file',
+  });
+  assert(r4.found === true, '检测到密码赋值');
+  assert(r4.matches.some(m => m.type === 'password'), '密码类型正确');
+
+  // 5. 检测环境变量密码
+  const r5 = detectSensitiveContent({
+    tried: 'POSTGRES_PASSWORD=super_secret_db_password in .env',
+  });
+  assert(r5.found === true, '检测到环境变量密码');
+
+  // 6. 检测 AWS key
+  const r6 = detectSensitiveContent({
+    what: 'Configured AWS with AKIAIOSFODNN7EXAMPLE',
+  });
+  assert(r6.found === true, '检测到 AWS access key');
+
+  // 7. 检测连接字符串
+  const r7 = detectSensitiveContent({
+    tried: 'Connect to postgres://admin:p4ssw0rd@db.example.com:5432/mydb',
+  });
+  assert(r7.found === true, '检测到带密码的连接字符串');
+  assert(r7.matches.some(m => m.type === 'connection_string'), '连接字符串类型正确');
+
+  // 8. 检测私钥
+  const r8 = detectSensitiveContent({
+    tried: '-----BEGIN RSA PRIVATE KEY----- and then the key data',
+  });
+  assert(r8.found === true, '检测到私钥');
+  assert(r8.matches.some(m => m.type === 'private_key'), '私钥类型正确');
+
+  // 9. 检测 IP 地址
+  const r9 = detectSensitiveContent({
+    tried: 'SSH to 154.12.191.239:22 and run the command',
+  });
+  assert(r9.found === true, '检测到 IP 地址');
+
+  // 10. 干净文本不触发
+  const rClean = detectSensitiveContent({
+    what: 'Fixed Docker networking issue',
+    tried: 'Changed the Docker bridge network configuration to use a custom subnet',
+    learned: 'Docker bridge networks need explicit subnet configuration when running multiple compose stacks',
+  });
+  assert(rClean.found === false, `干净文本不触发 (匹配数: ${rClean.matches.length})`);
+
+  // 11. 占位符不触发（误报过滤）
+  const rPlaceholder = detectSensitiveContent({
+    tried: 'Replace YOUR_API_KEY with your actual key, like sk-xxxxxxxxxxxxxxx',
+  });
+  assert(rPlaceholder.found === false, `占位符不触发 (匹配数: ${rPlaceholder.matches.length})`);
+
+  // 12. 多字段多类型检测
+  const rMulti = detectSensitiveContent({
+    what: 'Deploy with AKIAIOSFODNN7EXAMPLE',
+    tried: 'Used sk-1234567890abcdefghijklmnopqrstuvwxyz and postgres://user:pass@host/db',
+    learned: 'Always use env vars, not hardcoded ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef1234',
+  });
+  assert(rMulti.matches.length >= 4, `多字段检测到 ${rMulti.matches.length} 个匹配 (>=4)`);
+  assert(rMulti.warnings.length >= 2, `多字段生成 ${rMulti.warnings.length} 条警告 (>=2)`);
+
+  // 13. 高危/低危分类
+  const rRisk = detectSensitiveContent({
+    tried: 'Used sk-1234567890abcdefghijklmnopqrstuvwxyz and emailed admin@company.com from 192.168.1.100:8080',
+  });
+  const { high, low } = classifyRisk(rRisk.matches);
+  assert(high.length >= 1, `高危匹配 ${high.length} 个 (>=1, API key)`);
+  assert(low.length >= 1, `低危匹配 ${low.length} 个 (>=1, 邮箱/IP)`);
+
+  // 14. executable 中的敏感信息
+  const rExec = detectSensitiveContent({
+    what: 'Script to deploy',
+    executable: [
+      { code: 'export OPENAI_API_KEY=sk-abcdefghij1234567890abcdefghijklmnop', description: 'Set API key' },
+    ],
+  });
+  assert(rExec.found === true, '检测到 executable 中的 API key');
+  assert(rExec.matches.some(m => m.field.startsWith('executable')), `executable 字段标注正确 (${rExec.matches.map(m => m.field).join(', ')})`);
+
+  // 15. Anthropic key
+  const rAnt = detectSensitiveContent({
+    tried: 'Set sk-ant-api03-abcdefghijklmnopqrstuvwxyz1234567890 in config',
+  });
+  assert(rAnt.found === true, '检测到 Anthropic API key');
+
+  // 16. Slack token
+  const rSlack = detectSensitiveContent({
+    tried: 'Bot token xoxb-' + '1234567890' + '-abcdefghijklmnopqrst',
+  });
+  assert(rSlack.found === true, '检测到 Slack bot token');
+
+  // 17. 内网 URL
+  const rPriv = detectSensitiveContent({
+    tried: 'Call http://192.168.1.50:3000/api/internal to get data',
+  });
+  assert(rPriv.found === true, '检测到内网 URL');
+  assert(rPriv.matches.some(m => m.type === 'private_url'), '内网 URL 类型正确');
+
+  // 18. Stripe key
+  const rStripe = detectSensitiveContent({
+    tried: 'Use sk_live_' + '1234567890abcdefghijklmnop' + ' for payment processing',
+  });
+  assert(rStripe.found === true, '检测到 Stripe secret key');
+
+  // 19. AgentXP 自身 key
+  const rSxp = detectSensitiveContent({
+    tried: 'Registered and got sxp_abcdef1234567890abcdef1234567890ab',
+  });
+  assert(rSxp.found === true, '检测到 AgentXP API key');
+
+  // 20. 空/undefined 字段安全
+  const rEmpty = detectSensitiveContent({});
+  assert(rEmpty.found === false, '空字段不报错');
+  assert(rEmpty.matches.length === 0, '空字段零匹配');
 
   // ========== 结果 ==========
   console.log(`\n${'='.repeat(40)}`);

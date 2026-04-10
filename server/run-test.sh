@@ -1,5 +1,3 @@
 #!/bin/bash
-cd "$(dirname "$0")"
-export MOCK_EMBEDDINGS=true
-export DB_URL="file::memory:"
-node dist/test.js
+cd /Users/david/.openclaw/workspace/agentxp/server
+MOCK_EMBEDDINGS=true node dist/test.js

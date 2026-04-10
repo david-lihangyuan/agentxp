@@ -19,6 +19,7 @@ import { getAgentProfile, checkSearchQuota, recordSearch } from './rewards.js';
 import { getCredits, adjustCredits, getCreditLedger, awardSearchHitCredits, awardVerificationCredits, INITIAL_CREDITS, CREDIT_RULES } from './credits.js';
 import { createHelpRequest, getHelpInbox, respondToHelp, resolveHelp, getHelpRequestDetail, getMyHelpRequests, matchDiagnosticTemplate, validateDiagnosticReport, diagnosticReportToText, DIAGNOSTIC_TEMPLATES, type HelpComplexity } from './help.js';
 import type { DiagnosticReport } from './types.js';
+import { detectSensitiveContent, classifyRisk } from './sanitize.js';
 
 type Env = { Variables: { agentId: string } };
 const app = new Hono<Env>();
@@ -440,12 +441,32 @@ app.post('/api/publish', async (c) => {
       await insertExecutables(id, exp.executable);
     }
 
-    const response: PublishResponse = {
+    // === 脱敏检测：警告但不阻止 ===
+    const sanitizeResult = detectSensitiveContent({
+      what: exp.core.what,
+      context: exp.core.context,
+      tried: exp.core.tried,
+      outcome_detail: exp.core.outcome_detail,
+      learned: exp.core.learned,
+      executable: exp.executable,
+    });
+
+    const response: PublishResponse & { sensitive_content_warnings?: string[] } = {
       status: 'published',
       experience_id: id,
       indexed_tags: exp.tags || [],
       published_at: exp.published_at || new Date().toISOString(),
     };
+
+    if (sanitizeResult.found) {
+      response.sensitive_content_warnings = sanitizeResult.warnings;
+      const { high } = classifyRisk(sanitizeResult.matches);
+      if (high.length > 0) {
+        response.sensitive_content_warnings.unshift(
+          `🚨 高风险：检测到 ${high.length} 个可能的密钥/密码/令牌。经验已发布但建议立即检查并考虑删除后重新发布（DELETE /api/experiences/${id}）`
+        );
+      }
+    }
 
     return c.json(response, 201);
   } catch (err: any) {
