@@ -7,13 +7,13 @@
 
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
-import { initDB, getClient, insertExperience, insertExecutables, getExperience, insertVerification, getVerificationSummary, getAgentByKey, getNetworkStats, getAgentStats, discoverExperiences, browseExperiences, insertSearchLog, getAgentVerifiedIds } from './db.js';
+import { initDB, getClient, insertExperience, insertExecutables, getExperience, updateExperienceStatus, insertVerification, getVerificationSummary, getAgentByKey, getNetworkStats, getAgentStats, discoverExperiences, browseExperiences, insertSearchLog, getAgentVerifiedIds } from './db.js';
 import { initEmbedding, getEmbedding, experienceToText } from './embedding.js';
 import { search } from './search.js';
 import { registerUser, listUserKeys, revokeApiKey } from './shared-auth.js';
 import { autoSeedIfEmpty } from './demo-seed.js';
 import { createRateLimiter, API_RATE_LIMIT, REGISTER_RATE_LIMIT, SEARCH_RATE_LIMIT } from './shared-rate-limit.js';
-import type { Experience, ExecutableContent, ExecutableType, PublishResponse, SearchRequest, VerifyRequest, VerifyResponse } from './types.js';
+import type { Experience, ExperienceStatus, ExecutableContent, ExecutableType, PublishResponse, SearchRequest, VerifyRequest, VerifyResponse } from './types.js';
 import { getNetworkHealth } from './network-health.js';
 import { getAgentProfile, checkSearchQuota, recordSearch } from './rewards.js';
 import { getCredits, adjustCredits, getCreditLedger, awardSearchHitCredits, awardVerificationCredits, INITIAL_CREDITS, CREDIT_RULES } from './credits.js';
@@ -170,6 +170,8 @@ app.get('/experiences', async (c) => {
         tags: exp.tags,
         published_at: exp.published_at,
         publisher: { agent_id: exp.publisher.agent_id, platform: exp.publisher.platform },
+        context_version: exp.context_version || null,
+        status: exp.status || 'active',
         verification_summary: verSum,
       };
     }));
@@ -396,6 +398,22 @@ app.post('/api/publish', async (c) => {
     exp.core.outcome = exp.core.outcome || 'inconclusive';
     exp.core.outcome_detail = exp.core.outcome_detail || '';
 
+    // v0.3: 经验版本和状态
+    if (exp.context_version && typeof exp.context_version === 'string' && exp.context_version.length > 100) {
+      return c.json({ error: 'context_version 最多 100 字符' }, 400);
+    }
+    const validStatuses: ExperienceStatus[] = ['active', 'outdated', 'resolved'];
+    if (exp.status && !validStatuses.includes(exp.status)) {
+      return c.json({ error: `status 必须是 ${validStatuses.join('/')} 之一` }, 400);
+    }
+    // 从扁平格式也可以传
+    if (!exp.context_version && (body as any).context_version) {
+      exp.context_version = (body as any).context_version;
+    }
+    if (!exp.status && (body as any).status) {
+      exp.status = (body as any).status;
+    }
+
     const id = await insertExperience(exp, embedding);
 
     // v0.2: 存储可执行内容
@@ -526,7 +544,7 @@ app.get('/api/my-experiences', async (c) => {
     const client = getClient();
     const countResult = await client.execute({ sql: 'SELECT COUNT(*) as total FROM experiences WHERE publisher_agent_id = ?', args: [agentId] });
     const total = Number(countResult.rows[0]?.total ?? 0);
-    const result = await client.execute({ sql: 'SELECT id, what, context, tried, outcome, outcome_detail, learned, tags, published_at FROM experiences WHERE publisher_agent_id = ? ORDER BY published_at DESC LIMIT ? OFFSET ?', args: [agentId, limit, offset] });
+    const result = await client.execute({ sql: 'SELECT id, what, context, tried, outcome, outcome_detail, learned, tags, published_at, context_version, status FROM experiences WHERE publisher_agent_id = ? ORDER BY published_at DESC LIMIT ? OFFSET ?', args: [agentId, limit, offset] });
     const experiences = result.rows.map(row => ({
       id: row.id,
       what: row.what,
@@ -537,6 +555,8 @@ app.get('/api/my-experiences', async (c) => {
       learned: row.learned,
       tags: row.tags ? JSON.parse(row.tags as string) : [],
       published_at: row.published_at,
+      context_version: row.context_version ?? null,
+      status: row.status ?? 'active',
     }));
     return c.json({ agent_id: agentId, total, experiences, has_more: offset + limit < total, limit, offset });
   } catch (err: any) {
@@ -598,6 +618,44 @@ app.post('/api/verify', async (c) => {
     return c.json(response);
   } catch (err: any) {
     console.error('Verify 错误:', err);
+    return c.json({ error: err.message || 'Internal Server Error' }, 500);
+  }
+});
+
+// === 状态更新 (Phase 1.4) ===
+app.put('/api/experiences/:id/status', async (c) => {
+  try {
+    const body = await c.req.json();
+    const id = c.req.param('id');
+    const { status } = body;
+
+    const validStatuses: ExperienceStatus[] = ['active', 'outdated', 'resolved'];
+    if (!status || !validStatuses.includes(status)) {
+      return c.json({ error: `status 必须是 ${validStatuses.join('/')} 之一` }, 400);
+    }
+
+    // 检查经验存在
+    const exp = await getExperience(id);
+    if (!exp) {
+      return c.json({ error: '经验不存在' }, 404);
+    }
+
+    // 只有原作者可以更新状态
+    const agentId = c.get('agentId');
+    if (exp.publisher.agent_id !== agentId) {
+      return c.json({ error: '只有经验的原作者可以更新状态' }, 403);
+    }
+
+    await updateExperienceStatus(id, status);
+
+    return c.json({
+      status: 'updated',
+      experience_id: id,
+      new_status: status,
+      updated_at: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    console.error('StatusUpdate 错误:', err);
     return c.json({ error: err.message || 'Internal Server Error' }, 500);
   }
 });
@@ -878,6 +936,92 @@ app.get('/api/credits', async (c) => {
     });
   } catch (err: any) {
     console.error('Credits 错误:', err);
+    return c.json({ error: err.message || 'Internal Server Error' }, 500);
+  }
+});
+
+// === Operator Dashboard ===
+app.get('/api/operator/dashboard', async (c) => {
+  try {
+    const agentId = c.get('agentId');
+    const db = getClient();
+
+    // 1. 积分余额
+    const credits = await getCredits(agentId);
+
+    // 2. 积分收支汇总（从 credit_ledger）
+    const incomeResult = await db.execute({
+      sql: 'SELECT COALESCE(SUM(amount), 0) as total FROM credit_ledger WHERE agent_id = ? AND amount > 0',
+      args: [agentId],
+    });
+    const expenseResult = await db.execute({
+      sql: 'SELECT COALESCE(SUM(amount), 0) as total FROM credit_ledger WHERE agent_id = ? AND amount < 0',
+      args: [agentId],
+    });
+
+    // 3. 经验统计
+    const publishedResult = await db.execute({
+      sql: 'SELECT COUNT(*) as count FROM experiences WHERE publisher_agent_id = ?',
+      args: [agentId],
+    });
+    const verifiedResult = await db.execute({
+      sql: `SELECT COUNT(DISTINCT v.experience_id) as count FROM verifications v
+            JOIN experiences e ON v.experience_id = e.id
+            WHERE e.publisher_agent_id = ? AND v.result = 'confirmed'`,
+      args: [agentId],
+    });
+
+    // 4. 搜索统计（从 search_hit_credits）
+    const searchHitsResult = await db.execute({
+      sql: `SELECT COALESCE(SUM(count), 0) as total FROM search_hit_credits
+            WHERE experience_id IN (SELECT id FROM experiences WHERE publisher_agent_id = ?)`,
+      args: [agentId],
+    });
+
+    // 5. 最近交易明细
+    const ledger = await getCreditLedger(agentId, 50);
+
+    // 6. 求助统计
+    let helpStats = { requested: 0, responded: 0, resolved: 0 };
+    try {
+      const reqResult = await db.execute({
+        sql: 'SELECT COUNT(*) as count FROM help_requests WHERE requester_id = ?',
+        args: [agentId],
+      });
+      const respResult = await db.execute({
+        sql: 'SELECT COUNT(*) as count FROM help_responses WHERE responder_id = ?',
+        args: [agentId],
+      });
+      const resolvResult = await db.execute({
+        sql: "SELECT COUNT(*) as count FROM help_requests WHERE requester_id = ? AND status = 'resolved'",
+        args: [agentId],
+      });
+      helpStats = {
+        requested: (reqResult.rows[0]?.count as number) || 0,
+        responded: (respResult.rows[0]?.count as number) || 0,
+        resolved: (resolvResult.rows[0]?.count as number) || 0,
+      };
+    } catch {
+      // help tables might not exist yet
+    }
+
+    return c.json({
+      agent_id: agentId,
+      credits: {
+        balance: Math.round(credits * 100) / 100,
+        total_earned: Math.round((incomeResult.rows[0]?.total as number || 0) * 100) / 100,
+        total_spent: Math.round(Math.abs(expenseResult.rows[0]?.total as number || 0) * 100) / 100,
+      },
+      experiences: {
+        published: (publishedResult.rows[0]?.count as number) || 0,
+        verified: (verifiedResult.rows[0]?.count as number) || 0,
+        search_hits: (searchHitsResult.rows[0]?.total as number) || 0,
+      },
+      help: helpStats,
+      recent_transactions: ledger,
+    });
+  } catch (err: any) {
+    console.error('Operator dashboard error:', err);
     return c.json({ error: err.message || 'Internal Server Error' }, 500);
   }
 });

@@ -8,6 +8,9 @@
 
 export type Outcome = 'succeeded' | 'failed' | 'partial' | 'inconclusive';
 
+/** 经验生命周期状态 */
+export type ExperienceStatus = 'active' | 'outdated' | 'resolved';
+
 export interface Publisher {
   agent_id: string;
   platform: string;
@@ -46,6 +49,11 @@ export interface Experience {
   };
 
   tags: string[];
+
+  /** 经验产生时的上下文版本（如 "openclaw@2026.4.5"、"react@19.0"） */
+  context_version?: string | null;
+  /** 经验状态：active=有效, outdated=已过时, resolved=问题已被修复 */
+  status?: ExperienceStatus;
 
   agent_context?: AgentContext;
   trust?: Trust;

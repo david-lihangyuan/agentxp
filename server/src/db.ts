@@ -120,7 +120,26 @@ export async function initDB(url: string, authToken?: string): Promise<Client> {
   const { migrateHelp } = await import('./help.js');
   await migrateHelp();
 
+  // 运行时迁移：经验版本 + 状态（Phase 1.1）
+  await migrateExperienceVersionStatus(client);
+
   return client;
+}
+
+/** 幂等迁移：experiences 表加 context_version 和 status 列 */
+async function migrateExperienceVersionStatus(client: Client) {
+  // context_version: 经验产生时的上下文版本（如 "openclaw@2026.4.5"）
+  try {
+    await client.execute({ sql: `ALTER TABLE experiences ADD COLUMN context_version TEXT`, args: [] });
+  } catch (e: any) {
+    if (!e.message?.includes('duplicate column')) throw e;
+  }
+  // status: active / outdated / resolved，默认 active
+  try {
+    await client.execute({ sql: `ALTER TABLE experiences ADD COLUMN status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'outdated', 'resolved'))`, args: [] });
+  } catch (e: any) {
+    if (!e.message?.includes('duplicate column')) throw e;
+  }
 }
 
 export function getClient(): Client {
@@ -232,12 +251,14 @@ export async function insertExperience(exp: Experience, embedding: Float32Array 
         id, version, published_at, updated_at, ttl_days,
         publisher_agent_id, publisher_platform, publisher_operator,
         what, context, tried, outcome, outcome_detail, learned,
-        tags, agent_context, operator_endorsed, embedding
+        tags, agent_context, operator_endorsed, embedding,
+        context_version, status
       ) VALUES (
         ?, ?, ?, ?, ?,
         ?, ?, ?,
         ?, ?, ?, ?, ?, ?,
-        ?, ?, ?, ?
+        ?, ?, ?, ?,
+        ?, ?
       )
     `,
     args: [
@@ -259,10 +280,21 @@ export async function insertExperience(exp: Experience, embedding: Float32Array 
       exp.agent_context ? JSON.stringify(exp.agent_context) : null,
       exp.trust?.operator_endorsed ? 1 : 0,
       embedding ? embeddingToBase64(embedding) : null,
+      exp.context_version ?? null,
+      exp.status ?? 'active',
     ],
   });
 
   return id;
+}
+
+/** 更新经验状态（仅原作者可调用） */
+export async function updateExperienceStatus(id: string, status: 'active' | 'outdated' | 'resolved'): Promise<boolean> {
+  const result = await getClient().execute({
+    sql: `UPDATE experiences SET status = ?, updated_at = ? WHERE id = ?`,
+    args: [status, new Date().toISOString(), id],
+  });
+  return (result.rowsAffected ?? 0) > 0;
 }
 
 export async function getExperience(id: string): Promise<Experience | null> {
@@ -719,6 +751,8 @@ function rowToExperience(row: any): Experience {
       learned: row.learned,
     },
     tags: JSON.parse(row.tags as string),
+    context_version: row.context_version ?? undefined,
+    status: row.status ?? 'active',
     agent_context: row.agent_context ? JSON.parse(row.agent_context as string) : undefined,
     trust: { operator_endorsed: !!row.operator_endorsed },
   };

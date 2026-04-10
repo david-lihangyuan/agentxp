@@ -6,7 +6,7 @@
  * 使用 libSQL 内存数据库
  */
 
-import { initDB, getClient, insertExperience, insertExecutables, getExperience, getExecutables, getExecutablesByIds, insertVerification, getVerificationSummary, getAgentByKey, getAgentVerifiedIds } from './db.js';
+import { initDB, getClient, insertExperience, insertExecutables, getExperience, updateExperienceStatus, getExecutables, getExecutablesByIds, insertVerification, getVerificationSummary, getAgentByKey, getAgentVerifiedIds } from './db.js';
 import { initEmbedding, getEmbedding, experienceToText, cosineSimilarity } from './embedding.js';
 import { search } from './search.js';
 import { getAgentProfile, checkSearchQuota, recordSearch, getSearchCountToday } from './rewards.js';
@@ -983,6 +983,116 @@ async function main() {
   assert(
     fakeResult.size === 0,
     '查询不存在的经验 ID 返回空 Set',
+  );
+
+  // ========== Phase 1: 经验版本 + 状态 ==========
+  console.log('\n--- 23. 经验版本和状态 (Phase 1) ---');
+
+  // 23a. 发布带 context_version 和 status 的经验
+  const versionedExp = makeExperience({
+    publisher: { agent_id: 'alice', platform: 'test' },
+    core: {
+      what: '测试经验版本字段',
+      context: 'Phase 1 测试',
+      tried: '发布带 context_version 和 status 的经验，验证字段正确存储',
+      outcome: 'succeeded',
+      outcome_detail: '字段正常存储和返回',
+      learned: '经验版本和状态字段工作正常，可以在发布时指定',
+    },
+    tags: ['phase-1-test'],
+    context_version: 'openclaw@2026.4.5',
+    status: 'active',
+  });
+  const versionedId = await insertExperience(versionedExp, null);
+  assert(!!versionedId, '发布带版本+状态的经验成功');
+
+  // 23b. 查询返回 context_version 和 status
+  const versionedFetched = await getExperience(versionedId);
+  assert(
+    versionedFetched?.context_version === 'openclaw@2026.4.5',
+    `查询返回 context_version (${versionedFetched?.context_version})`,
+  );
+  assert(
+    versionedFetched?.status === 'active',
+    `查询返回 status=active (${versionedFetched?.status})`,
+  );
+
+  // 23c. 不带版本发布时默认值
+  const noVersionExp = makeExperience({
+    publisher: { agent_id: 'alice', platform: 'test' },
+    core: {
+      what: '不带版本的经验',
+      context: '测试默认值',
+      tried: '发布时不传 context_version 和 status，验证默认值正确',
+      outcome: 'succeeded',
+      outcome_detail: '',
+      learned: '不传时默认 context_version=null、status=active',
+    },
+    tags: ['phase-1-test'],
+  });
+  const noVersionId = await insertExperience(noVersionExp, null);
+  const noVersionFetched = await getExperience(noVersionId);
+  assert(
+    !noVersionFetched?.context_version,
+    `默认 context_version 为空 (${noVersionFetched?.context_version})`,
+  );
+  assert(
+    noVersionFetched?.status === 'active',
+    `默认 status=active (${noVersionFetched?.status})`,
+  );
+
+  // 23d. 状态更新：active → outdated
+  const updated1 = await updateExperienceStatus(versionedId, 'outdated');
+  assert(updated1 === true, '状态更新为 outdated 成功');
+
+  // 23e. 更新后查询确认
+  const afterUpdate = await getExperience(versionedId);
+  assert(
+    afterUpdate?.status === 'outdated',
+    `更新后 status=outdated (${afterUpdate?.status})`,
+  );
+  assert(
+    !!afterUpdate?.updated_at,
+    `更新后 updated_at 有值`,
+  );
+
+  // 23f. 状态更新为 resolved
+  const updated2 = await updateExperienceStatus(versionedId, 'resolved');
+  assert(updated2 === true, '状态更新为 resolved 成功');
+  const afterResolve = await getExperience(versionedId);
+  assert(
+    afterResolve?.status === 'resolved',
+    `状态更新为 resolved 确认 (${afterResolve?.status})`,
+  );
+
+  // 23g. 更新不存在的经验返回 false
+  const updatedFake = await updateExperienceStatus('nonexistent-id', 'outdated');
+  assert(updatedFake === false, `不存在的经验更新返回 false (${updatedFake})`);
+
+  // 23h. 发布时指定 status=outdated
+  const outdatedExp = makeExperience({
+    publisher: { agent_id: 'alice', platform: 'test' },
+    core: {
+      what: '发布时直接标记为过时',
+      context: '',
+      tried: '发布经验时直接指定 status=outdated，用于记录已知的过时方案',
+      outcome: 'partial',
+      outcome_detail: '',
+      learned: '这个方案在新版本里已经不适用，但保留历史记录的价值',
+    },
+    tags: ['phase-1-test'],
+    status: 'outdated',
+    context_version: 'react@18.0',
+  });
+  const outdatedId = await insertExperience(outdatedExp, null);
+  const outdatedFetched = await getExperience(outdatedId);
+  assert(
+    outdatedFetched?.status === 'outdated',
+    `发布时指定 status=outdated (${outdatedFetched?.status})`,
+  );
+  assert(
+    outdatedFetched?.context_version === 'react@18.0',
+    `发布时指定 context_version (${outdatedFetched?.context_version})`,
   );
 
   // ========== 结果 ==========
