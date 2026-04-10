@@ -6,7 +6,7 @@
  * 使用 libSQL 内存数据库
  */
 
-import { initDB, getClient, insertExperience, insertExecutables, getExperience, updateExperienceStatus, deleteExperience, getExecutables, getExecutablesByIds, insertVerification, getVerificationSummary, getAgentByKey, getAgentVerifiedIds, getVerifiedEnvironments, getAgentOperator, browseExperiences } from './db.js';
+import { initDB, getClient, insertExperience, insertExecutables, getExperience, updateExperienceStatus, deleteExperience, mergeAgents, getExecutables, getExecutablesByIds, insertVerification, getVerificationSummary, getAgentByKey, getAgentVerifiedIds, getVerifiedEnvironments, getAgentOperator, browseExperiences } from './db.js';
 import { initEmbedding, getEmbedding, experienceToText, cosineSimilarity } from './embedding.js';
 import { search, qualityScore, generateFailureWarning } from './search.js';
 import { getAgentProfile, checkSearchQuota, recordSearch, getSearchCountToday } from './rewards.js';
@@ -1950,6 +1950,128 @@ async function main() {
   assert(normalClass.type === 'original', `普通 agent 名称被分类为 original`);
 
   console.log(`  Phase 3.5 过滤机制测试完成: ${passed} passed`);
+
+  // ========== Agent 身份合并测试 ==========
+  console.log('\n=== Agent 身份合并测试 ===');
+
+  // 清理环境，使用独立的 agent IDs
+  const mergeSourceId = 'merge-source-agent';
+  const mergeTargetId = 'merge-target-agent';
+
+  // 发布 source agent 的经验
+  const mergeExp1 = makeExperience({
+    publisher: { agent_id: mergeSourceId, platform: 'test' },
+    core: {
+      what: 'Merge test: source experience 1',
+      context: 'Testing agent merge functionality',
+      tried: 'Published from source agent',
+      outcome: 'succeeded',
+      outcome_detail: 'Published successfully',
+      learned: 'Source agent can publish experiences',
+    },
+    tags: ['merge-test'],
+  });
+  await publishExperience(mergeExp1);
+
+  const mergeExp2 = makeExperience({
+    publisher: { agent_id: mergeSourceId, platform: 'test' },
+    core: {
+      what: 'Merge test: source experience 2',
+      context: 'Testing agent merge functionality',
+      tried: 'Another publish from source',
+      outcome: 'succeeded',
+      outcome_detail: 'Also succeeded',
+      learned: 'Multiple experiences from source',
+    },
+    tags: ['merge-test'],
+  });
+  await publishExperience(mergeExp2);
+
+  // 发布 target agent 的经验
+  const mergeExp3 = makeExperience({
+    publisher: { agent_id: mergeTargetId, platform: 'test' },
+    core: {
+      what: 'Merge test: target experience',
+      context: 'Testing agent merge functionality',
+      tried: 'Published from target agent',
+      outcome: 'succeeded',
+      outcome_detail: 'Target published OK',
+      learned: 'Target agent has its own experiences',
+    },
+    tags: ['merge-test'],
+  });
+  await publishExperience(mergeExp3);
+
+  // source 和 target 都验证同一条经验（制造 UNIQUE 冲突）
+  // 先发布一个第三方的经验让他们都去验证
+  const thirdPartyExp = makeExperience({
+    publisher: { agent_id: 'third-party-agent', platform: 'test' },
+    core: {
+      what: 'Third party experience for merge conflict test',
+      context: 'Merge conflict scenario',
+      tried: 'Third party published this',
+      outcome: 'succeeded',
+      outcome_detail: 'OK',
+      learned: 'This will be verified by both source and target',
+    },
+    tags: ['merge-test'],
+  });
+  await publishExperience(thirdPartyExp);
+
+  // source 验证这条经验
+  await insertVerification(
+    thirdPartyExp.id, mergeSourceId, 'test', 'confirmed', null, 'Source verified this', 'test'
+  );
+
+  // target 也验证这条经验（制造 UNIQUE 冲突）
+  await insertVerification(
+    thirdPartyExp.id, mergeTargetId, 'test', 'confirmed', null, 'Target also verified this', 'test'
+  );
+
+  // source 单独验证的经验（无冲突）
+  await insertVerification(
+    mergeExp3.id, mergeSourceId, 'test', 'confirmed', null, 'Source verified target exp', 'test'
+  );
+
+  // 添加 search log
+  await insertSearchLog({
+    agent_id: mergeSourceId,
+    query: 'merge test search',
+    hits: 5,
+    precision_hits: 3,
+    serendipity_hits: 2,
+  });
+
+  // 执行合并
+  const mergeResult = await mergeAgents(mergeSourceId, mergeTargetId);
+
+  assert(mergeResult.experiences_moved === 2, `合并迁移 2 条经验（实际: ${mergeResult.experiences_moved}）`);
+  assert(mergeResult.verifications_moved === 1, `合并迁移 1 条非冲突验证（实际: ${mergeResult.verifications_moved}）`);
+  assert(mergeResult.verifications_skipped === 1, `合并跳过 1 条冲突验证（实际: ${mergeResult.verifications_skipped}）`);
+  assert(mergeResult.search_logs_moved === 1, `合并迁移 1 条搜索日志（实际: ${mergeResult.search_logs_moved}）`);
+
+  // 验证经验已迁移
+  const movedExp1 = await getExperience(mergeExp1.id);
+  assert(movedExp1?.publisher.agent_id === mergeTargetId, `经验1 publisher 已改为 target`);
+  const movedExp2 = await getExperience(mergeExp2.id);
+  assert(movedExp2?.publisher.agent_id === mergeTargetId, `经验2 publisher 已改为 target`);
+
+  // 验证 source 下已无经验
+  const sourceExpCount = await getClient().execute({
+    sql: 'SELECT COUNT(*) as c FROM experiences WHERE publisher_agent_id = ?',
+    args: [mergeSourceId],
+  });
+  assert(Number(sourceExpCount.rows[0].c) === 0, `source agent 下无剩余经验`);
+
+  // 验证 verifications 无冲突
+  const targetVerifications = await getClient().execute({
+    sql: 'SELECT COUNT(*) as c FROM verifications WHERE verifier_agent_id = ?',
+    args: [mergeTargetId],
+  });
+  // target 原有 1 + 迁移过来 1 = 2
+  assert(Number(targetVerifications.rows[0].c) === 2, `target 共有 2 条验证记录（实际: ${Number(targetVerifications.rows[0].c)}）`);
+
+  console.log(`  Agent 身份合并测试完成: ${passed} passed`);
 
   // ========== 结果 ==========
   console.log(`\n${'='.repeat(40)}`);

@@ -7,7 +7,7 @@
 
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
-import { initDB, getClient, insertExperience, insertExecutables, getExperience, updateExperienceStatus, deleteExperience, insertVerification, getVerificationSummary, getAgentByKey, getNetworkStats, getAgentStats, discoverExperiences, browseExperiences, insertSearchLog, getAgentVerifiedIds, getVerifiedEnvironments, getAgentOperator } from './db.js';
+import { initDB, getClient, insertExperience, insertExecutables, getExperience, updateExperienceStatus, deleteExperience, mergeAgents, insertVerification, getVerificationSummary, getAgentByKey, getNetworkStats, getAgentStats, discoverExperiences, browseExperiences, insertSearchLog, getAgentVerifiedIds, getVerifiedEnvironments, getAgentOperator } from './db.js';
 import { initEmbedding, getEmbedding, experienceToText } from './embedding.js';
 import { search } from './search.js';
 import { registerUser, listUserKeys, revokeApiKey } from './shared-auth.js';
@@ -760,6 +760,57 @@ app.delete('/api/experiences/:id', async (c) => {
     });
   } catch (err: any) {
     console.error('DeleteExperience 错误:', err);
+    return c.json({ error: err.message || 'Internal Server Error' }, 500);
+  }
+});
+
+// === Agent 身份合并 ===
+app.post('/api/agents/merge', async (c) => {
+  try {
+    const agentId = c.get('agentId');
+    const body = await c.req.json();
+    const { source_agent_id, target_agent_id } = body;
+
+    // 参数校验
+    if (!source_agent_id || !target_agent_id) {
+      return c.json({ error: '需要 source_agent_id 和 target_agent_id' }, 400);
+    }
+    if (source_agent_id === target_agent_id) {
+      return c.json({ error: 'source 和 target 不能相同' }, 400);
+    }
+
+    // 权限校验：请求者必须是 source 或 target
+    if (agentId !== source_agent_id && agentId !== target_agent_id) {
+      return c.json({ error: '只能合并自己的身份（请求者必须是 source 或 target）' }, 403);
+    }
+
+    // 验证请求者同时拥有两个身份的 key：
+    // 需要在请求 body 里提供另一个身份的 API key 作为证明
+    const { proof_key } = body;
+    if (!proof_key) {
+      return c.json({ error: '需要 proof_key：提供另一个身份的 API key 以证明所有权' }, 400);
+    }
+
+    const proofAgentId = await getAgentByKey(proof_key);
+    const expectedProofId = agentId === source_agent_id ? target_agent_id : source_agent_id;
+    if (proofAgentId !== expectedProofId) {
+      return c.json({ error: 'proof_key 不属于目标/源身份，无法证明所有权' }, 403);
+    }
+
+    // 执行合并
+    const result = await mergeAgents(source_agent_id, target_agent_id);
+
+    console.log(`Agent 合并完成: ${source_agent_id} → ${target_agent_id}`, result);
+
+    return c.json({
+      status: 'merged',
+      source_agent_id,
+      target_agent_id,
+      ...result,
+      merged_at: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    console.error('AgentMerge 错误:', err);
     return c.json({ error: err.message || 'Internal Server Error' }, 500);
   }
 });

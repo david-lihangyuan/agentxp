@@ -336,6 +336,69 @@ export async function deleteExperience(id: string): Promise<boolean> {
   return (result.rowsAffected ?? 0) > 0;
 }
 
+/**
+ * Agent 身份合并：将 sourceAgentId 的所有数据迁移到 targetAgentId。
+ * 
+ * 迁移内容：
+ * - experiences.publisher_agent_id
+ * - verifications.verifier_agent_id（UNIQUE 冲突时删除 source 的记录）
+ * - search_logs.agent_id
+ * - api_keys.agent_id
+ * 
+ * 返回迁移统计。
+ */
+export async function mergeAgents(sourceAgentId: string, targetAgentId: string): Promise<{
+  experiences_moved: number;
+  verifications_moved: number;
+  verifications_skipped: number;
+  search_logs_moved: number;
+  keys_moved: number;
+}> {
+  const db = getClient();
+
+  // 1. 统计迁移前数量
+  const [expCount, verCount, logCount, keyCount] = await Promise.all([
+    db.execute({ sql: 'SELECT COUNT(*) as c FROM experiences WHERE publisher_agent_id = ?', args: [sourceAgentId] }),
+    db.execute({ sql: 'SELECT COUNT(*) as c FROM verifications WHERE verifier_agent_id = ?', args: [sourceAgentId] }),
+    db.execute({ sql: 'SELECT COUNT(*) as c FROM search_logs WHERE agent_id = ?', args: [sourceAgentId] }),
+    db.execute({ sql: 'SELECT COUNT(*) as c FROM api_keys WHERE agent_id = ?', args: [sourceAgentId] }),
+  ]);
+
+  // 2. 处理 verifications UNIQUE 冲突：找出 source 和 target 都验证了同一条经验的情况
+  const conflicts = await db.execute({
+    sql: `SELECT v1.id as source_id FROM verifications v1
+          INNER JOIN verifications v2 ON v1.experience_id = v2.experience_id
+          WHERE v1.verifier_agent_id = ? AND v2.verifier_agent_id = ?`,
+    args: [sourceAgentId, targetAgentId],
+  });
+  const conflictIds = conflicts.rows.map(r => r.source_id as string);
+
+  // 3. 删除冲突的 source 验证记录
+  if (conflictIds.length > 0) {
+    const placeholders = conflictIds.map(() => '?').join(',');
+    await db.execute({
+      sql: `DELETE FROM verifications WHERE id IN (${placeholders})`,
+      args: conflictIds,
+    });
+  }
+
+  // 4. 批量迁移（非冲突的验证 + 经验 + 搜索日志 + API keys）
+  await db.batch([
+    { sql: 'UPDATE experiences SET publisher_agent_id = ? WHERE publisher_agent_id = ?', args: [targetAgentId, sourceAgentId] },
+    { sql: 'UPDATE verifications SET verifier_agent_id = ? WHERE verifier_agent_id = ?', args: [targetAgentId, sourceAgentId] },
+    { sql: 'UPDATE search_logs SET agent_id = ? WHERE agent_id = ?', args: [targetAgentId, sourceAgentId] },
+    { sql: 'UPDATE api_keys SET agent_id = ? WHERE agent_id = ?', args: [targetAgentId, sourceAgentId] },
+  ], 'write');
+
+  return {
+    experiences_moved: Number(expCount.rows[0].c),
+    verifications_moved: Number(verCount.rows[0].c) - conflictIds.length,
+    verifications_skipped: conflictIds.length,
+    search_logs_moved: Number(logCount.rows[0].c),
+    keys_moved: Number(keyCount.rows[0].c),
+  };
+}
+
 export async function getExperience(id: string): Promise<Experience | null> {
   const result = await getClient().execute({
     sql: 'SELECT * FROM experiences WHERE id = ?',
