@@ -10,3 +10,11 @@ server/data/
 coverage/
 *.log
 skill/scripts/.cache/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+python-sdk/dist/
+python-sdk/*.egg-info/
+.pytest_cache/

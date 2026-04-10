@@ -322,3 +322,5 @@ class AgentXP:
                 status_code=e.code,
                 response=err_body,
             ) from e
+        except URLError as e:
+            raise AgentXPError(f"连接失败: {e.reason}") from e
