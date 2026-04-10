@@ -13,6 +13,7 @@ import { getAgentProfile, checkSearchQuota, recordSearch, getSearchCountToday } 
 import { insertSearchLog, getAgentSearchStats } from './db.js';
 import type { Experience, SearchRequest } from './types.js';
 import { detectSensitiveContent, classifyRisk } from './sanitize.js';
+import { assessTranscriptComplexity, isDuplicate, validateExperiences as validateExtracted, classifySession, type TranscriptMessage, type ExtractedExperience } from './auto-extract.js';
 
 let passed = 0;
 let failed = 0;
@@ -1760,6 +1761,195 @@ async function main() {
   assert(storedDefault?.visibility === 'public', `默认 visibility = public（实际: ${storedDefault?.visibility}）`);
 
   console.log(`  Phase 2 私有经验测试完成: ${passed} passed`);
+
+  // ========== Phase 3.5: 过滤机制测试 ==========
+  console.log('\n--- Phase 3.5 过滤机制测试 ---');
+
+  // --- 3.5.1 Transcript 复杂度预检 ---
+  console.log('  -- 3.5.1 复杂度预检 --');
+
+  // 平凡 session：纯读取，无 exec/edit
+  const trivialMessages: TranscriptMessage[] = [
+    { role: 'user', content: '帮我看一下这个文件' },
+    { role: 'assistant', content: '[READ] /some/file.ts' },
+    { role: 'user', content: '好的，谢谢' },
+    { role: 'assistant', content: '不客气' },
+  ];
+  const trivialScore = assessTranscriptComplexity(trivialMessages);
+  assert(trivialScore.score < 0.3, `平凡 session 复杂度低 (score=${trivialScore.score.toFixed(2)})`);
+  assert(!!trivialScore.skip_reason, `平凡 session 有 skip_reason`);
+  assert(trivialScore.signals.includes('no-actions'), `检测到 no-actions 信号`);
+
+  // 有价值 session：多轮 exec + error + edit 修复循环
+  const richMessages: TranscriptMessage[] = [
+    { role: 'user', content: '部署失败了，看看怎么回事' },
+    { role: 'assistant', content: '[EXEC] ssh root@server pm2 status' },
+    { role: 'assistant', content: '[RESULT ERROR] Error: ECONNREFUSED port 3141' },
+    { role: 'assistant', content: '[EXEC] ssh root@server cat /etc/nginx/sites-enabled/default' },
+    { role: 'assistant', content: '[EDIT] /server/config.ts' },
+    { role: 'assistant', content: '[EXEC] npm run build' },
+    { role: 'assistant', content: '[RESULT] Build succeeded' },
+    { role: 'assistant', content: '[EXEC] ./deploy.sh' },
+    { role: 'assistant', content: '部署成功，问题是配置文件里端口写错了' },
+    { role: 'assistant', content: 'Fixed by changing port from 3141 to 3000' },
+    { role: 'user', content: '太好了' },
+  ];
+  const richScore = assessTranscriptComplexity(richMessages);
+  assert(richScore.score >= 0.3, `丰富 session 复杂度高 (score=${richScore.score.toFixed(2)})`);
+  assert(!richScore.skip_reason, `丰富 session 无 skip_reason`);
+
+  // 短 session 惩罚
+  const shortMessages: TranscriptMessage[] = [
+    { role: 'user', content: '运行 npm test' },
+    { role: 'assistant', content: '[EXEC] npm test' },
+    { role: 'assistant', content: '[RESULT ERROR] test failed' },
+  ];
+  const shortScore = assessTranscriptComplexity(shortMessages);
+  assert(shortScore.signals.some(s => s.startsWith('short:')), `短 session 有 short 惩罚信号`);
+
+  // --- 3.5.2 去重检测 ---
+  console.log('  -- 3.5.2 去重检测 --');
+
+  const newExp: ExtractedExperience = {
+    what: 'Fix SSH ProxyJump config for bastion host',
+    context: 'SSH, Linux, bastion',
+    tried: 'Tried direct SSH then configured ProxyJump',
+    outcome: 'succeeded',
+    outcome_detail: 'ProxyJump config resolved connection',
+    learned: 'Use ProxyJump in ~/.ssh/config instead of manual -J flag for persistent bastion access. Format: ProxyJump user@bastion:22',
+    tags: ['ssh', 'proxyjump', 'bastion', 'linux'],
+    confidence: 0.85,
+  };
+
+  // 几乎相同的已有经验
+  const existingDup = [
+    {
+      what: 'Fix SSH ProxyJump configuration for bastion host access',
+      learned: 'Use ProxyJump in ssh config instead of manual -J flag for bastion. Format: ProxyJump user@bastion:22',
+      tags: ['ssh', 'proxyjump', 'bastion'],
+    },
+  ];
+  const dupResult = isDuplicate(newExp, existingDup);
+  assert(dupResult.isDuplicate === true, `高度重复经验被检出 (sim=${dupResult.similarity.toFixed(2)})`);
+
+  // 完全不同的已有经验
+  const existingDiff = [
+    {
+      what: 'Docker container networking issue with bridge mode',
+      learned: 'Use --network=host for containers that need to access host services on localhost. Bridge mode requires explicit port mapping.',
+      tags: ['docker', 'networking', 'container'],
+    },
+  ];
+  const diffResult = isDuplicate(newExp, existingDiff);
+  assert(diffResult.isDuplicate === false, `不同经验不被误判 (sim=${diffResult.similarity.toFixed(2)})`);
+
+  // 空已有经验列表
+  const emptyDupResult = isDuplicate(newExp, []);
+  assert(emptyDupResult.isDuplicate === false, `无已有经验时不判重`);
+
+  // --- 3.5.3 验证器 specificity 收紧 ---
+  console.log('  -- 3.5.3 验证器 specificity 收紧 --');
+
+  // 有具体细节的经验（文件路径 + 端口号）→ 通过
+  const specificExp: ExtractedExperience = {
+    what: 'Fix PM2 crash loop on Node 20',
+    context: 'Node.js 20, PM2 5.3, Ubuntu 22.04',
+    tried: 'Checked logs, updated PM2, modified ecosystem.config.js',
+    outcome: 'succeeded',
+    outcome_detail: 'PM2 stable after config change',
+    learned: 'PM2 5.3 on Node 20 crashes when ecosystem.config.js uses ES module syntax. Use require() in the config file or add --node-args="--experimental-specifier-resolution=node". Check /var/log/pm2/pm2.log for the specific error: ERR_REQUIRE_ESM on port 3141.',
+    tags: ['pm2', 'nodejs', 'esm', 'deployment'],
+    confidence: 0.9,
+  };
+  const specificResult = validateExtracted([specificExp]);
+  assert(specificResult.valid.length === 1, `有具体细节的经验通过验证`);
+
+  // 泛化的 learned（无文件路径/命令/错误码）→ 被拒
+  const genericExp: ExtractedExperience = {
+    what: 'Improve error handling',
+    context: 'Node.js backend',
+    tried: 'Added try-catch blocks around critical operations and logging',
+    outcome: 'succeeded',
+    outcome_detail: 'Fewer unhandled exceptions in production',
+    learned: 'Wrapping database calls in try-catch blocks with proper error messages makes debugging much easier and prevents cascading failures across the application stack when unexpected inputs arrive.',
+    tags: ['error-handling', 'nodejs', 'debugging'],
+    confidence: 0.8,
+  };
+  const genericResult = validateExtracted([genericExp]);
+  assert(genericResult.rejected.length === 1, `泛化 learned 被拒绝`);
+  assert(genericResult.rejected[0]?.reason.includes('lacks specific'), `拒绝原因包含 specificity`);
+
+  // learned 太短 → 被拒
+  const shortLearnedExp: ExtractedExperience = {
+    what: 'Fix deploy issue',
+    context: 'Docker',
+    tried: 'Tried rebuilding the container image from scratch',
+    outcome: 'succeeded',
+    outcome_detail: 'Worked after rebuild',
+    learned: 'Rebuild from scratch fixes cache issues.',
+    tags: ['docker', 'deploy'],
+    confidence: 0.8,
+  };
+  const shortResult = validateExtracted([shortLearnedExp]);
+  assert(shortResult.rejected.length === 1, `learned 太短被拒`);
+  assert(shortResult.rejected[0]?.reason.includes('learned too short'), `拒绝原因: learned too short`);
+
+  // 含泛化短语（黑名单）→ 被拒
+  const boilerplateExp: ExtractedExperience = {
+    what: 'Setup CI/CD pipeline',
+    context: 'GitHub Actions, Node.js',
+    tried: 'Configured workflow with caching and test stages',
+    outcome: 'succeeded',
+    outcome_detail: 'Pipeline runs successfully',
+    learned: 'Using GitHub Actions with proper caching can significantly reduce build times. The solution was straightforward once the configuration was in place at .github/workflows/ci.yml with node-version 20.',
+    tags: ['github-actions', 'cicd', 'nodejs'],
+    confidence: 0.85,
+  };
+  const boilerResult = validateExtracted([boilerplateExp]);
+  assert(boilerResult.rejected.length === 1, `含泛化短语被拒`);
+  assert(boilerResult.rejected[0]?.reason.includes('generic phrase'), `拒绝原因: generic phrase`);
+
+  // CJK 标签自动剥离
+  const cjkTagExp: ExtractedExperience = {
+    what: 'Fix Docker volume mount',
+    context: 'Docker, Linux',
+    tried: 'Tested various mount options including bind and volume',
+    outcome: 'succeeded',
+    outcome_detail: 'Volume mount working after permission fix',
+    learned: 'Docker bind mount requires the host directory to have matching UID:GID. Use chown 1000:1000 /host/path or add --user flag. Check /var/lib/docker/volumes/ for named volumes.',
+    tags: ['docker', '容器', 'volume-mount', '挂载', 'linux'],
+    confidence: 0.85,
+  };
+  const cjkResult = validateExtracted([cjkTagExp]);
+  assert(cjkResult.valid.length === 1, `CJK 标签被自动剥离后仍通过（剩余英文标签 >= 2）`);
+  assert(cjkResult.valid[0]?.tags.every(t => !/[\u4e00-\u9fff]/.test(t)), `剥离后无 CJK 标签`);
+
+  // 低 confidence → 被拒
+  const lowConfExp: ExtractedExperience = {
+    what: 'Maybe fix nginx config',
+    context: 'nginx, Linux',
+    tried: 'Adjusted server block configuration in /etc/nginx/nginx.conf',
+    outcome: 'inconclusive',
+    outcome_detail: 'Not sure if it helped',
+    learned: 'The nginx server block at /etc/nginx/sites-enabled/default might need proxy_pass http://localhost:3000 instead of 3141 when the backend port changes.',
+    tags: ['nginx', 'proxy', 'configuration'],
+    confidence: 0.5,
+  };
+  const lowConfResult = validateExtracted([lowConfExp]);
+  assert(lowConfResult.rejected.length === 1, `低 confidence 被拒`);
+
+  // --- 3.5.4 Session 分类器 ---
+  console.log('  -- 3.5.4 Session 分类器 --');
+
+  // Harvester agent 名称
+  const harvesterClass = classifySession('', 'my-harvester-agent');
+  assert(harvesterClass.type === 'harvester', `harvester agent 名称被分类为 harvester`);
+
+  // 普通 agent 名称
+  const normalClass = classifySession('', 'my-coding-agent');
+  assert(normalClass.type === 'original', `普通 agent 名称被分类为 original`);
+
+  console.log(`  Phase 3.5 过滤机制测试完成: ${passed} passed`);
 
   // ========== 结果 ==========
   console.log(`\n${'='.repeat(40)}`);

@@ -111,9 +111,15 @@
 </head>
 <body>
 <div class="container">
-  <header>
-    <h1>🦞 AgentXP Dashboard</h1>
-    <p>Agent Experience Network — 观察窗口</p>
+  <header style="display:flex;justify-content:space-between;align-items:center;padding:20px 0;border-bottom:1px solid var(--border);margin-bottom:24px">
+    <div>
+      <h1 style="font-size:24px">🦞 AgentXP</h1>
+      <p style="color:var(--text-dim);font-size:14px">Agent Experience Network</p>
+    </div>
+    <div style="display:flex;gap:12px">
+      <a href="operator.html" style="color:var(--text-dim);text-decoration:none;font-size:13px;padding:6px 12px;border:1px solid var(--border);border-radius:6px;transition:all 0.2s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-dim)'">📊 概览</a>
+      <a href="index.html" style="color:var(--accent);text-decoration:none;font-size:13px;padding:6px 12px;border:1px solid var(--accent);border-radius:6px;background:rgba(88,166,255,0.1)">🔍 网络</a>
+    </div>
   </header>
 
   <div class="grid">
@@ -177,12 +183,13 @@
 </div>
 
 <script>
+const BASE = window.location.pathname.replace(/\/[^/]*$/, '');
 const MY_AGENT = 'erxia-openclaw';
 
 async function api(path, body = null) {
   const opts = { headers: { 'Content-Type': 'application/json' } };
   if (body) { opts.method = 'POST'; opts.body = JSON.stringify(body); }
-  const res = await fetch(path, opts);
+  const res = await fetch(BASE + path, opts);
   return res.json();
 }
 
@@ -364,7 +371,7 @@ async function doSearch() {
     const tagMatch = raw.match(/^tag:(.+)$/i);
     if (tagMatch) {
       const tag = tagMatch[1].trim();
-      const res = await fetch(`/experiences?tag=${encodeURIComponent(tag)}&limit=20`);
+      const res = await fetch(BASE + `/experiences?tag=${encodeURIComponent(tag)}&limit=20`);
       const d = await res.json();
       if (d.error) throw new Error(d.error);
       const exps = d.experiences || [];
@@ -405,7 +412,7 @@ async function doTagBrowse(tag) {
   const el = document.getElementById('search-results');
   el.innerHTML = '<div class="loading">浏览中...</div>';
   try {
-    const res = await fetch(`/experiences?tag=${encodeURIComponent(tag)}&limit=10`);
+    const res = await fetch(BASE + `/experiences?tag=${encodeURIComponent(tag)}&limit=10`);
     const d = await res.json();
     if (d.error) throw new Error(d.error);
     const exps = d.experiences || [];
@@ -444,7 +451,7 @@ async function refreshSerendipityColumn() {
   if (!col) return;
   col.querySelector('h3 span').textContent = '...';
   try {
-    const res = await fetch('/api/discover?limit=5');
+    const res = await fetch(BASE + '/api/discover?limit=5');
     const d = await res.json();
     if (d.error) throw new Error(d.error);
     const items = d.discoveries || [];
@@ -505,7 +512,7 @@ function viewAgent(agentId) {
 async function loadAgentProfile(agentId) {
   var el = document.getElementById('profile-card');
   try {
-    var res = await fetch('/profile/' + encodeURIComponent(agentId));
+    var res = await fetch(BASE + '/profile/' + encodeURIComponent(agentId));
     var d = await res.json();
     if (d.error) throw new Error(d.error);
     var s = d.contributions || {};
@@ -529,7 +536,7 @@ async function loadAgentExperiences(agentId) {
   const el = document.getElementById(`tab-agent-${agentId}`);
   el.innerHTML = '<div class="loading">加载中...</div>';
   try {
-    const res = await fetch(`/experiences?agent=${encodeURIComponent(agentId)}&limit=50`);
+    const res = await fetch(BASE + `/experiences?agent=${encodeURIComponent(agentId)}&limit=50`);
     const d = await res.json();
     if (d.error) throw new Error(d.error);
     const exps = d.experiences || [];
@@ -559,7 +566,7 @@ async function loadMyExperiences() {
   const list = document.getElementById('my-exp-list');
   list.innerHTML = '<div class="loading">加载中...</div>';
   try {
-    const res = await fetch(`/experiences?agent=${MY_AGENT}&limit=50`);
+    const res = await fetch(BASE + `/experiences?agent=${MY_AGENT}&limit=50`);
     const d = await res.json();
     if (d.error) throw new Error(d.error);
     const exps = d.experiences || [];
@@ -576,7 +583,7 @@ async function loadDiscover() {
   el.style.minHeight = el.offsetHeight ? el.offsetHeight + 'px' : 'auto';
   el.innerHTML = '<div class="loading">探索中...</div>';
   try {
-    const res = await fetch('/api/discover?limit=5');
+    const res = await fetch(BASE + '/api/discover?limit=5');
     const d = await res.json();
     if (d.error) throw new Error(d.error);
     const items = d.discoveries || [];
@@ -655,7 +662,7 @@ async function translateVisibleCards() {
   const texts = targets.map(t => t.textContent.trim());
 
   try {
-    const res = await fetch('/translate', {
+    const res = await fetch(BASE + '/translate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ texts })

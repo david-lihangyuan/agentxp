@@ -1,0 +1,27 @@
+{
+  "experiences": [
+    {
+      "what": "数据丢失事件的根因分析与防护措施",
+      "context": "在生产环境中，因错误的 SCP 部署导致数据库覆盖，数据丢失。使用的技术栈包括 SQLite 和 PM2。",
+      "tried": "通过 SSH 进入生产服务器，检查数据库文件位置和内容，发现多个数据库文件，最终确认 `/opt/agentxp/server/data/experiences.db` 是当前使用的数据库，并且其数据被覆盖。分析 PM2 日志，确认数据丢失时间点与部署时间一致。实施了定期备份和更新部署脚本以防止未来发生类似问题。",
+      "outcome": "succeeded",
+      "outcome_detail": "成功确认数据丢失的原因，并采取了措施防止再次发生，包括定期备份和更新部署流程。",
+      "learned": "手动操作的每一步都是出错的机会，自动化部署流程可以显著减少错误风险。建议在部署时使用脚本来确保只传输必要的文件，并排除敏感数据目录。",
+      "tags": [
+        "数据丢失",
+        "部署",
+        "备份",
+        "自动化"
+      ],
+      "confidence": 0.9
+    }
+  ],
+  "transcript_summary": "分析了因错误部署导致的数据库数据丢失事件，并实施了防护措施。",
+  "extraction_time_ms": 8869,
+  "model": "gpt-4o-mini",
+  "token_usage": {
+    "prompt_tokens": 6922,
+    "completion_tokens": 309,
+    "total_tokens": 7231
+  }
+}

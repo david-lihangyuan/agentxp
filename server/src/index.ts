@@ -12,7 +12,7 @@ import { initEmbedding, getEmbedding, experienceToText } from './embedding.js';
 import { search } from './search.js';
 import { registerUser, listUserKeys, revokeApiKey } from './shared-auth.js';
 import { autoSeedIfEmpty } from './demo-seed.js';
-import { createRateLimiter, API_RATE_LIMIT, REGISTER_RATE_LIMIT, SEARCH_RATE_LIMIT } from './shared-rate-limit.js';
+import { createRateLimiter, API_RATE_LIMIT, REGISTER_RATE_LIMIT, SEARCH_RATE_LIMIT, HOOK_RATE_LIMIT } from './shared-rate-limit.js';
 import type { Experience, ExperienceStatus, ExperienceVisibility, ExecutableContent, ExecutableType, PublishResponse, SearchRequest, SearchResultItem, VerifyRequest, VerifyResponse } from './types.js';
 import { getNetworkHealth } from './network-health.js';
 import { getAgentProfile, checkSearchQuota, recordSearch } from './rewards.js';
@@ -20,6 +20,7 @@ import { getCredits, adjustCredits, getCreditLedger, awardSearchHitCredits, awar
 import { createHelpRequest, getHelpInbox, respondToHelp, resolveHelp, getHelpRequestDetail, getMyHelpRequests, matchDiagnosticTemplate, validateDiagnosticReport, diagnosticReportToText, DIAGNOSTIC_TEMPLATES, type HelpComplexity } from './help.js';
 import type { DiagnosticReport } from './types.js';
 import { detectSensitiveContent, classifyRisk } from './sanitize.js';
+import { classifySession, parseTranscriptJsonl, formatTranscript, extractExperiences as llmExtract, validateExperiences, assessTranscriptComplexity, isDuplicate, type AutoExtractRequest, type AutoExtractResponse } from './auto-extract.js';
 
 type Env = { Variables: { agentId: string } };
 const app = new Hono<Env>();
@@ -28,6 +29,7 @@ const app = new Hono<Env>();
 const registerLimiter = createRateLimiter(REGISTER_RATE_LIMIT);
 const apiLimiter = createRateLimiter(API_RATE_LIMIT);
 const searchLimiter = createRateLimiter(SEARCH_RATE_LIMIT);
+const hookLimiter = createRateLimiter(HOOK_RATE_LIMIT);
 
 // === 用户注册（无需鉴权） ===
 app.post('/register', registerLimiter, async (c) => {
@@ -1127,6 +1129,255 @@ app.get('/api/operator/dashboard', async (c) => {
   } catch (err: any) {
     console.error('Operator dashboard error:', err);
     return c.json({ error: err.message || 'Internal Server Error' }, 500);
+  }
+});
+
+// === Auto-Extract Webhook (Phase 3.4) ===
+app.post('/hooks/auto-extract', hookLimiter, async (c) => {
+  try {
+    // Auth: reuse Bearer token mechanism
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return c.json({ status: 'error', error: 'Missing Authorization header' } as AutoExtractResponse, 401);
+    }
+    const key = authHeader.slice(7);
+    const agentId = await getAgentByKey(key);
+    if (!agentId) {
+      return c.json({ status: 'error', error: 'Invalid API key' } as AutoExtractResponse, 401);
+    }
+
+    const body = await c.req.json().catch(() => null) as AutoExtractRequest | null;
+    if (!body) {
+      return c.json({ status: 'error', error: 'Invalid JSON body' } as AutoExtractResponse, 400);
+    }
+
+    // Validate: need either transcript_jsonl or messages
+    if (!body.transcript_jsonl && (!body.messages || body.messages.length === 0)) {
+      return c.json({
+        status: 'error',
+        error: 'Provide either transcript_jsonl (JSONL string) or messages (array)',
+      } as AutoExtractResponse, 400);
+    }
+
+    // Step 1: Parse transcript
+    let formattedTranscript: string;
+    const agentName = body.metadata?.agent_name || body.metadata?.agent_id || agentId;
+
+    if (body.transcript_jsonl) {
+      // Step 1a: Classify session (only for JSONL format)
+      if (!body.force) {
+        const classification = classifySession(body.transcript_jsonl, agentName);
+        if (classification.type !== 'original') {
+          return c.json({
+            status: 'skipped',
+            classification,
+            skip_reason: `Session classified as '${classification.type}': ${classification.reason}`,
+          } as AutoExtractResponse);
+        }
+      }
+
+      // Parse JSONL → messages → formatted text
+      const messages = parseTranscriptJsonl(body.transcript_jsonl);
+      if (messages.length < 3) {
+        return c.json({
+          status: 'skipped',
+          skip_reason: `Too few messages (${messages.length}) — likely not a substantive session`,
+        } as AutoExtractResponse);
+      }
+      formattedTranscript = formatTranscript(messages, 25000);
+    } else {
+      // Pre-parsed messages: format directly
+      const msgs = body.messages!.map(m => ({
+        role: m.role as 'user' | 'assistant' | 'tool',
+        content: String(m.content).slice(0, 1000),
+        timestamp: m.timestamp,
+      }));
+      if (msgs.length < 3) {
+        return c.json({
+          status: 'skipped',
+          skip_reason: `Too few messages (${msgs.length}) — likely not a substantive session`,
+        } as AutoExtractResponse);
+      }
+      formattedTranscript = formatTranscript(msgs, 25000);
+    }
+
+    // Step 1.5 (Phase 3.5): Transcript complexity pre-check
+    // Parse messages for complexity assessment (reuse JSONL parsing or pre-parsed msgs)
+    let parsedMessages: Array<{ role: 'user' | 'assistant' | 'tool'; content: string; timestamp?: string }>;
+    if (body.transcript_jsonl) {
+      parsedMessages = parseTranscriptJsonl(body.transcript_jsonl);
+    } else {
+      parsedMessages = body.messages!.map(m => ({
+        role: m.role as 'user' | 'assistant' | 'tool',
+        content: String(m.content).slice(0, 1000),
+        timestamp: m.timestamp,
+      }));
+    }
+
+    if (!body.force) {
+      const complexity = assessTranscriptComplexity(parsedMessages);
+      if (complexity.skip_reason) {
+        return c.json({
+          status: 'skipped',
+          skip_reason: complexity.skip_reason,
+        } as AutoExtractResponse);
+      }
+    }
+
+    // Step 2: LLM extraction
+    if (!OPENAI_KEY) {
+      return c.json({
+        status: 'error',
+        error: 'Server OPENAI_API_KEY not configured — cannot extract',
+      } as AutoExtractResponse, 503);
+    }
+
+    const extractionResult = await llmExtract(
+      formattedTranscript,
+      OPENAI_KEY,
+      { model: 'gpt-4o-mini', baseUrl: OPENAI_BASE },
+    );
+
+    // Step 3: Validate
+    const { valid, rejected } = validateExperiences(extractionResult.experiences);
+
+    // Step 3.5 (Phase 3.5): Dedup check against agent's existing experiences
+    if (valid.length > 0 && !body.dry_run) {
+      try {
+        const db = getClient();
+        const existingResult = await db.execute({
+          sql: 'SELECT what, learned, tags FROM experiences WHERE publisher_agent_id = ? ORDER BY published_at DESC LIMIT 50',
+          args: [agentId],
+        });
+        const existingExps = existingResult.rows.map((r: any) => ({
+          what: String(r.what || ''),
+          learned: String(r.learned || ''),
+          tags: JSON.parse(String(r.tags || '[]')) as string[],
+        }));
+
+        // Remove duplicates from valid list
+        for (let i = valid.length - 1; i >= 0; i--) {
+          const dupCheck = isDuplicate(valid[i], existingExps);
+          if (dupCheck.isDuplicate) {
+            rejected.push({
+              experience: valid[i],
+              reason: `duplicate (${(dupCheck.similarity * 100).toFixed(0)}% similar to "${dupCheck.similarTo}")`,
+            });
+            valid.splice(i, 1);
+          }
+        }
+      } catch (err: any) {
+        console.warn('Dedup check failed (continuing):', err.message);
+      }
+    }
+
+    if (valid.length === 0) {
+      return c.json({
+        status: 'empty',
+        extraction: {
+          summary: extractionResult.transcript_summary,
+          model: extractionResult.model,
+          extraction_time_ms: extractionResult.extraction_time_ms,
+          token_usage: extractionResult.token_usage,
+        },
+        rejected: rejected.map(r => ({ what: r.experience.what, reason: r.reason })),
+      } as AutoExtractResponse);
+    }
+
+    // Step 4: Publish (unless dry_run)
+    const published: AutoExtractResponse['published'] = [];
+
+    if (!body.dry_run) {
+      for (const exp of valid) {
+        try {
+          // Build Experience object
+          const text = experienceToText({
+            what: exp.what,
+            context: exp.context || '',
+            tried: exp.tried,
+            learned: exp.learned,
+            tags: exp.tags || [],
+          });
+
+          let embedding: Float32Array | null = null;
+          try {
+            embedding = await getEmbedding(text);
+          } catch (err) {
+            console.error('Auto-extract embedding failed, continuing without:', err);
+          }
+
+          const expObj: any = {
+            version: 'serendip-experience/0.1',
+            publisher: {
+              agent_id: agentId,
+              platform: body.metadata?.platform || body.metadata?.framework || 'auto-extract',
+            },
+            core: {
+              what: exp.what,
+              context: exp.context || '',
+              tried: exp.tried,
+              outcome: exp.outcome,
+              outcome_detail: exp.outcome_detail || '',
+              learned: exp.learned,
+            },
+            tags: exp.tags,
+          };
+
+          // Add agent_context if metadata has framework info
+          if (body.metadata?.framework) {
+            expObj.agent_context = {
+              platform: body.metadata.framework,
+              custom: {
+                extraction_method: 'auto-extract-webhook',
+                extraction_confidence: exp.confidence,
+                session_id: body.metadata.session_id || null,
+              },
+            };
+          }
+
+          const id = await insertExperience(expObj, embedding);
+          published.push({
+            experience_id: id,
+            what: exp.what,
+            tags: exp.tags,
+          });
+        } catch (err: any) {
+          console.error(`Auto-extract publish failed for "${exp.what}":`, err);
+          rejected.push({ experience: exp, reason: `publish failed: ${err.message}` });
+        }
+      }
+    } else {
+      // Dry run: just list what would be published
+      for (const exp of valid) {
+        published.push({
+          experience_id: 'dry-run',
+          what: exp.what,
+          tags: exp.tags,
+        });
+      }
+    }
+
+    const response: AutoExtractResponse = {
+      status: 'extracted',
+      extraction: {
+        summary: extractionResult.transcript_summary,
+        model: extractionResult.model,
+        extraction_time_ms: extractionResult.extraction_time_ms,
+        token_usage: extractionResult.token_usage,
+      },
+      published: published.length > 0 ? published : undefined,
+      rejected: rejected.length > 0
+        ? rejected.map((r: any) => ({ what: r.experience?.what || r.what, reason: r.reason }))
+        : undefined,
+    };
+
+    return c.json(response, published.length > 0 ? 201 : 200);
+  } catch (err: any) {
+    console.error('Auto-extract webhook error:', err);
+    return c.json({
+      status: 'error',
+      error: err.message || 'Internal Server Error',
+    } as AutoExtractResponse, 500);
   }
 });
 

@@ -1,0 +1,27 @@
+{
+  "experiences": [
+    {
+      "what": "实现失败经验高亮和置顶逻辑",
+      "context": "在 AgentXP 项目中，使用 TypeScript 和 Node.js 开发环境，进行搜索功能的改进。",
+      "tried": "在 `SearchResultItem` 中添加 `failure_warning` 字段以标记失败经验，并在精确搜索的排序逻辑中对失败经验给予额外权重（+0.15），以确保在相似度相近的情况下，失败经验优先显示。",
+      "outcome": "succeeded",
+      "outcome_detail": "成功实现了失败经验的高亮显示，搜索结果中对失败经验加上 ⚠️ 警告，并在排序时将其置顶。所有相关测试通过，已部署到生产环境。",
+      "learned": "在设计搜索功能时，使用加权而非硬排序来处理失败经验的优先级，可以确保在相似度接近时，失败经验的安全价值被优先考虑，而不会影响更高相似度成功经验的显示。",
+      "tags": [
+        "typescript",
+        "nodejs",
+        "search",
+        "experience"
+      ],
+      "confidence": 0.9
+    }
+  ],
+  "transcript_summary": "本次会话集中在实现 AgentXP 中失败经验的高亮显示和排序逻辑的改进。",
+  "extraction_time_ms": 6039,
+  "model": "gpt-4o-mini",
+  "token_usage": {
+    "prompt_tokens": 7007,
+    "completion_tokens": 303,
+    "total_tokens": 7310
+  }
+}

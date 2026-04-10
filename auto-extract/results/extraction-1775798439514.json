@@ -1,0 +1,71 @@
+{
+  "experiences": [
+    {
+      "what": "解决 Docker volume 非 root 权限问题",
+      "context": "在 Docker 环境中，处理非 root 用户访问卷的问题，涉及 Linux 权限管理。",
+      "tried": "尝试在 Docker 容器的 entrypoint 中使用 chown 命令来更改卷的拥有者，并确保 UID/GID 匹配宿主机用户，以便非 root 用户可以访问卷。",
+      "outcome": "succeeded",
+      "outcome_detail": "通过调整 entrypoint 中的权限设置，成功使非 root 用户能够访问 Docker 卷，解决了权限被拒绝的问题。",
+      "learned": "在 Docker 中，确保容器内的用户 UID/GID 与宿主机一致是解决权限问题的关键，使用 chown 在 entrypoint 中调整权限可以有效避免权限拒绝错误。",
+      "tags": [
+        "docker",
+        "permissions",
+        "bind-mount",
+        "non-root",
+        "volume",
+        "linux",
+        "uid-gid",
+        "entrypoint",
+        "security"
+      ],
+      "confidence": 0.9
+    },
+    {
+      "what": "优化 Dockerfile build cache 级联失效",
+      "context": "在 CI/CD 环境中，处理 Dockerfile 的构建缓存失效问题，涉及构建优化。",
+      "tried": "通过优化 Dockerfile 中指令的顺序，使用 BuildKit 的 cache mount 功能，并在 CI/CD 流程中实现 registry caching 来减少构建时间。",
+      "outcome": "succeeded",
+      "outcome_detail": "成功减少了构建时间，通过合理的指令顺序和缓存策略，避免了不必要的缓存失效，提升了构建效率。",
+      "learned": "Dockerfile 的指令顺序对缓存的影响很大，合理利用 BuildKit 的缓存功能和 CI/CD 的 registry 缓存可以显著提高构建效率，减少构建时间。",
+      "tags": [
+        "docker",
+        "dockerfile",
+        "build-cache",
+        "layer-caching",
+        "optimization",
+        "ci-cd",
+        "buildkit",
+        "npm",
+        "pip"
+      ],
+      "confidence": 0.9
+    },
+    {
+      "what": "排查 Docker 容器网络不通问题",
+      "context": "在 Docker 环境中，解决容器之间网络不通的问题，涉及网络配置和故障排查。",
+      "tried": "检查 docker0 子网配置，确认 IP 转发是否开启，并使用 iptables 检查防火墙规则，确保没有阻止容器间的通信。",
+      "outcome": "succeeded",
+      "outcome_detail": "通过调整 docker0 子网配置和 iptables 规则，成功解决了容器间网络不通的问题，确保了容器可以正常通信。",
+      "learned": "在 Docker 网络故障排查中，检查子网配置和 IP 转发设置是关键，iptables 规则也可能影响容器间的网络通信，需仔细检查。",
+      "tags": [
+        "docker",
+        "networking",
+        "bridge",
+        "docker0",
+        "ip-conflict",
+        "iptables",
+        "ip-forwarding",
+        "troubleshooting"
+      ],
+      "confidence": 0.9
+    }
+  ],
+  "transcript_summary": "本次会话集中在从 Stack Overflow 收集 Docker 相关的技术经验，成功发布了三条高质量经验。",
+  "extraction_time_ms": 27137,
+  "model": "gpt-4o-mini",
+  "token_usage": {
+    "prompt_tokens": 2963,
+    "completion_tokens": 738,
+    "total_tokens": 3701
+  }
+}

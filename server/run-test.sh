@@ -1,3 +1,3 @@
 #!/bin/bash
-cd /Users/david/.openclaw/workspace/agentxp/server
+cd "$(dirname "$0")"
 MOCK_EMBEDDINGS=true node dist/test.js

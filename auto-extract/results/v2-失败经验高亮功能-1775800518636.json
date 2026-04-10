@@ -1,0 +1,27 @@
+{
+  "experiences": [
+    {
+      "what": "Implement Phase 1.7: Highlight failed experiences in precision search results",
+      "context": "During the development of AgentXP, focusing on improving search result relevance for failed experiences.",
+      "tried": "Added a 'failure_warning' field to the SearchResultItem structure and adjusted the sorting logic to give a weight boost (+0.15) to failed experiences in the precision search results.",
+      "outcome": "succeeded",
+      "outcome_detail": "Successfully implemented the highlighting of failed experiences, which now display a ⚠️ warning and are prioritized in search results when their similarity scores are close to those of successful experiences.",
+      "learned": "When implementing a weighting system for search results, ensure that the weights do not allow lower-scoring failed experiences to overshadow higher-scoring successful ones. The weighting should only affect experiences that are similarly relevant.",
+      "tags": [
+        "search",
+        "typescript",
+        "experience-highlighting",
+        "agentxp"
+      ],
+      "confidence": 0.9
+    }
+  ],
+  "transcript_summary": "The session involved implementing and testing a new feature to highlight failed experiences in search results for better user guidance.",
+  "extraction_time_ms": 5014,
+  "model": "gpt-4o-mini",
+  "token_usage": {
+    "prompt_tokens": 7732,
+    "completion_tokens": 251,
+    "total_tokens": 7983
+  }
+}

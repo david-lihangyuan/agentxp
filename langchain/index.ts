@@ -1,8 +1,10 @@
 /**
- * AgentXP LangChain Tools
+ * AgentXP LangChain Tools + Auto-Extract
  *
  * 三个 LangChain.js tool：search / publish / verify
- * 用法：import { agentXPTools } from "@agentxp/langchain"
+ * + AgentXPAutoExtract callback handler（Sentry 模式自动经验采集）
+ *
+ * 用法：import { agentXPTools, AgentXPAutoExtract } from "@agentxp/langchain"
  *
  * 依赖：langchain, zod
  * 零额外依赖——只用 fetch（Node 18+ 内置）
@@ -231,3 +233,238 @@ export const agentxpVerify = tool(
 export const agentXPTools = [agentxpSearch, agentxpPublish, agentxpVerify];
 
 export default agentXPTools;
+
+// === Phase 3.6: Auto-Extract Callback Handler ===
+
+interface AutoExtractConfig {
+  /** API Key（必须） */
+  apiKey?: string;
+  /** API 服务地址 */
+  serverUrl?: string;
+  /** Agent 名称（用于 session 分类） */
+  agentName?: string;
+  /** Agent ID（用于 metadata） */
+  agentId?: string;
+  /** 最少消息数，少于此数不提交（默认 5） */
+  minMessages?: number;
+  /** 每条消息最大字符数（默认 1000） */
+  maxMessageChars?: number;
+  /** 只看提取结果不发布 */
+  dryRun?: boolean;
+  /** 平台标识 */
+  platform?: string;
+  /** 提取完成回调 */
+  onExtracted?: (result: AutoExtractResult) => void;
+  /** 错误回调（默认静默） */
+  onError?: (error: Error) => void;
+}
+
+interface CollectedMessage {
+  role: 'user' | 'assistant' | 'tool';
+  content: string;
+  timestamp: string;
+}
+
+interface AutoExtractResult {
+  status: 'extracted' | 'skipped' | 'empty' | 'error';
+  published?: Array<{ experience_id: string; what: string; tags: string[] }>;
+  rejected?: Array<{ what: string; reason: string }>;
+  skip_reason?: string;
+  error?: string;
+}
+
+/**
+ * LangChain Callback Handler 实现自动经验采集
+ *
+ * Sentry 模式：加一行代码，agent 的 session 自动变成经验。
+ *
+ * 用法：
+ * ```ts
+ * import { AgentXPAutoExtract } from "@agentxp/langchain";
+ *
+ * const extractor = new AgentXPAutoExtract({
+ *   apiKey: process.env.AGENTXP_API_KEY,
+ *   agentName: "my-coding-agent",
+ * });
+ *
+ * const agent = createAgent({
+ *   tools: [...agentXPTools],
+ *   callbacks: [extractor],
+ * });
+ *
+ * // Session 结束后手动触发
+ * await extractor.flush();
+ * ```
+ */
+export class AgentXPAutoExtract {
+  private messages: CollectedMessage[] = [];
+  private config: Required<AutoExtractConfig>;
+  private flushed = false;
+
+  constructor(config: AutoExtractConfig = {}) {
+    this.config = {
+      apiKey: config.apiKey || process.env.AGENTXP_API_KEY || '',
+      serverUrl: (config.serverUrl || process.env.AGENTXP_SERVER_URL || 'https://agentxp.io').replace(/\/$/, ''),
+      agentName: config.agentName || 'langchain-agent',
+      agentId: config.agentId || process.env.AGENTXP_AGENT_ID || `langchain-${Date.now()}`,
+      minMessages: config.minMessages ?? 5,
+      maxMessageChars: config.maxMessageChars ?? 1000,
+      dryRun: config.dryRun ?? false,
+      platform: config.platform || 'langchain',
+      onExtracted: config.onExtracted || (() => {}),
+      onError: config.onError || (() => {}),
+    };
+  }
+
+  /** 手动添加消息（用于框架不走 callback 的场景） */
+  addMessage(msg: { role: string; content: string }) {
+    this.messages.push({
+      role: msg.role as CollectedMessage['role'],
+      content: String(msg.content).slice(0, this.config.maxMessageChars),
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  /** 当前收集的消息数 */
+  get messageCount(): number {
+    return this.messages.length;
+  }
+
+  /**
+   * LangChain Callback: handleLLMEnd
+   * 收集 LLM 生成的文本
+   */
+  handleLLMEnd(output: any) {
+    try {
+      const text = output?.generations?.[0]?.[0]?.text
+        || output?.generations?.[0]?.[0]?.message?.content
+        || '';
+      if (text && text.length > 20) {
+        this.addMessage({ role: 'assistant', content: text });
+      }
+    } catch {
+      // 静默
+    }
+  }
+
+  /**
+   * LangChain Callback: handleToolStart
+   * 收集工具调用
+   */
+  handleToolStart(tool: any, input: string) {
+    try {
+      const name = tool?.name || tool?.id?.[tool.id.length - 1] || 'unknown';
+      this.addMessage({
+        role: 'assistant',
+        content: `[TOOL: ${name}] ${String(input).slice(0, 500)}`,
+      });
+    } catch {
+      // 静默
+    }
+  }
+
+  /**
+   * LangChain Callback: handleToolEnd
+   * 收集工具结果（只保留有价值的部分）
+   */
+  handleToolEnd(output: string) {
+    try {
+      const lower = String(output).toLowerCase();
+      const interesting = /error|fail|warning|not found|cannot|fix|bug|deploy|pass|success/.test(lower);
+      if (interesting || output.length < 200) {
+        this.addMessage({
+          role: 'tool',
+          content: String(output).slice(0, 500),
+        });
+      }
+    } catch {
+      // 静默
+    }
+  }
+
+  /**
+   * LangChain Callback: handleChatModelStart
+   * 收集用户消息
+   */
+  handleChatModelStart(_llm: any, messages: any[][]) {
+    try {
+      for (const msgGroup of messages) {
+        for (const msg of msgGroup) {
+          const role = msg._getType?.() || msg.role || 'user';
+          const content = msg.content || msg.text || '';
+          if (role === 'human' || role === 'user') {
+            // 跳过长系统 prompt
+            if (content.length > 3000) continue;
+            this.addMessage({ role: 'user', content });
+          }
+        }
+      }
+    } catch {
+      // 静默
+    }
+  }
+
+  /**
+   * 提交收集的消息到 auto-extract webhook
+   * Session 结束后调用
+   */
+  async flush(): Promise<AutoExtractResult | null> {
+    if (this.flushed) return null;
+    this.flushed = true;
+
+    if (this.messages.length < this.config.minMessages) {
+      const result: AutoExtractResult = {
+        status: 'skipped',
+        skip_reason: `Too few messages (${this.messages.length} < ${this.config.minMessages})`,
+      };
+      this.config.onExtracted(result);
+      return result;
+    }
+
+    if (!this.config.apiKey) {
+      const result: AutoExtractResult = {
+        status: 'error',
+        error: 'No API key configured (set AGENTXP_API_KEY or pass apiKey)',
+      };
+      this.config.onError(new Error(result.error!));
+      return result;
+    }
+
+    try {
+      const response = await fetch(`${this.config.serverUrl}/hooks/auto-extract`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.config.apiKey}`,
+        },
+        body: JSON.stringify({
+          messages: this.messages,
+          metadata: {
+            agent_id: this.config.agentId,
+            agent_name: this.config.agentName,
+            platform: this.config.platform,
+            framework: 'langchain-js',
+          },
+          dry_run: this.config.dryRun,
+        }),
+      });
+
+      const result = await response.json() as AutoExtractResult;
+      this.config.onExtracted(result);
+      return result;
+    } catch (err: any) {
+      const result: AutoExtractResult = {
+        status: 'error',
+        error: err.message || 'Auto-extract request failed',
+      };
+      this.config.onError(err);
+      return result;
+    }
+  }
+
+  /** 重置 collector（开始新 session） */
+  reset() {
+    this.messages = [];
+    this.flushed = false;
+  }
+}

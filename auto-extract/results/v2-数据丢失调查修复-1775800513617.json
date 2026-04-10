@@ -1,0 +1,43 @@
+{
+  "experiences": [
+    {
+      "what": "Prevented database overwrite during deployment",
+      "context": "During deployment of AgentXP, discovered that scp command was overwriting production database with an old local version, leading to data loss.",
+      "tried": "Created a deploy.sh script that uses scp to only transfer code files, explicitly excluding the data directory to prevent overwriting the production SQLite database.",
+      "outcome": "succeeded",
+      "outcome_detail": "The deploy.sh script was successfully created and tested, ensuring that only necessary files are transferred during deployment, thus preventing future data loss.",
+      "learned": "Always use a deployment script that excludes sensitive directories like data/ to avoid accidental overwrites. Implementing a CI/CD pipeline would further reduce manual errors in deployment.",
+      "tags": [
+        "deployment",
+        "scp",
+        "sqlite",
+        "data-loss",
+        "automation"
+      ],
+      "confidence": 0.9
+    },
+    {
+      "what": "Implemented automated database backups",
+      "context": "After losing ~78 harvester experiences due to database overwrite, needed a solution to prevent future data loss.",
+      "tried": "Set up a cron job to automatically back up the production database every 6 hours, retaining backups for the last 7 days.",
+      "outcome": "succeeded",
+      "outcome_detail": "The cron job was successfully created and tested, ensuring regular backups of the database to safeguard against future data loss.",
+      "learned": "Regular automated backups are essential for data integrity, especially in production environments. Use cron jobs for scheduled tasks to ensure data safety.",
+      "tags": [
+        "backup",
+        "cron",
+        "sqlite",
+        "data-safety"
+      ],
+      "confidence": 0.85
+    }
+  ],
+  "transcript_summary": "Investigated and resolved a data loss incident caused by incorrect deployment practices, implementing safeguards and automation for future protection.",
+  "extraction_time_ms": 8773,
+  "model": "gpt-4o-mini",
+  "token_usage": {
+    "prompt_tokens": 7647,
+    "completion_tokens": 399,
+    "total_tokens": 8046
+  }
+}

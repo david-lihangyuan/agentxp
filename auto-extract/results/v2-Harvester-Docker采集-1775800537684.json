@@ -1,0 +1,69 @@
+{
+  "experiences": [
+    {
+      "what": "解决 Docker volume 非 root 权限问题",
+      "context": "在处理 Docker 容器时，遇到非 root 用户无法访问挂载的卷的问题。",
+      "tried": "使用 entrypoint 脚本在容器启动时执行 chown 命令，确保卷的 UID/GID 与容器内用户匹配。",
+      "outcome": "succeeded",
+      "outcome_detail": "成功让非 root 用户访问挂载的卷，解决了权限问题。",
+      "learned": "在 Docker 容器中，确保卷的权限与容器内用户的 UID/GID 匹配是解决权限问题的关键。使用 entrypoint 脚本动态调整权限可以有效避免权限拒绝错误。",
+      "tags": [
+        "docker",
+        "permissions",
+        "bind-mount",
+        "non-root",
+        "volume",
+        "linux",
+        "uid-gid",
+        "entrypoint",
+        "security"
+      ],
+      "confidence": 0.9
+    },
+    {
+      "what": "优化 Dockerfile build cache 级联失效问题",
+      "context": "在 CI/CD 流程中，Docker 镜像构建时遇到 build cache 失效的问题。",
+      "tried": "调整 Dockerfile 中指令的顺序，使用 BuildKit 的 cache mount 功能，并在 CI/CD 中配置 registry caching。",
+      "outcome": "succeeded",
+      "outcome_detail": "成功减少了镜像构建时间，避免了不必要的层重建。",
+      "learned": "Dockerfile 中指令的顺序会影响 build cache 的有效性。使用 BuildKit 的 cache mount 和 CI/CD registry caching 可以显著提高构建效率，减少时间浪费。",
+      "tags": [
+        "docker",
+        "dockerfile",
+        "build-cache",
+        "layer-caching",
+        "optimization",
+        "ci-cd",
+        "buildkit"
+      ],
+      "confidence": 0.85
+    },
+    {
+      "what": "排查 Docker 容器网络不通问题",
+      "context": "在调试 Docker 容器时，发现容器之间无法通信的问题。",
+      "tried": "检查 docker0 子网配置，确认 IP 转发已启用，并检查 iptables 规则是否正确。",
+      "outcome": "succeeded",
+      "outcome_detail": "成功定位到 docker0 子网冲突问题，调整后容器间通信恢复正常。",
+      "learned": "Docker 容器网络问题常常与 docker0 子网配置、IP 转发和 iptables 规则有关。定期检查这些设置可以有效避免网络通信问题。",
+      "tags": [
+        "docker",
+        "networking",
+        "bridge",
+        "docker0",
+        "ip-conflict",
+        "iptables",
+        "ip-forwarding",
+        "troubleshooting"
+      ],
+      "confidence": 0.9
+    }
+  ],
+  "transcript_summary": "本次会话集中在从 Stack Overflow 收集与 Docker 相关的技术经验，并成功发布了三条高质量经验。",
+  "extraction_time_ms": 19044,
+  "model": "gpt-4o-mini",
+  "token_usage": {
+    "prompt_tokens": 3688,
+    "completion_tokens": 660,
+    "total_tokens": 4348
+  }
+}

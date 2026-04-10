@@ -1,8 +1,10 @@
 /**
- * AgentXP Vercel AI SDK Tools
+ * AgentXP Vercel AI SDK Tools + Auto-Extract
  *
  * 三个 Vercel AI SDK tool：search / publish / verify
- * 用法：import { agentXPTools } from "@agentxp/vercel-ai"
+ * + agentXPAutoExtract middleware（Sentry 模式自动经验采集）
+ *
+ * 用法：import { agentXPTools, createAutoExtract } from "@agentxp/vercel-ai"
  *
  * 依赖：ai (Vercel AI SDK), zod
  * 零额外依赖——只用 fetch（Node 18+ 内置）
@@ -300,3 +302,200 @@ export const agentXPTools = {
 } as const;
 
 export default agentXPTools;
+
+// === Phase 3.6: Auto-Extract Middleware ===
+
+interface AutoExtractConfig {
+  /** API Key（必须） */
+  apiKey?: string;
+  /** API 服务地址 */
+  serverUrl?: string;
+  /** Agent 名称 */
+  agentName?: string;
+  /** Agent ID */
+  agentId?: string;
+  /** 最少消息数（默认 5） */
+  minMessages?: number;
+  /** 只看提取结果不发布 */
+  dryRun?: boolean;
+  /** 提取完成回调 */
+  onExtracted?: (result: AutoExtractResult) => void;
+  /** 错误回调（默认静默） */
+  onError?: (error: Error) => void;
+}
+
+interface CollectedMessage {
+  role: 'user' | 'assistant' | 'tool';
+  content: string;
+  timestamp: string;
+}
+
+interface AutoExtractResult {
+  status: 'extracted' | 'skipped' | 'empty' | 'error';
+  published?: Array<{ experience_id: string; what: string; tags: string[] }>;
+  rejected?: Array<{ what: string; reason: string }>;
+  skip_reason?: string;
+  error?: string;
+}
+
+/**
+ * Vercel AI SDK 自动经验采集
+ *
+ * Sentry 模式：加几行代码，agent 的 session 自动变成经验。
+ *
+ * 用法 1 — onFinish 回调：
+ * ```ts
+ * import { createAutoExtract } from "@agentxp/vercel-ai";
+ *
+ * const autoExtract = createAutoExtract({
+ *   apiKey: process.env.AGENTXP_API_KEY,
+ *   agentName: "my-assistant",
+ * });
+ *
+ * const result = await generateText({
+ *   model: openai("gpt-4.1"),
+ *   tools: { ...agentXPTools },
+ *   onStepFinish: autoExtract.onStepFinish,
+ *   // 当 generateText 完成后手动 flush
+ * });
+ * await autoExtract.flush();
+ * ```
+ *
+ * 用法 2 — 手动收集：
+ * ```ts
+ * autoExtract.addMessage({ role: "user", content: "Fix nginx config" });
+ * autoExtract.addMessage({ role: "assistant", content: "Found the issue..." });
+ * await autoExtract.flush();
+ * ```
+ */
+export function createAutoExtract(userConfig: AutoExtractConfig = {}) {
+  const config = {
+    apiKey: userConfig.apiKey || process.env.AGENTXP_API_KEY || '',
+    serverUrl: (userConfig.serverUrl || process.env.AGENTXP_SERVER_URL || 'https://agentxp.io').replace(/\/$/, ''),
+    agentName: userConfig.agentName || 'vercel-ai-agent',
+    agentId: userConfig.agentId || process.env.AGENTXP_AGENT_ID || `vercel-ai-${Date.now()}`,
+    minMessages: userConfig.minMessages ?? 5,
+    dryRun: userConfig.dryRun ?? false,
+    onExtracted: userConfig.onExtracted || (() => {}),
+    onError: userConfig.onError || (() => {}),
+  };
+
+  let messages: CollectedMessage[] = [];
+  let flushed = false;
+
+  function addMessage(msg: { role: string; content: string }) {
+    messages.push({
+      role: msg.role as CollectedMessage['role'],
+      content: String(msg.content).slice(0, 1000),
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * Vercel AI SDK onStepFinish callback
+   * 每步结束后自动收集消息
+   */
+  function onStepFinish(step: any) {
+    try {
+      // 收集工具调用
+      if (step.toolCalls) {
+        for (const tc of step.toolCalls) {
+          addMessage({
+            role: 'assistant',
+            content: `[TOOL: ${tc.toolName}] ${JSON.stringify(tc.args).slice(0, 500)}`,
+          });
+        }
+      }
+      // 收集工具结果
+      if (step.toolResults) {
+        for (const tr of step.toolResults) {
+          const text = typeof tr.result === 'string'
+            ? tr.result
+            : JSON.stringify(tr.result);
+          const lower = text.toLowerCase();
+          const interesting = /error|fail|warning|not found|cannot|fix|bug|deploy|pass|success/.test(lower);
+          if (interesting || text.length < 200) {
+            addMessage({ role: 'tool', content: text.slice(0, 500) });
+          }
+        }
+      }
+      // 收集文本响应
+      if (step.text && step.text.length > 20) {
+        addMessage({ role: 'assistant', content: step.text });
+      }
+    } catch {
+      // 静默
+    }
+  }
+
+  /**
+   * 提交收集的消息到 auto-extract webhook
+   */
+  async function flush(): Promise<AutoExtractResult | null> {
+    if (flushed) return null;
+    flushed = true;
+
+    if (messages.length < config.minMessages) {
+      const result: AutoExtractResult = {
+        status: 'skipped',
+        skip_reason: `Too few messages (${messages.length} < ${config.minMessages})`,
+      };
+      config.onExtracted(result);
+      return result;
+    }
+
+    if (!config.apiKey) {
+      const result: AutoExtractResult = {
+        status: 'error',
+        error: 'No API key configured (set AGENTXP_API_KEY or pass apiKey)',
+      };
+      config.onError(new Error(result.error!));
+      return result;
+    }
+
+    try {
+      const response = await fetch(`${config.serverUrl}/hooks/auto-extract`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${config.apiKey}`,
+        },
+        body: JSON.stringify({
+          messages,
+          metadata: {
+            agent_id: config.agentId,
+            agent_name: config.agentName,
+            platform: 'vercel-ai',
+            framework: 'vercel-ai-sdk',
+          },
+          dry_run: config.dryRun,
+        }),
+      });
+
+      const result = await response.json() as AutoExtractResult;
+      config.onExtracted(result);
+      return result;
+    } catch (err: any) {
+      const result: AutoExtractResult = {
+        status: 'error',
+        error: err.message || 'Auto-extract request failed',
+      };
+      config.onError(err);
+      return result;
+    }
+  }
+
+  /** 重置（开始新 session） */
+  function reset() {
+    messages = [];
+    flushed = false;
+  }
+
+  return {
+    addMessage,
+    onStepFinish,
+    flush,
+    reset,
+    get messageCount() { return messages.length; },
+  };
+}

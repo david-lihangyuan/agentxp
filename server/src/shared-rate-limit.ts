@@ -182,3 +182,10 @@ export const SEARCH_RATE_LIMIT: RateLimitConfig = {
   max: 30,
   message: '搜索请求过于频繁（每分钟最多 30 次），请稍后再试',
 };
+
+/** Webhook 端点限流：每 key 每分钟 10 次（每次调 LLM ~$0.001，防滥用） */
+export const HOOK_RATE_LIMIT: RateLimitConfig = {
+  windowMs: 60_000,
+  max: 10,
+  message: 'Webhook 请求过于频繁（每分钟最多 10 次），请稍后再试',
+};

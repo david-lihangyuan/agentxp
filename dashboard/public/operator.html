@@ -233,7 +233,8 @@ function formatTime(iso) {
 
 async function loadDashboard() {
   try {
-    const res = await fetch('/api/operator/dashboard');
+    const basePath = window.location.pathname.replace(/\/[^/]*$/, '');
+const res = await fetch(basePath + '/api/operator/dashboard');
     const d = await res.json();
     if (d.error) throw new Error(d.error);
 
