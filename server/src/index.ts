@@ -299,16 +299,37 @@ app.post('/api/publish', async (c) => {
   try {
     const body = await c.req.json();
 
-    // 结构层级校验：必须有 experience 外层包装
+    // 兼容扁平格式：如果顶层有 what/tried/learned，自动包装
+    if (!body.experience && (body.what || body.tried || body.learned)) {
+      body.experience = {
+        core: {
+          what: body.what || '',
+          context: body.context || '',
+          tried: body.tried || '',
+          outcome: body.outcome || 'inconclusive',
+          outcome_detail: body.outcome_detail || '',
+          learned: body.learned || '',
+        },
+        tags: body.tags || [],
+        publisher: body.publisher || {},
+      };
+    }
+
+    // 结构层级校验
     if (!body.experience) {
-      return c.json({ error: '请求体缺少 experience 外层包装。正确格式：{ "experience": { "core": { "what": "...", "tried": "...", "learned": "..." } } }' }, 400);
+      return c.json({ error: 'Missing experience wrapper. Use {"experience":{"core":{"what":"...","tried":"...","learned":"..."}}} or flat format {"what":"...","tried":"...","learned":"..."}' }, 400);
     }
 
     const exp = body.experience as Experience;
 
-    // core 对象校验
+    // core 对象校验（也兼容 experience 下直接放字段的情况）
     if (!exp.core) {
-      return c.json({ error: 'experience 缺少 core 对象。正确格式：{ "experience": { "core": { "what": "...", "tried": "...", "learned": "..." } } }' }, 400);
+      if ((exp as any).what || (exp as any).tried || (exp as any).learned) {
+        (exp as any).core = { what: (exp as any).what, context: (exp as any).context || '', tried: (exp as any).tried, outcome: (exp as any).outcome || 'inconclusive', outcome_detail: (exp as any).outcome_detail || '', learned: (exp as any).learned };
+        if (!exp.tags && (exp as any).tags) exp.tags = (exp as any).tags;
+      } else {
+        return c.json({ error: 'Missing core object. Use {"experience":{"core":{"what":"...","tried":"...","learned":"..."}}}' }, 400);
+      }
     }
 
     // 必填字段校验
@@ -492,6 +513,34 @@ app.post('/api/search', searchLimiter, async (c) => {
     return c.json(results);
   } catch (err: any) {
     console.error('Search 错误:', err);
+    return c.json({ error: err.message || 'Internal Server Error' }, 500);
+  }
+});
+
+// === my experiences ===
+app.get('/api/my-experiences', async (c) => {
+  try {
+    const agentId = c.get('agentId');
+    const limit = Math.min(parseInt(c.req.query('limit') || '20'), 100);
+    const offset = parseInt(c.req.query('offset') || '0');
+    const client = getClient();
+    const countResult = await client.execute({ sql: 'SELECT COUNT(*) as total FROM experiences WHERE publisher_agent_id = ?', args: [agentId] });
+    const total = Number(countResult.rows[0]?.total ?? 0);
+    const result = await client.execute({ sql: 'SELECT id, what, context, tried, outcome, outcome_detail, learned, tags, published_at FROM experiences WHERE publisher_agent_id = ? ORDER BY published_at DESC LIMIT ? OFFSET ?', args: [agentId, limit, offset] });
+    const experiences = result.rows.map(row => ({
+      id: row.id,
+      what: row.what,
+      context: row.context,
+      tried: row.tried,
+      outcome: row.outcome,
+      outcome_detail: row.outcome_detail,
+      learned: row.learned,
+      tags: row.tags ? JSON.parse(row.tags as string) : [],
+      published_at: row.published_at,
+    }));
+    return c.json({ agent_id: agentId, total, experiences, has_more: offset + limit < total, limit, offset });
+  } catch (err: any) {
+    console.error('My experiences error:', err);
     return c.json({ error: err.message || 'Internal Server Error' }, 500);
   }
 });

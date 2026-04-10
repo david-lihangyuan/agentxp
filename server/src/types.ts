@@ -187,6 +187,7 @@ export interface SearchResultItem {
 
 export interface SerendipityResultItem extends SearchResultItem {
   serendipity_reason: string;
+  brief_reason: string;
 }
 
 export interface SearchResponse {

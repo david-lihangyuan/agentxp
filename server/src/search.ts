@@ -164,10 +164,16 @@ export async function search(req: SearchRequest): Promise<SearchResponse> {
       const weight = channels.serendipity_weight ?? 0.3;
       const finalScore = (similarity + serendipityBonus) * weight;
 
+      // brief_reason: one-line version (max 60 chars)
+      const briefReason = reason.length > 60
+        ? reason.replace(/\n/g, ' ').slice(0, 57) + '...'
+        : reason.replace(/\n/g, ' ');
+
       serendipityResults.push({
         experience_id: id,
         match_score: Math.round(finalScore * 1000) / 1000,
         serendipity_reason: reason,
+        brief_reason: briefReason,
         experience: exp,
         verification_summary: verSum,
         has_executable: !!(exp.executable && exp.executable.length > 0),
