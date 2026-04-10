@@ -8,7 +8,7 @@
 
 import { initDB, getClient, insertExperience, insertExecutables, getExperience, updateExperienceStatus, deleteExperience, getExecutables, getExecutablesByIds, insertVerification, getVerificationSummary, getAgentByKey, getAgentVerifiedIds } from './db.js';
 import { initEmbedding, getEmbedding, experienceToText, cosineSimilarity } from './embedding.js';
-import { search } from './search.js';
+import { search, qualityScore } from './search.js';
 import { getAgentProfile, checkSearchQuota, recordSearch, getSearchCountToday } from './rewards.js';
 import { insertSearchLog, getAgentSearchStats } from './db.js';
 import type { Experience, SearchRequest } from './types.js';
@@ -1278,6 +1278,108 @@ async function main() {
   const rEmpty = detectSensitiveContent({});
   assert(rEmpty.found === false, '空字段不报错');
   assert(rEmpty.matches.length === 0, '空字段零匹配');
+
+  // ========== 质量评分测试 ==========
+  console.log('\n--- 质量评分 (Phase 1.6) ---');
+
+  // 高质量经验：有 executable + 详细 tried/learned + context_version + 明确 outcome + 详细 outcome_detail
+  const highQualityExp = makeExperience({
+    publisher: { agent_id: 'quality-test', platform: 'test' },
+    core: {
+      what: 'Fixed Docker layer caching issue',
+      context: 'CI/CD pipeline',
+      tried: 'Reordered Dockerfile instructions to maximize cache hits. Moved COPY package.json before COPY . to avoid invalidating the npm install layer on every code change. Also added .dockerignore.',
+      outcome: 'succeeded',
+      outcome_detail: 'Build time reduced from 8 minutes to 2 minutes. Cache hit rate went from 10% to 85%. CI costs dropped significantly.',
+      learned: 'Docker layer caching depends on instruction order. Dependencies should be installed in early layers that change infrequently.',
+    },
+    tags: ['docker', 'ci-cd', 'performance'],
+    context_version: 'docker@24.0',
+    executable: [{
+      type: 'snippet' as const,
+      language: 'dockerfile',
+      code: 'COPY package*.json ./\nRUN npm ci\nCOPY . .',
+      description: 'Optimized Dockerfile layer order',
+    }],
+  });
+  const highQ = qualityScore(highQualityExp);
+  assert(highQ >= 0.8, `高质量经验评分 >= 0.8（实际: ${highQ}）`);
+
+  // 低质量经验：短 tried/learned、无 executable、无 context_version、inconclusive
+  const lowQualityExp = makeExperience({
+    publisher: { agent_id: 'quality-test', platform: 'test' },
+    core: {
+      what: 'Tried something',
+      context: '',
+      tried: 'Did some basic debugging steps',
+      outcome: 'inconclusive',
+      outcome_detail: '',
+      learned: 'Not sure what happened',
+    },
+    tags: ['misc'],
+  });
+  const lowQ = qualityScore(lowQualityExp);
+  assert(lowQ <= 0.2, `低质量经验评分 <= 0.2（实际: ${lowQ}）`);
+
+  // 中等质量：有详细 tried 但无 executable、无 context_version
+  const midQualityExp = makeExperience({
+    publisher: { agent_id: 'quality-test', platform: 'test' },
+    core: {
+      what: 'Configured ESLint with TypeScript',
+      context: 'New project setup',
+      tried: 'Installed eslint and typescript-eslint packages. Created .eslintrc.json with recommended rules. Had to add parserOptions.project for type-aware linting.',
+      outcome: 'succeeded',
+      outcome_detail: 'ESLint now catches type errors in CI pipeline and runs in under 5 seconds.',
+      learned: 'TypeScript ESLint needs explicit parserOptions.project pointing to tsconfig.json for type-aware rules to work.',
+    },
+    tags: ['eslint', 'typescript'],
+  });
+  const midQ = qualityScore(midQualityExp);
+  assert(midQ > lowQ, `中等质量 > 低质量（${midQ} > ${lowQ}）`);
+  assert(midQ < highQ, `中等质量 < 高质量（${midQ} < ${highQ}）`);
+
+  // 质量分范围检查
+  assert(highQ >= 0 && highQ <= 1, '高质量评分在 0-1 范围内');
+  assert(lowQ >= 0 && lowQ <= 1, '低质量评分在 0-1 范围内');
+  assert(midQ >= 0 && midQ <= 1, '中等质量评分在 0-1 范围内');
+
+  // 有 executable 的经验 vs 无 executable 的同等经验
+  const withExec = makeExperience({
+    publisher: { agent_id: 'quality-test', platform: 'test' },
+    core: {
+      what: 'Setup Jest with ESM',
+      context: 'Node.js project',
+      tried: 'Configured Jest transform to use @swc/jest for ESM support. Updated package.json with type module.',
+      outcome: 'succeeded',
+      outcome_detail: 'All tests pass with native ESM imports.',
+      learned: 'Jest needs experimental VM modules flag and @swc/jest transform for proper ESM support in Node.js.',
+    },
+    tags: ['jest', 'esm'],
+    executable: [{
+      type: 'config' as const,
+      language: 'json',
+      code: '{"transform": {"^.+\\\\.tsx?$": ["@swc/jest"]}}',
+      description: 'Jest config for ESM',
+    }],
+  });
+  const withoutExec = makeExperience({
+    ...withExec,
+    executable: undefined,
+  });
+  const qWithExec = qualityScore(withExec);
+  const qWithoutExec = qualityScore(withoutExec);
+  assert(qWithExec > qWithoutExec, `有 executable 评分更高（${qWithExec} > ${qWithoutExec}）`);
+  assert(qWithExec - qWithoutExec >= 0.2, `executable 贡献 >= 0.2（差值: ${(qWithExec - qWithoutExec).toFixed(2)}）`);
+
+  // context_version 贡献
+  const withVersion = makeExperience({
+    ...midQualityExp,
+    context_version: 'eslint@9.0',
+  });
+  const qWithVersion = qualityScore(withVersion);
+  assert(qWithVersion > midQ, `有 context_version 评分更高（${qWithVersion} > ${midQ}）`);
+
+  console.log(`  质量评分示例: 高=${highQ.toFixed(2)} 中=${midQ.toFixed(2)} 低=${lowQ.toFixed(2)}`);
 
   // ========== 结果 ==========
   console.log(`\n${'='.repeat(40)}`);

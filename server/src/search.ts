@@ -22,6 +22,62 @@ function trustScore(exp: Experience, verSummary: { confirmed: number; denied: nu
   return Math.max(0, Math.min(1, base * decay));
 }
 
+/**
+ * 经验质量评分 (0-1)
+ *
+ * 评估经验内容的丰富程度和实用性，独立于语义相似度和信任分。
+ * 权重分配：
+ *   - 有可执行内容 (snippet/command/config/test)    +0.25
+ *   - tried 详细 (≥100 字)                          +0.20
+ *   - learned 详细 (≥50 字)                         +0.20
+ *   - 有 context_version                            +0.15
+ *   - outcome 明确 (非 inconclusive)                +0.10
+ *   - 有 outcome_detail (≥20 字)                    +0.10
+ * 总分归一到 0-1。
+ */
+export function qualityScore(exp: Experience): number {
+  let score = 0;
+
+  // 可执行内容：最有实际价值
+  if (exp.executable && exp.executable.length > 0) {
+    score += 0.25;
+  }
+
+  // tried 详细程度
+  const triedLen = exp.core.tried?.length ?? 0;
+  if (triedLen >= 100) {
+    score += 0.20;
+  } else if (triedLen >= 50) {
+    score += 0.10;
+  }
+
+  // learned 详细程度
+  const learnedLen = exp.core.learned?.length ?? 0;
+  if (learnedLen >= 50) {
+    score += 0.20;
+  } else if (learnedLen >= 30) {
+    score += 0.10;
+  }
+
+  // context_version：有版本追踪意识
+  if (exp.context_version) {
+    score += 0.15;
+  }
+
+  // 明确结论
+  if (exp.core.outcome && exp.core.outcome !== 'inconclusive') {
+    score += 0.10;
+  }
+
+  // outcome_detail 丰富度
+  const detailLen = exp.core.outcome_detail?.length ?? 0;
+  if (detailLen >= 20) {
+    score += 0.10;
+  }
+
+  return Math.min(1, score);
+}
+
 export async function search(req: SearchRequest): Promise<SearchResponse> {
   const {
     query,
@@ -98,8 +154,9 @@ export async function search(req: SearchRequest): Promise<SearchResponse> {
       const exp = expMap.get(id)!;
       const verSum = await cachedGetVerSum(id);
       const trust = trustScore(exp, verSum);
-      // SPEC: match_score × 0.7 + trust_score × 0.3
-      const finalScore = similarity * 0.7 + trust * 0.3;
+      const quality = qualityScore(exp);
+      // 综合评分：相似度 × 0.6 + 信任分 × 0.2 + 质量分 × 0.2
+      const finalScore = similarity * 0.6 + trust * 0.2 + quality * 0.2;
 
       precisionResults.push({
         experience_id: id,
