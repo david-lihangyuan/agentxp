@@ -90,7 +90,13 @@ export function generateFailureWarning(exp: Experience): string | undefined {
   return undefined;
 }
 
-export async function search(req: SearchRequest): Promise<SearchResponse> {
+/** 搜索上下文：控制可见性过滤 */
+export interface SearchContext {
+  /** 搜索者的 operator（用于可见性过滤） */
+  operator?: string | null;
+}
+
+export async function search(req: SearchRequest, ctx?: SearchContext): Promise<SearchResponse> {
   const {
     query,
     tags,
@@ -111,8 +117,16 @@ export async function search(req: SearchRequest): Promise<SearchResponse> {
     console.warn(`⚠️  搜索性能预警：当前 ${allEmbeddings.length} 条经验，暴力向量扫描可能变慢。建议超过 10K 条时接入向量索引。`);
   }
 
-  // 3. 计算相似度
-  const scored = allEmbeddings.map(({ id, embedding }) => ({
+  // 3. 计算相似度，同时过滤私有经验的可见性
+  const searcherOperator = ctx?.operator || null;
+  const visibleEmbeddings = allEmbeddings.filter(({ visibility, operator }) => {
+    if (visibility === 'public') return true;
+    // private 经验：只有同 operator 的搜索者可见
+    if (visibility === 'private' && searcherOperator && operator === searcherOperator) return true;
+    return false;
+  });
+
+  const scored = visibleEmbeddings.map(({ id, embedding }) => ({
     id,
     similarity: cosineSimilarity(queryEmbedding, embedding),
   }));

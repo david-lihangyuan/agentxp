@@ -11,6 +11,9 @@ export type Outcome = 'succeeded' | 'failed' | 'partial' | 'inconclusive';
 /** 经验生命周期状态 */
 export type ExperienceStatus = 'active' | 'outdated' | 'resolved';
 
+/** 经验可见性 */
+export type ExperienceVisibility = 'public' | 'private';
+
 export interface Publisher {
   agent_id: string;
   platform: string;
@@ -54,6 +57,8 @@ export interface Experience {
   context_version?: string | null;
   /** 经验状态：active=有效, outdated=已过时, resolved=问题已被修复 */
   status?: ExperienceStatus;
+  /** 可见性：public=所有人可见, private=仅同 operator 下的 agent 可见 */
+  visibility?: ExperienceVisibility;
 
   agent_context?: AgentContext;
   trust?: Trust;

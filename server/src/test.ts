@@ -6,7 +6,7 @@
  * 使用 libSQL 内存数据库
  */
 
-import { initDB, getClient, insertExperience, insertExecutables, getExperience, updateExperienceStatus, deleteExperience, getExecutables, getExecutablesByIds, insertVerification, getVerificationSummary, getAgentByKey, getAgentVerifiedIds, getVerifiedEnvironments } from './db.js';
+import { initDB, getClient, insertExperience, insertExecutables, getExperience, updateExperienceStatus, deleteExperience, getExecutables, getExecutablesByIds, insertVerification, getVerificationSummary, getAgentByKey, getAgentVerifiedIds, getVerifiedEnvironments, getAgentOperator, browseExperiences } from './db.js';
 import { initEmbedding, getEmbedding, experienceToText, cosineSimilarity } from './embedding.js';
 import { search, qualityScore, generateFailureWarning } from './search.js';
 import { getAgentProfile, checkSearchQuota, recordSearch, getSearchCountToday } from './rewards.js';
@@ -1628,6 +1628,138 @@ async function main() {
   await insertVerification(emptyEnvExpId, 'empty-env-a2', 'openclaw', 'confirmed', null, null, null);
   const emptyEnvResult = await getVerifiedEnvironments([emptyEnvExpId]);
   assert((emptyEnvResult.get(emptyEnvExpId) ?? []).length === 0, '空字符串和 null 环境不会返回');
+
+  // ========== Phase 2: 私有经验 ==========
+  console.log('\n--- Phase 2: 私有经验 ---');
+
+  // 注册测试用 operator agent
+  await insertApiKey('key-org1-a', 'org1-agent-a');
+  await insertApiKey('key-org1-b', 'org1-agent-b');
+  await insertApiKey('key-org2-c', 'org2-agent-c');
+
+  // 1. 发布私有经验
+  const privateExp = makeExperience({
+    publisher: { agent_id: 'org1-agent-a', platform: 'openclaw', operator: 'org1' },
+    core: {
+      what: '私有部署经验',
+      context: '内部部署流程优化',
+      tried: '通过内部 CI/CD 管线自动化部署流程，测试环境先行',
+      outcome: 'succeeded',
+      outcome_detail: '部署时间从 30 分钟降到 5 分钟',
+      learned: '自动化部署管线配合测试环境先行能大幅减少部署风险',
+    },
+    tags: ['deployment', 'ci-cd', 'internal'],
+    visibility: 'private',
+  });
+  const privateExpId = await publishExperience(privateExp);
+  assert(!!privateExpId, '私有经验发布成功');
+
+  // 确认存储的 visibility
+  const storedPrivate = await getExperience(privateExpId);
+  assert(storedPrivate?.visibility === 'private', `存储的 visibility = private（实际: ${storedPrivate?.visibility}）`);
+
+  // 2. 发布公开经验（同 operator）
+  const publicExpSameOrg = makeExperience({
+    publisher: { agent_id: 'org1-agent-a', platform: 'openclaw', operator: 'org1' },
+    core: {
+      what: '公开的部署经验',
+      context: '公开分享的部署技巧',
+      tried: '通过容器化部署提高了环境一致性和可复现性',
+      outcome: 'succeeded',
+      outcome_detail: '环境一致性问题归零',
+      learned: '容器化部署是解决环境不一致的最佳方案',
+    },
+    tags: ['deployment', 'docker'],
+    visibility: 'public',
+  });
+  const publicExpId = await publishExperience(publicExpSameOrg);
+
+  // 3. 搜索可见性测试
+  // 核心验证：同 operator 的 candidate pool 包含 private，不同的不包含
+  // mock embedding 下相似度是伪随机的，不保证命中，所以测试采用反面验证：
+  // — private 经验不应出现在不同 operator / 无 operator 的搜索结果中
+  const searchReq: SearchRequest = { query: '部署流程优化', limit: 50 };
+
+  // 3a. 同 operator 搜索——私有经验在 candidate pool 里
+  // （mock 下不保证命中，但至少不应报错）
+  const resultsSameOrg = await search(searchReq, { operator: 'org1' });
+  assert(resultsSameOrg !== null, '同 operator 搜索正常返回');
+
+  // 3b. 不同 operator 的 agent 搜不到私有经验
+  const resultsDiffOrg = await search(searchReq, { operator: 'org2' });
+  const diffOrgIds = [...resultsDiffOrg.precision.map(r => r.experience_id), ...resultsDiffOrg.serendipity.map(r => r.experience_id)];
+  assert(!diffOrgIds.includes(privateExpId), '不同 operator 搜索看不到私有经验');
+
+  // 3c. 无 operator 的搜索者搜不到私有经验
+  const resultsNoOrg = await search(searchReq, { operator: null });
+  const noOrgIds = [...resultsNoOrg.precision.map(r => r.experience_id), ...resultsNoOrg.serendipity.map(r => r.experience_id)];
+  assert(!noOrgIds.includes(privateExpId), '无 operator 搜索看不到私有经验');
+
+  // 3d. 不传入 context 时也搜不到私有经验
+  const resultsNoCtx = await search(searchReq);
+  const noCtxIds = [...resultsNoCtx.precision.map(r => r.experience_id), ...resultsNoCtx.serendipity.map(r => r.experience_id)];
+  assert(!noCtxIds.includes(privateExpId), '不传 context 搜索看不到私有经验');
+
+  // 4. getAgentOperator 查询
+  const org1Op = await getAgentOperator('org1-agent-a');
+  assert(org1Op === 'org1', `getAgentOperator 返回正确 operator（实际: ${org1Op}）`);
+
+  const unknownOp = await getAgentOperator('alice');
+  // alice 的经验没设 operator，应返回 null
+  assert(unknownOp === null, `无 operator 的 agent 返回 null（实际: ${unknownOp}）`);
+
+  // 5. browse 可见性测试
+  // 5a. 默认 browse 只返回 public
+  const browseDefault = await browseExperiences({ limit: 50 });
+  const browseDefaultIds = browseDefault.experiences.map(e => e.id);
+  assert(!browseDefaultIds.includes(privateExpId), 'browse 默认不返回私有经验');
+  assert(browseDefaultIds.includes(publicExpId), 'browse 默认返回公开经验');
+
+  // 5b. 同 operator browse 可以看到私有经验
+  const browseOrg1 = await browseExperiences({ limit: 50, include_private_for_operator: 'org1' });
+  const browseOrg1Ids = browseOrg1.experiences.map(e => e.id);
+  assert(browseOrg1Ids.includes(privateExpId), 'browse + operator 可以看到私有经验');
+
+  // 5c. 不同 operator browse 看不到
+  const browseOrg2 = await browseExperiences({ limit: 50, include_private_for_operator: 'org2' });
+  const browseOrg2Ids = browseOrg2.experiences.map(e => e.id);
+  assert(!browseOrg2Ids.includes(privateExpId), 'browse + 不同 operator 看不到私有经验');
+
+  // 6. 私有经验仍可被验证（同 operator 内的 agent）
+  await insertVerification(privateExpId, 'org1-agent-b', 'openclaw', 'confirmed', null, '内部验证通过');
+  const privateVerSum = await getVerificationSummary(privateExpId);
+  assert(privateVerSum.confirmed === 1, '私有经验可被同 operator agent 验证');
+
+  // 7. 私有经验切换为公开后进入 candidate pool
+  await getClient().execute({ sql: "UPDATE experiences SET visibility = 'public' WHERE id = ?", args: [privateExpId] });
+  // 用 browse 验证（不依赖 embedding 相似度）
+  const browseAfterSwitch = await browseExperiences({ limit: 50 });
+  const afterSwitchIds = browseAfterSwitch.experiences.map(e => e.id);
+  assert(afterSwitchIds.includes(privateExpId), '切换为 public 后 browse 可见');
+  // 恢复
+  await getClient().execute({ sql: "UPDATE experiences SET visibility = 'private' WHERE id = ?", args: [privateExpId] });
+  // 确认恢复后又不可见
+  const browseAfterRevert = await browseExperiences({ limit: 50 });
+  assert(!browseAfterRevert.experiences.map(e => e.id).includes(privateExpId), '恢复 private 后 browse 不可见');
+
+  // 8. 默认 visibility 是 public
+  const defaultVisExp = makeExperience({
+    publisher: { agent_id: 'org1-agent-a', platform: 'openclaw', operator: 'org1' },
+    core: {
+      what: '默认可见性测试',
+      context: '不指定 visibility',
+      tried: '发布时不指定 visibility 应该默认为 public',
+      outcome: 'succeeded',
+      outcome_detail: '默认值测试',
+      learned: '默认可见性确认为 public',
+    },
+    tags: ['visibility-default'],
+  });
+  const defaultVisId = await publishExperience(defaultVisExp);
+  const storedDefault = await getExperience(defaultVisId);
+  assert(storedDefault?.visibility === 'public', `默认 visibility = public（实际: ${storedDefault?.visibility}）`);
+
+  console.log(`  Phase 2 私有经验测试完成: ${passed} passed`);
 
   // ========== 结果 ==========
   console.log(`\n${'='.repeat(40)}`);

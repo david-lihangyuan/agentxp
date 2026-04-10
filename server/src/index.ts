@@ -7,13 +7,13 @@
 
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
-import { initDB, getClient, insertExperience, insertExecutables, getExperience, updateExperienceStatus, deleteExperience, insertVerification, getVerificationSummary, getAgentByKey, getNetworkStats, getAgentStats, discoverExperiences, browseExperiences, insertSearchLog, getAgentVerifiedIds, getVerifiedEnvironments } from './db.js';
+import { initDB, getClient, insertExperience, insertExecutables, getExperience, updateExperienceStatus, deleteExperience, insertVerification, getVerificationSummary, getAgentByKey, getNetworkStats, getAgentStats, discoverExperiences, browseExperiences, insertSearchLog, getAgentVerifiedIds, getVerifiedEnvironments, getAgentOperator } from './db.js';
 import { initEmbedding, getEmbedding, experienceToText } from './embedding.js';
 import { search } from './search.js';
 import { registerUser, listUserKeys, revokeApiKey } from './shared-auth.js';
 import { autoSeedIfEmpty } from './demo-seed.js';
 import { createRateLimiter, API_RATE_LIMIT, REGISTER_RATE_LIMIT, SEARCH_RATE_LIMIT } from './shared-rate-limit.js';
-import type { Experience, ExperienceStatus, ExecutableContent, ExecutableType, PublishResponse, SearchRequest, SearchResultItem, VerifyRequest, VerifyResponse } from './types.js';
+import type { Experience, ExperienceStatus, ExperienceVisibility, ExecutableContent, ExecutableType, PublishResponse, SearchRequest, SearchResultItem, VerifyRequest, VerifyResponse } from './types.js';
 import { getNetworkHealth } from './network-health.js';
 import { getAgentProfile, checkSearchQuota, recordSearch } from './rewards.js';
 import { getCredits, adjustCredits, getCreditLedger, awardSearchHitCredits, awardVerificationCredits, INITIAL_CREDITS, CREDIT_RULES } from './credits.js';
@@ -173,6 +173,7 @@ app.get('/experiences', async (c) => {
         publisher: { agent_id: exp.publisher.agent_id, platform: exp.publisher.platform },
         context_version: exp.context_version || null,
         status: exp.status || 'active',
+        visibility: exp.visibility || 'public',
         verification_summary: verSum,
       };
     }));
@@ -415,6 +416,19 @@ app.post('/api/publish', async (c) => {
       exp.status = (body as any).status;
     }
 
+    // v0.3: 私有经验可见性 (Phase 2)
+    const validVisibilities: ExperienceVisibility[] = ['public', 'private'];
+    if (!exp.visibility && (body as any).visibility) {
+      exp.visibility = (body as any).visibility;
+    }
+    if (exp.visibility && !validVisibilities.includes(exp.visibility)) {
+      return c.json({ error: `visibility 必须是 ${validVisibilities.join('/')} 之一` }, 400);
+    }
+    // 私有经验必须有 operator，否则无法执行访问控制
+    if (exp.visibility === 'private' && !exp.publisher?.operator) {
+      return c.json({ error: '私有经验必须指定 publisher.operator（用于确定访问范围）' }, 400);
+    }
+
     const id = await insertExperience(exp, embedding);
 
     // v0.2: 存储可执行内容
@@ -451,12 +465,17 @@ app.post('/api/publish', async (c) => {
       executable: exp.executable,
     });
 
-    const response: PublishResponse & { sensitive_content_warnings?: string[] } = {
+    const response: PublishResponse & { sensitive_content_warnings?: string[]; visibility?: string } = {
       status: 'published',
       experience_id: id,
       indexed_tags: exp.tags || [],
       published_at: exp.published_at || new Date().toISOString(),
     };
+
+    // 私有经验时返回 visibility
+    if (exp.visibility === 'private') {
+      response.visibility = 'private';
+    }
 
     if (sanitizeResult.found) {
       response.sensitive_content_warnings = sanitizeResult.warnings;
@@ -501,7 +520,9 @@ app.post('/api/search', searchLimiter, async (c) => {
       body.limit = Math.min(Math.max(1, body.limit), 50);
     }
 
-    const results = await search(body);
+    // 查询搜索者的 operator（用于私有经验可见性过滤）
+    const searcherOperator = await getAgentOperator(agentId);
+    const results = await search(body, { operator: searcherOperator });
 
     // 搜索成功，记录配额使用 + 持久化日志
     recordSearch(agentId);
@@ -587,7 +608,7 @@ app.get('/api/my-experiences', async (c) => {
     const client = getClient();
     const countResult = await client.execute({ sql: 'SELECT COUNT(*) as total FROM experiences WHERE publisher_agent_id = ?', args: [agentId] });
     const total = Number(countResult.rows[0]?.total ?? 0);
-    const result = await client.execute({ sql: 'SELECT id, what, context, tried, outcome, outcome_detail, learned, tags, published_at, context_version, status FROM experiences WHERE publisher_agent_id = ? ORDER BY published_at DESC LIMIT ? OFFSET ?', args: [agentId, limit, offset] });
+    const result = await client.execute({ sql: 'SELECT id, what, context, tried, outcome, outcome_detail, learned, tags, published_at, context_version, status, visibility FROM experiences WHERE publisher_agent_id = ? ORDER BY published_at DESC LIMIT ? OFFSET ?', args: [agentId, limit, offset] });
     const experiences = result.rows.map(row => ({
       id: row.id,
       what: row.what,
@@ -600,6 +621,7 @@ app.get('/api/my-experiences', async (c) => {
       published_at: row.published_at,
       context_version: row.context_version ?? null,
       status: row.status ?? 'active',
+      visibility: row.visibility ?? 'public',
     }));
     return c.json({ agent_id: agentId, total, experiences, has_more: offset + limit < total, limit, offset });
   } catch (err: any) {

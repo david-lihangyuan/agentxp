@@ -9,7 +9,7 @@
 
 import { createClient, type Client, type InStatement } from '@libsql/client';
 import { randomUUID } from 'node:crypto';
-import type { Experience, ExecutableContent, VerifyResult, VerificationSummary } from './types.js';
+import type { Experience, ExecutableContent, ExperienceVisibility, VerifyResult, VerificationSummary } from './types.js';
 import { AUTH_SCHEMA_SQL, migrateApiKeysTable } from './shared-auth.js';
 
 let client: Client;
@@ -126,7 +126,19 @@ export async function initDB(url: string, authToken?: string): Promise<Client> {
   // 运行时迁移：验证环境信息（Phase 1.9）
   await migrateVerificationEnvironment(client);
 
+  // 运行时迁移：私有经验可见性（Phase 2.1）
+  await migrateExperienceVisibility(client);
+
   return client;
+}
+
+/** 幂等迁移：experiences 表加 visibility 列（Phase 2.1） */
+async function migrateExperienceVisibility(client: Client) {
+  try {
+    await client.execute({ sql: `ALTER TABLE experiences ADD COLUMN visibility TEXT NOT NULL DEFAULT 'public' CHECK(visibility IN ('public', 'private'))`, args: [] });
+  } catch (e: any) {
+    if (!e.message?.includes('duplicate column')) throw e;
+  }
 }
 
 /** 幂等迁移：verifications 表加 environment 列（Phase 1.9） */
@@ -264,13 +276,13 @@ export async function insertExperience(exp: Experience, embedding: Float32Array 
         publisher_agent_id, publisher_platform, publisher_operator,
         what, context, tried, outcome, outcome_detail, learned,
         tags, agent_context, operator_endorsed, embedding,
-        context_version, status
+        context_version, status, visibility
       ) VALUES (
         ?, ?, ?, ?, ?,
         ?, ?, ?,
         ?, ?, ?, ?, ?, ?,
         ?, ?, ?, ?,
-        ?, ?
+        ?, ?, ?
       )
     `,
     args: [
@@ -294,6 +306,7 @@ export async function insertExperience(exp: Experience, embedding: Float32Array 
       embedding ? embeddingToBase64(embedding) : null,
       exp.context_version ?? null,
       exp.status ?? 'active',
+      exp.visibility ?? 'public',
     ],
   });
 
@@ -407,14 +420,16 @@ export async function getNetworkStats(): Promise<NetworkStats> {
   };
 }
 
-export async function getAllEmbeddings(): Promise<Array<{ id: string; embedding: Float32Array }>> {
+export async function getAllEmbeddings(): Promise<Array<{ id: string; embedding: Float32Array; visibility: string; operator: string | null }>> {
   const result = await getClient().execute(
-    'SELECT id, embedding FROM experiences WHERE embedding IS NOT NULL'
+    'SELECT id, embedding, visibility, publisher_operator FROM experiences WHERE embedding IS NOT NULL'
   );
 
   return result.rows.map(r => ({
     id: r.id as string,
     embedding: base64ToEmbedding(r.embedding as string),
+    visibility: (r.visibility as string) || 'public',
+    operator: (r.publisher_operator as string) || null,
   }));
 }
 
@@ -535,6 +550,21 @@ export async function getAgentByKey(key: string): Promise<string | null> {
   return result.rows.length > 0 ? (result.rows[0].agent_id as string) : null;
 }
 
+// === Agent Operator 查询 ===
+
+/**
+ * 查询 agent 所属的 operator。
+ * 从其发布的经验中查找（取最新一条的 publisher_operator）。
+ * 返回 null 表示无法确定。
+ */
+export async function getAgentOperator(agentId: string): Promise<string | null> {
+  const result = await getClient().execute({
+    sql: `SELECT publisher_operator FROM experiences WHERE publisher_agent_id = ? AND publisher_operator IS NOT NULL AND publisher_operator != '' ORDER BY published_at DESC LIMIT 1`,
+    args: [agentId],
+  });
+  return result.rows.length > 0 ? (result.rows[0].publisher_operator as string) : null;
+}
+
 // === Browse (浏览/过滤) ===
 
 export interface BrowseOptions {
@@ -543,12 +573,22 @@ export interface BrowseOptions {
   outcome?: string;
   limit?: number;
   offset?: number;
+  /** 是否包含私有经验（需传入 operator 来匹配） */
+  include_private_for_operator?: string;
 }
 
 export async function browseExperiences(opts: BrowseOptions): Promise<{ experiences: Experience[]; total: number }> {
   const db = getClient();
   const conditions: string[] = [];
   const args: any[] = [];
+
+  // 可见性过滤：默认只返回 public，如果传入 operator 则也返回同 operator 的 private
+  if (opts.include_private_for_operator) {
+    conditions.push("(visibility = 'public' OR (visibility = 'private' AND publisher_operator = ?))");
+    args.push(opts.include_private_for_operator);
+  } else {
+    conditions.push("visibility = 'public'");
+  }
 
   if (opts.tag) {
     // tags 存为 JSON 数组，用 LIKE 模糊匹配
@@ -808,6 +848,7 @@ function rowToExperience(row: any): Experience {
     tags: JSON.parse(row.tags as string),
     context_version: row.context_version ?? undefined,
     status: row.status ?? 'active',
+    visibility: (row.visibility as ExperienceVisibility) ?? 'public',
     agent_context: row.agent_context ? JSON.parse(row.agent_context as string) : undefined,
     trust: { operator_endorsed: !!row.operator_endorsed },
   };
