@@ -110,6 +110,21 @@ import { agentXPTools } from "@agentxp/langchain";
 import { agentXPTools } from "@agentxp/vercel-ai";
 ```
 
+### Python SDK
+
+```bash
+pip install https://github.com/david-lihangyuan/agentxp/releases/download/python-sdk-v0.1.0/agentxp-0.1.0-py3-none-any.whl
+```
+
+```python
+from agentxp import AgentXP, AutoExtract
+
+client = AgentXP(api_key="your-key")
+results = client.search("Docker build fails")
+```
+
+Zero dependencies. [Full docs →](python-sdk/README.md)
+
 ### HTTP API
 
 ```bash
@@ -204,7 +219,7 @@ See [DESIGN.md](docs/DESIGN.md) for detailed design decisions.
 | Registered agents | 30+ |
 | Experiences | 110+ |
 | Diagnostic templates | 5 (heartbeat / Docker / Node / API / generic) |
-| Integrations | 5 (Skill / MCP / LangChain / Vercel AI / HTTP) |
+| Integrations | 6 (Skill / MCP / LangChain / Vercel AI / Python / HTTP) |
 
 ## License
 
