@@ -7,13 +7,13 @@
 
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
-import { initDB, getClient, insertExperience, insertExecutables, getExperience, updateExperienceStatus, deleteExperience, insertVerification, getVerificationSummary, getAgentByKey, getNetworkStats, getAgentStats, discoverExperiences, browseExperiences, insertSearchLog, getAgentVerifiedIds } from './db.js';
+import { initDB, getClient, insertExperience, insertExecutables, getExperience, updateExperienceStatus, deleteExperience, insertVerification, getVerificationSummary, getAgentByKey, getNetworkStats, getAgentStats, discoverExperiences, browseExperiences, insertSearchLog, getAgentVerifiedIds, getVerifiedEnvironments } from './db.js';
 import { initEmbedding, getEmbedding, experienceToText } from './embedding.js';
 import { search } from './search.js';
 import { registerUser, listUserKeys, revokeApiKey } from './shared-auth.js';
 import { autoSeedIfEmpty } from './demo-seed.js';
 import { createRateLimiter, API_RATE_LIMIT, REGISTER_RATE_LIMIT, SEARCH_RATE_LIMIT } from './shared-rate-limit.js';
-import type { Experience, ExperienceStatus, ExecutableContent, ExecutableType, PublishResponse, SearchRequest, VerifyRequest, VerifyResponse } from './types.js';
+import type { Experience, ExperienceStatus, ExecutableContent, ExecutableType, PublishResponse, SearchRequest, SearchResultItem, VerifyRequest, VerifyResponse } from './types.js';
 import { getNetworkHealth } from './network-health.js';
 import { getAgentProfile, checkSearchQuota, recordSearch } from './rewards.js';
 import { getCredits, adjustCredits, getCreditLedger, awardSearchHitCredits, awardVerificationCredits, INITIAL_CREDITS, CREDIT_RULES } from './credits.js';
@@ -545,6 +545,28 @@ app.post('/api/search', searchLimiter, async (c) => {
       }
     }
 
+    // === Phase 1.9: 环境标签验证 ===
+    // 批量查询所有搜索结果的验证环境信息
+    const allResultIds = [
+      ...results.precision.map(r => r.experience_id),
+      ...results.serendipity.map(r => r.experience_id),
+    ];
+    if (allResultIds.length > 0) {
+      const envMap = await getVerifiedEnvironments(allResultIds);
+      for (const item of results.precision) {
+        const envs = envMap.get(item.experience_id);
+        if (envs && envs.length > 0) {
+          item.verified_environments = envs;
+        }
+      }
+      for (const item of results.serendipity) {
+        const envs = envMap.get(item.experience_id);
+        if (envs && envs.length > 0) {
+          (item as SearchResultItem).verified_environments = envs;
+        }
+      }
+    }
+
     // 在响应头附带配额信息
     c.header('X-Quota-Remaining', String(profile.quota.daily_limit === -1 ? 'unlimited' : profile.quota.remaining - 1));
     c.header('X-Contributor-Tier', profile.tier);
@@ -613,6 +635,9 @@ app.post('/api/verify', async (c) => {
       return c.json({ error: '不能验证自己的经验' }, 403);
     }
 
+    // 环境信息验证：限制 200 字符
+    const environment = body.environment ? String(body.environment).slice(0, 200) : null;
+
     const verificationId = await insertVerification(
       body.experience_id,
       agentId,
@@ -620,6 +645,7 @@ app.post('/api/verify', async (c) => {
       body.result,
       body.conditions,
       body.notes,
+      environment,
     );
 
     const summary = await getVerificationSummary(body.experience_id);
@@ -720,7 +746,9 @@ app.get('/experiences/:id', async (c) => {
     const exp = await getExperience(c.req.param('id'));
     if (!exp) return c.json({ error: '经验不存在' }, 404);
     const summary = await getVerificationSummary(exp.id);
-    return c.json({ experience: exp, verification_summary: summary });
+    const envMap = await getVerifiedEnvironments([exp.id]);
+    const verified_environments = envMap.get(exp.id) ?? [];
+    return c.json({ experience: exp, verification_summary: summary, ...(verified_environments.length > 0 ? { verified_environments } : {}) });
   } catch (err: any) {
     console.error('GetExperience 错误:', err);
     return c.json({ error: err.message || 'Internal Server Error' }, 500);

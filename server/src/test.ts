@@ -6,7 +6,7 @@
  * 使用 libSQL 内存数据库
  */
 
-import { initDB, getClient, insertExperience, insertExecutables, getExperience, updateExperienceStatus, deleteExperience, getExecutables, getExecutablesByIds, insertVerification, getVerificationSummary, getAgentByKey, getAgentVerifiedIds } from './db.js';
+import { initDB, getClient, insertExperience, insertExecutables, getExperience, updateExperienceStatus, deleteExperience, getExecutables, getExecutablesByIds, insertVerification, getVerificationSummary, getAgentByKey, getAgentVerifiedIds, getVerifiedEnvironments } from './db.js';
 import { initEmbedding, getEmbedding, experienceToText, cosineSimilarity } from './embedding.js';
 import { search, qualityScore, generateFailureWarning } from './search.js';
 import { getAgentProfile, checkSearchQuota, recordSearch, getSearchCountToday } from './rewards.js';
@@ -1503,6 +1503,131 @@ async function main() {
   assert(fScore > pScore, `failed 加权大于 partial（${fScore} > ${pScore}）`);
 
   console.log(`  置顶加权验证: failed=${fScore.toFixed(3)} > partial=${pScore.toFixed(3)} > succeeded=${sScore.toFixed(3)}`);
+
+  // ========== 环境标签验证 (Phase 1.9) ==========
+  console.log('\n--- 环境标签验证 (Phase 1.9) ---');
+
+  // 1. insertVerification 支持 environment 参数
+  const envTestExp = makeExperience({
+    publisher: { agent_id: 'env-tester', platform: 'openclaw' },
+    core: {
+      what: '环境测试经验',
+      context: 'Phase 1.9 环境标签验证',
+      tried: '测试验证时附带环境信息的存取和查询流程是否正确',
+      outcome: 'succeeded',
+      outcome_detail: '环境信息存储正常',
+      learned: '环境标签显示使经验更具参考价值',
+    },
+    tags: ['phase-1-9', 'environment'],
+  });
+  const envTestExpId = await insertExperience(envTestExp, null);
+  assert(!!envTestExpId, '环境测试经验发布成功');
+
+  // 2. 带环境信息的验证
+  const envVerId1 = await insertVerification(
+    envTestExpId, 'env-agent-1', 'openclaw', 'confirmed',
+    null, '在 Ubuntu 上验证通过', 'Ubuntu 22.04, Node 20.11'
+  );
+  assert(!!envVerId1, '带环境信息的验证记录成功');
+
+  // 3. 不同环境的第二个验证
+  const envVerId2 = await insertVerification(
+    envTestExpId, 'env-agent-2', 'cursor', 'confirmed',
+    null, '在 macOS 上验证', 'macOS 15.3, Node 22.1'
+  );
+  assert(!!envVerId2, '第二个环境验证记录成功');
+
+  // 4. denied 验证带环境信息（不应出现在 verified_environments 里）
+  const envVerId3 = await insertVerification(
+    envTestExpId, 'env-agent-3', 'openclaw', 'denied',
+    null, 'Windows 上失败', 'Windows 11, Node 18.19'
+  );
+  assert(!!envVerId3, 'denied 验证带环境信息记录成功');
+
+  // 5. 无环境信息的 confirmed 验证
+  const envVerId4 = await insertVerification(
+    envTestExpId, 'env-agent-4', 'openclaw', 'confirmed',
+    null, '确认有效', null
+  );
+  assert(!!envVerId4, '无环境信息的验证记录成功');
+
+  // 6. getVerifiedEnvironments 查询
+  const envMap = await getVerifiedEnvironments([envTestExpId]);
+  const envs = envMap.get(envTestExpId) ?? [];
+  assert(envs.length === 2, `只返回 confirmed 的环境（期望 2，实际 ${envs.length}）`);
+  assert(envs.includes('Ubuntu 22.04, Node 20.11'), '包含 Ubuntu 环境');
+  assert(envs.includes('macOS 15.3, Node 22.1'), '包含 macOS 环境');
+  assert(!envs.includes('Windows 11, Node 18.19'), 'denied 的环境不包含在内');
+  console.log(`  验证环境: ${envs.join(' | ')}`);
+
+  // 7. 空查询
+  const emptyEnvMap = await getVerifiedEnvironments([]);
+  assert(emptyEnvMap.size === 0, '空 ID 列表返回空 Map');
+
+  // 8. 不存在的经验 ID
+  const noEnvMap = await getVerifiedEnvironments(['nonexistent-id-12345']);
+  assert((noEnvMap.get('nonexistent-id-12345') ?? []).length === 0, '不存在的经验没有环境信息');
+
+  // 9. 重复环境去重测试
+  const dedupExp = makeExperience({
+    publisher: { agent_id: 'dedup-tester', platform: 'openclaw' },
+    core: {
+      what: '去重测试',
+      context: '测试相同环境去重',
+      tried: '两个 agent 用相同环境验证，应该只返回一个',
+      outcome: 'succeeded',
+      outcome_detail: '去重逻辑正确',
+      learned: '环境字符串完全一致才去重',
+    },
+    tags: ['dedup-test'],
+  });
+  const dedupExpId = await insertExperience(dedupExp, null);
+  await insertVerification(dedupExpId, 'dedup-a1', 'openclaw', 'confirmed', null, null, 'Ubuntu 22.04');
+  await insertVerification(dedupExpId, 'dedup-a2', 'openclaw', 'confirmed', null, null, 'Ubuntu 22.04');
+  await insertVerification(dedupExpId, 'dedup-a3', 'openclaw', 'confirmed', null, null, 'macOS 14.5');
+  const dedupEnvMap = await getVerifiedEnvironments([dedupExpId]);
+  const dedupEnvs = dedupEnvMap.get(dedupExpId) ?? [];
+  assert(dedupEnvs.length === 2, `相同环境去重后只有 2 个（实际 ${dedupEnvs.length}）`);
+  assert(dedupEnvs.includes('Ubuntu 22.04'), '去重后包含 Ubuntu');
+  assert(dedupEnvs.includes('macOS 14.5'), '去重后包含 macOS');
+  console.log(`  去重测试: ${dedupEnvs.join(' | ')}`);
+
+  // 10. 批量查询多个经验
+  const batchEnvMap = await getVerifiedEnvironments([envTestExpId, dedupExpId, 'fake-id']);
+  assert(batchEnvMap.has(envTestExpId), '批量查询包含第一个经验');
+  assert(batchEnvMap.has(dedupExpId), '批量查询包含第二个经验');
+  assert(!batchEnvMap.has('fake-id'), '不存在的经验不在结果中');
+  console.log(`  批量查询: ${batchEnvMap.size} 个经验有环境信息`);
+
+  // 11. 更新验证时环境信息也更新（ON CONFLICT UPDATE）
+  await insertVerification(
+    envTestExpId, 'env-agent-1', 'openclaw', 'confirmed',
+    null, '重新验证，换了环境', 'Debian 12, Node 20.11'
+  );
+  const updatedEnvMap = await getVerifiedEnvironments([envTestExpId]);
+  const updatedEnvs = updatedEnvMap.get(envTestExpId) ?? [];
+  assert(updatedEnvs.includes('Debian 12, Node 20.11'), '更新后环境信息变为新值');
+  assert(!updatedEnvs.includes('Ubuntu 22.04, Node 20.11'), '旧环境信息被替换');
+  console.log(`  更新后环境: ${updatedEnvs.join(' | ')}`);
+
+  // 12. 空字符串环境不返回
+  const emptyEnvExp = makeExperience({
+    publisher: { agent_id: 'empty-env-tester', platform: 'openclaw' },
+    core: {
+      what: '空环境测试',
+      context: '测试空字符串环境',
+      tried: '验证时传入空字符串环境应被忽略',
+      outcome: 'succeeded',
+      outcome_detail: '空环境被过滤',
+      learned: 'getVerifiedEnvironments 过滤空环境',
+    },
+    tags: ['empty-env'],
+  });
+  const emptyEnvExpId = await insertExperience(emptyEnvExp, null);
+  await insertVerification(emptyEnvExpId, 'empty-env-a1', 'openclaw', 'confirmed', null, null, '');
+  await insertVerification(emptyEnvExpId, 'empty-env-a2', 'openclaw', 'confirmed', null, null, null);
+  const emptyEnvResult = await getVerifiedEnvironments([emptyEnvExpId]);
+  assert((emptyEnvResult.get(emptyEnvExpId) ?? []).length === 0, '空字符串和 null 环境不会返回');
 
   // ========== 结果 ==========
   console.log(`\n${'='.repeat(40)}`);

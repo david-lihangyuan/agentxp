@@ -123,7 +123,19 @@ export async function initDB(url: string, authToken?: string): Promise<Client> {
   // 运行时迁移：经验版本 + 状态（Phase 1.1）
   await migrateExperienceVersionStatus(client);
 
+  // 运行时迁移：验证环境信息（Phase 1.9）
+  await migrateVerificationEnvironment(client);
+
   return client;
+}
+
+/** 幂等迁移：verifications 表加 environment 列（Phase 1.9） */
+async function migrateVerificationEnvironment(client: Client) {
+  try {
+    await client.execute({ sql: `ALTER TABLE verifications ADD COLUMN environment TEXT`, args: [] });
+  } catch (e: any) {
+    if (!e.message?.includes('duplicate column')) throw e;
+  }
 }
 
 /** 幂等迁移：experiences 表加 context_version 和 status 列 */
@@ -432,22 +444,24 @@ export async function insertVerification(
   verifierPlatform: string,
   result: VerifyResult,
   conditions?: string | null,
-  notes?: string | null
+  notes?: string | null,
+  environment?: string | null
 ): Promise<string> {
   const id = randomUUID();
   const now = new Date().toISOString();
 
   await getClient().execute({
     sql: `
-      INSERT INTO verifications (id, experience_id, verifier_agent_id, verifier_platform, result, conditions, notes, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO verifications (id, experience_id, verifier_agent_id, verifier_platform, result, conditions, notes, environment, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(experience_id, verifier_agent_id) DO UPDATE SET
         result = excluded.result,
         conditions = excluded.conditions,
         notes = excluded.notes,
+        environment = excluded.environment,
         created_at = excluded.created_at
     `,
-    args: [id, experienceId, verifierAgentId, verifierPlatform, result, conditions || null, notes || null, now],
+    args: [id, experienceId, verifierAgentId, verifierPlatform, result, conditions || null, notes || null, environment || null, now],
   });
 
   return id;
@@ -467,6 +481,33 @@ export async function getVerificationSummary(experienceId: string): Promise<Veri
     summary.total += cnt;
   }
   return summary;
+}
+
+/**
+ * 批量查询经验的验证环境信息（仅 confirmed 的验证）
+ * 返回 Map<experienceId, string[]>，每个 string 是一个去重后的环境描述
+ */
+export async function getVerifiedEnvironments(experienceIds: string[]): Promise<Map<string, string[]>> {
+  const result = new Map<string, string[]>();
+  if (experienceIds.length === 0) return result;
+
+  const db = getClient();
+  const placeholders = experienceIds.map(() => '?').join(',');
+  const rows = await db.execute({
+    sql: `SELECT experience_id, environment FROM verifications WHERE experience_id IN (${placeholders}) AND result = 'confirmed' AND environment IS NOT NULL AND environment != ''`,
+    args: [...experienceIds],
+  });
+
+  for (const row of rows.rows) {
+    const expId = row.experience_id as string;
+    const env = row.environment as string;
+    if (!result.has(expId)) result.set(expId, []);
+    const envs = result.get(expId)!;
+    // 去重
+    if (!envs.includes(env)) envs.push(env);
+  }
+
+  return result;
 }
 
 /**

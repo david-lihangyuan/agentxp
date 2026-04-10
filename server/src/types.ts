@@ -194,6 +194,8 @@ export interface SearchResultItem {
   // v0.2.6 失败经验高亮
   /** 当经验 outcome=failed/partial 时，返回警告文本 */
   failure_warning?: string;
+  // v0.2.7: 此经验被验证通过时的环境信息列表
+  verified_environments?: string[];
 }
 
 export interface SerendipityResultItem extends SearchResultItem {
@@ -224,6 +226,8 @@ export interface VerifyRequest {
   // v0.2
   verification_method?: 'manual' | 'automated';
   execution_log?: string;  // 自动验证时的执行日志，≤ 1000 字
+  // v0.2.7: 验证环境信息（如 "Ubuntu 22.04, Node 20.11"）
+  environment?: string | null;
 }
 
 export interface VerificationSummary {
