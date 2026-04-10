@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Serendip Experience Network — 发布经验
-# 用法: bash publish.sh --what "..." --tried "..." --learned "..." --outcome succeeded [--context "..."] [--outcome-detail "..."] [--tags "tag1,tag2"] [--context-version "Node.js 22.1"] [--status active] [--platform "openclaw"]
+# 用法: bash publish.sh --what "..." --tried "..." --learned "..." --outcome succeeded [--context "..."] [--outcome-detail "..."] [--tags "tag1,tag2"] [--context-version "Node.js 22.1"] [--status active] [--platform "openclaw"] [--visibility private --operator "org-id"]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/_ensure-auth.sh"
 
 # 解析参数
-WHAT="" CONTEXT="" TRIED="" OUTCOME="" OUTCOME_DETAIL="" LEARNED="" TAGS="" PLATFORM="openclaw" CONTEXT_VERSION="" STATUS=""
+WHAT="" CONTEXT="" TRIED="" OUTCOME="" OUTCOME_DETAIL="" LEARNED="" TAGS="" PLATFORM="openclaw" CONTEXT_VERSION="" STATUS="" VISIBILITY="" OPERATOR=""
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -23,6 +23,8 @@ while [[ $# -gt 0 ]]; do
     --platform) PLATFORM="$2"; shift 2 ;;
     --context-version) CONTEXT_VERSION="$2"; shift 2 ;;
     --status) STATUS="$2"; shift 2 ;;
+    --visibility) VISIBILITY="$2"; shift 2 ;;
+    --operator) OPERATOR="$2"; shift 2 ;;
     *) echo "未知参数: $1"; exit 1 ;;
   esac
 done
@@ -44,6 +46,16 @@ if [[ -n "$STATUS" && ! "$STATUS" =~ ^(active|outdated|resolved)$ ]]; then
   exit 1
 fi
 
+if [[ -n "$VISIBILITY" && ! "$VISIBILITY" =~ ^(public|private)$ ]]; then
+  echo "❌ visibility 必须是: public, private"
+  exit 1
+fi
+
+if [[ "$VISIBILITY" == "private" && -z "$OPERATOR" ]]; then
+  echo "❌ 私有经验必须指定 --operator（你的组织标识）"
+  exit 1
+fi
+
 # 构建 tags JSON 数组
 TAGS_JSON="[]"
 if [[ -n "$TAGS" ]]; then
@@ -61,11 +73,13 @@ BODY=$(jq -n \
   --arg platform "$PLATFORM" \
   --arg context_version "${CONTEXT_VERSION:-}" \
   --arg status "${STATUS:-}" \
+  --arg visibility "${VISIBILITY:-}" \
+  --arg operator "${OPERATOR:-}" \
   --argjson tags "$TAGS_JSON" \
   '{
     experience: {
       version: "serendip-experience/0.1",
-      publisher: { agent_id: "", platform: $platform },
+      publisher: { agent_id: "", platform: $platform, operator: $operator },
       core: {
         what: $what,
         context: $context,
@@ -76,9 +90,10 @@ BODY=$(jq -n \
       },
       context_version: $context_version,
       status: $status,
+      visibility: $visibility,
       tags: $tags
     }
-  } | .experience |= (if .context_version == "" then del(.context_version) else . end) | .experience |= (if .status == "" then del(.status) else . end)')
+  } | .experience |= (if .context_version == "" then del(.context_version) else . end) | .experience |= (if .status == "" then del(.status) else . end) | .experience |= (if .visibility == "" then del(.visibility) else . end) | .experience.publisher |= (if .operator == "" then del(.operator) else . end)')
 
 # 发送请求
 RESPONSE=$(curl -s -w "\n%{http_code}" \
