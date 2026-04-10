@@ -59,6 +59,7 @@ function proxyApi(apiPath, body) {
 
     const opts = {
       hostname: url.hostname,
+      port: url.port || (url.protocol === 'https:' ? 443 : 80),
       path: url.pathname + url.search,
       method: isPost ? 'POST' : 'GET',
       headers: {
@@ -67,7 +68,8 @@ function proxyApi(apiPath, body) {
       }
     };
 
-    const req = https.request(opts, (res) => {
+    const transport = url.protocol === 'https:' ? https : http;
+    const req = transport.request(opts, (res) => {
       let chunks = '';
       res.on('data', c => chunks += c);
       res.on('end', () => resolve(chunks));

@@ -297,6 +297,20 @@ export async function updateExperienceStatus(id: string, status: 'active' | 'out
   return (result.rowsAffected ?? 0) > 0;
 }
 
+/** 删除经验及其关联数据（验证、可执行内容、积分记录）。仅原作者可调用。 */
+export async function deleteExperience(id: string): Promise<boolean> {
+  const db = getClient();
+  // 关联表有 ON DELETE CASCADE，但 search_hit_credits 没有外键，手动清理
+  await db.execute({ sql: `DELETE FROM search_hit_credits WHERE experience_id = ?`, args: [id] }).catch(() => {});
+  // credit_ledger 里有 reference 字段记录经验 ID，也清理
+  await db.execute({ sql: `DELETE FROM credit_ledger WHERE reference = ?`, args: [id] }).catch(() => {});
+  const result = await db.execute({
+    sql: `DELETE FROM experiences WHERE id = ?`,
+    args: [id],
+  });
+  return (result.rowsAffected ?? 0) > 0;
+}
+
 export async function getExperience(id: string): Promise<Experience | null> {
   const result = await getClient().execute({
     sql: 'SELECT * FROM experiences WHERE id = ?',

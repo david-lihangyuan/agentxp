@@ -6,7 +6,7 @@
  * 使用 libSQL 内存数据库
  */
 
-import { initDB, getClient, insertExperience, insertExecutables, getExperience, updateExperienceStatus, getExecutables, getExecutablesByIds, insertVerification, getVerificationSummary, getAgentByKey, getAgentVerifiedIds } from './db.js';
+import { initDB, getClient, insertExperience, insertExecutables, getExperience, updateExperienceStatus, deleteExperience, getExecutables, getExecutablesByIds, insertVerification, getVerificationSummary, getAgentByKey, getAgentVerifiedIds } from './db.js';
 import { initEmbedding, getEmbedding, experienceToText, cosineSimilarity } from './embedding.js';
 import { search } from './search.js';
 import { getAgentProfile, checkSearchQuota, recordSearch, getSearchCountToday } from './rewards.js';
@@ -1094,6 +1094,49 @@ async function main() {
     outdatedFetched?.context_version === 'react@18.0',
     `发布时指定 context_version (${outdatedFetched?.context_version})`,
   );
+
+  // ========== 经验删除 ==========
+  console.log('\n--- 经验删除测试 ---');
+
+  // 发布一条待删除的经验
+  const deleteTestExp: Experience = {
+    id: 'delete-test-001',
+    version: 'serendip-experience/0.1',
+    published_at: new Date().toISOString(),
+    publisher: { agent_id: 'alice', platform: 'test' },
+    core: {
+      what: '删除测试经验',
+      context: '测试用',
+      tried: '尝试删除',
+      outcome: 'succeeded',
+      outcome_detail: '测试删除功能',
+      learned: '删除可以工作',
+    },
+    tags: ['test', 'delete'],
+  };
+  const deleteTestId = await insertExperience(deleteTestExp, null);
+  assert(!!deleteTestId, '发布待删除经验成功');
+
+  // 给它加一条验证
+  await insertVerification(deleteTestId, 'bob', 'test', 'confirmed', null, '确认有效');
+  const verBefore = await getVerificationSummary(deleteTestId);
+  assert(verBefore.total === 1, `删除前有 1 条验证 (${verBefore.total})`);
+
+  // 删除
+  const deleted = await deleteExperience(deleteTestId);
+  assert(deleted === true, '删除成功返回 true');
+
+  // 确认经验不存在
+  const afterDelete = await getExperience(deleteTestId);
+  assert(afterDelete === null, `删除后查询返回 null (${afterDelete})`);
+
+  // 确认验证也被级联删除
+  const verAfter = await getVerificationSummary(deleteTestId);
+  assert(verAfter.total === 0, `删除后验证也被清除 (${verAfter.total})`);
+
+  // 删除不存在的经验返回 false
+  const deleteFake = await deleteExperience('nonexistent-id');
+  assert(deleteFake === false, `删除不存在的经验返回 false (${deleteFake})`);
 
   // ========== 结果 ==========
   console.log(`\n${'='.repeat(40)}`);

@@ -7,7 +7,7 @@
 
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
-import { initDB, getClient, insertExperience, insertExecutables, getExperience, updateExperienceStatus, insertVerification, getVerificationSummary, getAgentByKey, getNetworkStats, getAgentStats, discoverExperiences, browseExperiences, insertSearchLog, getAgentVerifiedIds } from './db.js';
+import { initDB, getClient, insertExperience, insertExecutables, getExperience, updateExperienceStatus, deleteExperience, insertVerification, getVerificationSummary, getAgentByKey, getNetworkStats, getAgentStats, discoverExperiences, browseExperiences, insertSearchLog, getAgentVerifiedIds } from './db.js';
 import { initEmbedding, getEmbedding, experienceToText } from './embedding.js';
 import { search } from './search.js';
 import { registerUser, listUserKeys, revokeApiKey } from './shared-auth.js';
@@ -656,6 +656,39 @@ app.put('/api/experiences/:id/status', async (c) => {
     });
   } catch (err: any) {
     console.error('StatusUpdate 错误:', err);
+    return c.json({ error: err.message || 'Internal Server Error' }, 500);
+  }
+});
+
+// === 删除经验（仅原作者） ===
+app.delete('/api/experiences/:id', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const agentId = c.get('agentId');
+
+    // 检查经验存在
+    const exp = await getExperience(id);
+    if (!exp) {
+      return c.json({ error: '经验不存在' }, 404);
+    }
+
+    // 只有原作者可以删除
+    if (exp.publisher.agent_id !== agentId) {
+      return c.json({ error: '只有经验的原作者可以删除' }, 403);
+    }
+
+    const deleted = await deleteExperience(id);
+    if (!deleted) {
+      return c.json({ error: '删除失败' }, 500);
+    }
+
+    return c.json({
+      status: 'deleted',
+      experience_id: id,
+      deleted_at: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    console.error('DeleteExperience 错误:', err);
     return c.json({ error: err.message || 'Internal Server Error' }, 500);
   }
 });
