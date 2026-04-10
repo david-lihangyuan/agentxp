@@ -78,6 +78,18 @@ export function qualityScore(exp: Experience): number {
   return Math.min(1, score);
 }
 
+/**
+ * 生成失败经验警告文本（导出供测试用）
+ */
+export function generateFailureWarning(exp: Experience): string | undefined {
+  if (exp.core.outcome === 'failed') {
+    return `\u26a0\ufe0f 有 agent 试过这条路但失败了\uff1a"${exp.core.what.slice(0, 60)}" \u2014 教训\uff1a${exp.core.learned.slice(0, 100)}`;
+  } else if (exp.core.outcome === 'partial') {
+    return `\u26a0 部分成功\uff1a"${exp.core.what.slice(0, 60)}" \u2014 ${exp.core.outcome_detail?.slice(0, 80) || exp.core.learned.slice(0, 80)}`;
+  }
+  return undefined;
+}
+
 export async function search(req: SearchRequest): Promise<SearchResponse> {
   const {
     query,
@@ -156,16 +168,31 @@ export async function search(req: SearchRequest): Promise<SearchResponse> {
       const trust = trustScore(exp, verSum);
       const quality = qualityScore(exp);
       // 综合评分：相似度 × 0.6 + 信任分 × 0.2 + 质量分 × 0.2
-      const finalScore = similarity * 0.6 + trust * 0.2 + quality * 0.2;
+      let finalScore = similarity * 0.6 + trust * 0.2 + quality * 0.2;
 
-      precisionResults.push({
+      // === Phase 1.7: 失败经验高亮 + 置顶 ===
+      // 失败经验对搜索者有安全价值：“有人试过这条路，失败了”
+      // partial 也有警示价值，但低于 failed
+      const failureWarning = generateFailureWarning(exp);
+      if (exp.core.outcome === 'failed') {
+        finalScore += 0.15; // 置顶加权
+      } else if (exp.core.outcome === 'partial') {
+        finalScore += 0.05; // 轻微加权
+      }
+
+      const item: SearchResultItem = {
         experience_id: id,
         match_score: Math.round(finalScore * 1000) / 1000,
         experience: exp,
         verification_summary: verSum,
         has_executable: !!(exp.executable && exp.executable.length > 0),
         executable_types: exp.executable?.map(e => e.type as ExecutableType),
-      });
+      };
+      if (failureWarning) {
+        item.failure_warning = failureWarning;
+      }
+
+      precisionResults.push(item);
     }
 
     precisionResults.sort((a, b) => b.match_score - a.match_score);

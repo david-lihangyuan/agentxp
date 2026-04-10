@@ -191,6 +191,9 @@ export interface SearchResultItem {
   // v0.2.1 验证激活
   /** 当搜索者尚未验证此经验时，返回验证提示 */
   verification_prompt?: string;
+  // v0.2.6 失败经验高亮
+  /** 当经验 outcome=failed/partial 时，返回警告文本 */
+  failure_warning?: string;
 }
 
 export interface SerendipityResultItem extends SearchResultItem {

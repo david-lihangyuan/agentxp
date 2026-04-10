@@ -8,7 +8,7 @@
 
 import { initDB, getClient, insertExperience, insertExecutables, getExperience, updateExperienceStatus, deleteExperience, getExecutables, getExecutablesByIds, insertVerification, getVerificationSummary, getAgentByKey, getAgentVerifiedIds } from './db.js';
 import { initEmbedding, getEmbedding, experienceToText, cosineSimilarity } from './embedding.js';
-import { search, qualityScore } from './search.js';
+import { search, qualityScore, generateFailureWarning } from './search.js';
 import { getAgentProfile, checkSearchQuota, recordSearch, getSearchCountToday } from './rewards.js';
 import { insertSearchLog, getAgentSearchStats } from './db.js';
 import type { Experience, SearchRequest } from './types.js';
@@ -1380,6 +1380,129 @@ async function main() {
   assert(qWithVersion > midQ, `有 context_version 评分更高（${qWithVersion} > ${midQ}）`);
 
   console.log(`  质量评分示例: 高=${highQ.toFixed(2)} 中=${midQ.toFixed(2)} 低=${lowQ.toFixed(2)}`);
+
+  // ========== 失败经验高亮 (Phase 1.7) ==========
+  console.log('\n--- 失败经验高亮 (Phase 1.7) ---');
+
+  // generateFailureWarning 单元测试
+  const failedExp = makeExperience({
+    publisher: { agent_id: 'test-agent-17', platform: 'test' },
+    core: {
+      what: 'Alpine 镜像构建 Node.js 应用',
+      context: '需要减小镜像体积',
+      tried: '使用 Alpine 基础镜像替换 Ubuntu，发现 native 模块 bcrypt 编译失败',
+      outcome: 'failed',
+      outcome_detail: 'bcrypt 依赖 libc，Alpine 用 musl 不兼容',
+      learned: 'Alpine 不适合依赖 native 模块的项目，用 slim 更稳定',
+    },
+    tags: ['docker', 'alpine', 'nodejs'],
+  });
+  const failedWarning = generateFailureWarning(failedExp);
+  assert(failedWarning !== undefined, 'failed 经验生成警告');
+  assert(failedWarning!.includes('⚠️'), 'failed 警告包含 ⚠️ 标记');
+  assert(failedWarning!.includes('失败'), 'failed 警告包含"失败"');
+  assert(failedWarning!.includes('教训'), 'failed 警告包含"教训"');
+  assert(failedWarning!.includes('Alpine'), 'failed 警告包含经验内容');
+
+  const partialExp = makeExperience({
+    publisher: { agent_id: 'test-agent-17', platform: 'test' },
+    core: {
+      what: '多阶段构建优化',
+      context: '镜像体积优化',
+      tried: '分离 build 和 runtime stage，但 devDependencies 没完全排除',
+      outcome: 'partial',
+      outcome_detail: '镜像从 1.2GB 降到 600MB，但还是比预期大',
+      learned: '需要在 runtime stage 用 npm ci --production',
+    },
+    tags: ['docker', 'optimization'],
+  });
+  const partialWarning = generateFailureWarning(partialExp);
+  assert(partialWarning !== undefined, 'partial 经验生成警告');
+  assert(partialWarning!.includes('⚠'), 'partial 警告包含 ⚠ 标记');
+  assert(partialWarning!.includes('部分成功'), 'partial 警告包含"部分成功"');
+  assert(partialWarning!.includes('多阶段构建'), 'partial 警告包含经验内容');
+
+  const succeededExp17 = makeExperience({
+    publisher: { agent_id: 'test-agent-17', platform: 'test' },
+    core: {
+      what: 'Docker 缓存优化',
+      context: 'CI/CD 构建加速',
+      tried: '使用 BuildKit 缓存和 layer 优化减少构建时间',
+      outcome: 'succeeded',
+      outcome_detail: '构建时间从 5 分钟降到 1 分钟',
+      learned: 'BuildKit 缓存对 npm install 层特别有效',
+    },
+    tags: ['docker', 'ci-cd'],
+  });
+  const succeededWarning = generateFailureWarning(succeededExp17);
+  assert(succeededWarning === undefined, 'succeeded 经验不生成警告');
+
+  const inconclusiveExp17 = makeExperience({
+    publisher: { agent_id: 'test-agent-17', platform: 'test' },
+    core: {
+      what: '试了一下 podman 替代 Docker',
+      context: '替代 Docker 方案调研',
+      tried: '安装 podman 并运行了几个容器做基础测试',
+      outcome: 'inconclusive',
+      outcome_detail: '没跑够时间来下结论',
+      learned: '需要更多测试才能评价 podman 是否适合生产',
+    },
+    tags: ['podman'],
+  });
+  const inconclusiveWarning = generateFailureWarning(inconclusiveExp17);
+  assert(inconclusiveWarning === undefined, 'inconclusive 经验不生成警告');
+
+  // 发布 failed/partial 经验到数据库用于搜索测试
+  const failedId = await publishExperience(failedExp);
+  assert(!!failedId, '发布 failed 经验用于搜索测试');
+
+  const partialId = await publishExperience(partialExp);
+  assert(!!partialId, '发布 partial 经验用于搜索测试');
+
+  // 搜索 Docker 相关
+  const failureSearch = await search({
+    query: 'Docker Alpine Node.js image optimization',
+    limit: 20,
+  });
+
+  // 检查 precision 通道中的 failure_warning
+  const failedInPrecision = failureSearch.precision.find(r => r.experience_id === failedId);
+  const partialInPrecision = failureSearch.precision.find(r => r.experience_id === partialId);
+
+  if (failedInPrecision) {
+    assert(!!failedInPrecision.failure_warning, 'precision 中 failed 经验有 failure_warning');
+    assert(failedInPrecision.failure_warning!.includes('⚠️'), 'failure_warning 包含 ⚠️');
+    console.log(`  failed 经验 warning: ${failedInPrecision.failure_warning!.slice(0, 80)}...`);
+  } else {
+    console.log('  (failed 经验不在 precision 通道——mock embedding 下正常)');
+  }
+
+  if (partialInPrecision) {
+    assert(!!partialInPrecision.failure_warning, 'precision 中 partial 经验有 failure_warning');
+    assert(partialInPrecision.failure_warning!.includes('⚠'), 'partial failure_warning 包含 ⚠');
+    console.log(`  partial 经验 warning: ${partialInPrecision.failure_warning!.slice(0, 80)}...`);
+  } else {
+    console.log('  (partial 经验不在 precision 通道——mock embedding 下正常)');
+  }
+
+  // succeeded 经验不应有 failure_warning
+  const succeededInPrecision = failureSearch.precision.filter(r => {
+    const fexp = r.experience as Experience;
+    return fexp?.core?.outcome === 'succeeded';
+  });
+  for (const item of succeededInPrecision) {
+    assert(!item.failure_warning, `succeeded 经验 ${item.experience_id} 不应有 failure_warning`);
+  }
+
+  // 置顶加权逻辑验证（确定性数学，不依赖 mock embedding）
+  const fScore = 0.5 * 0.6 + 0.3 * 0.2 + 0.3 * 0.2 + 0.15;
+  const pScore = 0.5 * 0.6 + 0.3 * 0.2 + 0.3 * 0.2 + 0.05;
+  const sScore = 0.5 * 0.6 + 0.3 * 0.2 + 0.3 * 0.2;
+  assert(fScore > sScore, `failed 加权后分数更高（${fScore} > ${sScore}）`);
+  assert(pScore > sScore, `partial 加权后分数更高（${pScore} > ${sScore}）`);
+  assert(fScore > pScore, `failed 加权大于 partial（${fScore} > ${pScore}）`);
+
+  console.log(`  置顶加权验证: failed=${fScore.toFixed(3)} > partial=${pScore.toFixed(3)} > succeeded=${sScore.toFixed(3)}`);
 
   // ========== 结果 ==========
   console.log(`\n${'='.repeat(40)}`);
