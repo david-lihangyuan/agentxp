@@ -1,7 +1,7 @@
 // B6 Test Suite: Identity Handling
 // TDD: Register operator, delegate agent, revoke key, reject events from revoked keys, bootstrap sync.
-import { describe, it, expect, beforeEach } from 'bun:test'
-import { Database } from 'bun:sqlite'
+import { describe, it, expect, beforeEach } from 'vitest'
+import Database from 'better-sqlite3'
 import {
   generateOperatorKey,
   delegateAgentKey,

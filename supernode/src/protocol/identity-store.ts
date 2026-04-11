@@ -2,7 +2,7 @@
 // Handles identity.register, identity.delegate, identity.revoke events.
 // Pre-checks revocation before accepting any event.
 
-import { Database } from 'bun:sqlite'
+import type Database from 'better-sqlite3'
 import type { SerendipEvent } from '@serendip/protocol'
 
 export interface IdentityRecord {
@@ -16,13 +16,13 @@ export interface IdentityRecord {
 }
 
 export class IdentityStore {
-  constructor(private db: Database) {}
+  constructor(private db: Database.Database) {}
 
   /** Check if a pubkey is revoked. Returns true if revoked. */
   isRevoked(pubkey: string): boolean {
     const row = this.db
-      .query('SELECT revoked FROM identities WHERE pubkey = ?')
-      .get(pubkey) as { revoked: number } | null
+      .prepare('SELECT revoked FROM identities WHERE pubkey = ?')
+      .get(pubkey) as { revoked: number } | undefined
     return row?.revoked === 1
   }
 
@@ -30,23 +30,22 @@ export class IdentityStore {
   isExpired(pubkey: string): boolean {
     const now = Math.floor(Date.now() / 1000)
     const row = this.db
-      .query('SELECT expires_at FROM identities WHERE pubkey = ?')
-      .get(pubkey) as { expires_at: number | null } | null
+      .prepare('SELECT expires_at FROM identities WHERE pubkey = ?')
+      .get(pubkey) as { expires_at: number | null } | undefined
     if (!row) return false
     if (row.expires_at === null) return false
     return row.expires_at < now
   }
 
   /** Get an identity record. */
-  get(pubkey: string): IdentityRecord | null {
+  get(pubkey: string): IdentityRecord | undefined {
     return this.db
-      .query('SELECT * FROM identities WHERE pubkey = ?')
-      .get(pubkey) as IdentityRecord | null
+      .prepare('SELECT * FROM identities WHERE pubkey = ?')
+      .get(pubkey) as IdentityRecord | undefined
   }
 
   /** Handle identity.register event — register an operator. */
   handleRegister(event: SerendipEvent): { ok: boolean; error?: string } {
-    // Only the operator signing this event can register themselves
     const pubkey = event.pubkey
     const now = Math.floor(Date.now() / 1000)
 
@@ -144,21 +143,21 @@ export class IdentityStore {
   /** Get all identity records for a given operator. */
   getAgentsForOperator(operatorPubkey: string): IdentityRecord[] {
     return this.db
-      .query("SELECT * FROM identities WHERE delegated_by = ? AND kind = 'agent'")
+      .prepare("SELECT * FROM identities WHERE delegated_by = ? AND kind = 'agent'")
       .all(operatorPubkey) as IdentityRecord[]
   }
 
   /** Get all agents (for bootstrap sync). */
   getAllAgents(): IdentityRecord[] {
     return this.db
-      .query("SELECT * FROM identities WHERE kind = 'agent'")
+      .prepare("SELECT * FROM identities WHERE kind = 'agent'")
       .all() as IdentityRecord[]
   }
 
   /** Get all identity events for relay bootstrap sync. */
-  getAllIdentityEvents(db: Database): SerendipEvent[] {
+  getAllIdentityEvents(db: Database.Database): SerendipEvent[] {
     const rows = this.db
-      .query("SELECT * FROM events WHERE kind IN ('identity.register', 'identity.delegate', 'identity.revoke') ORDER BY created_at ASC")
+      .prepare("SELECT * FROM events WHERE kind IN ('identity.register', 'identity.delegate', 'identity.revoke') ORDER BY created_at ASC")
       .all() as Array<{
         id: string; pubkey: string; operator_pubkey: string; kind: string;
         created_at: number; payload: string; tags: string;

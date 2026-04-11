@@ -1,7 +1,7 @@
 // B5b Test Suite: Experience Subscriptions
 // TDD: Subscribe, match on new experience, notification via pulse event, list subscriptions.
-import { describe, it, expect, beforeEach } from 'bun:test'
-import { Database } from 'bun:sqlite'
+import { describe, it, expect, beforeEach } from 'vitest'
+import Database from 'better-sqlite3'
 import {
   generateOperatorKey,
   delegateAgentKey,
@@ -50,7 +50,7 @@ describe('B5b: Experience Subscriptions', () => {
     expect(result.ok).toBe(true)
     expect(result.id).toBeDefined()
 
-    const subs = db.query('SELECT * FROM subscriptions WHERE pubkey = ?').all(pubkey) as Array<Record<string, unknown>>
+    const subs = db.prepare('SELECT * FROM subscriptions WHERE pubkey = ?').all(pubkey) as Array<Record<string, unknown>>
     expect(subs.length).toBe(1)
     expect(subs[0]['query']).toBe('kubernetes rate limiting')
   })
@@ -75,7 +75,7 @@ describe('B5b: Experience Subscriptions', () => {
       VALUES (?, ?, ?, ?, 'Checked DNS config', 'succeeded', 'DNS config was wrong', '["kubernetes","networking"]', 'public', 0, 'pending', ?)
     `).run(expEventId, makeValidPubkey('c'), makeValidPubkey('c'), 'kubernetes DNS resolution issue', Math.floor(Date.now() / 1000))
 
-    const exp = db.query('SELECT id FROM experiences WHERE event_id = ?').get(expEventId) as { id: number }
+    const exp = db.prepare('SELECT id FROM experiences WHERE event_id = ?').get(expEventId) as { id: number }
 
     await manager.matchNewExperience(
       exp.id,
@@ -86,7 +86,7 @@ describe('B5b: Experience Subscriptions', () => {
       Math.floor(Date.now() / 1000)
     )
 
-    const pulses = db.query(`
+    const pulses = db.prepare(`
       SELECT * FROM pulse_events WHERE type = 'subscription_match' AND operator_pubkey = ?
     `).all(subscriberPubkey) as Array<Record<string, unknown>>
     expect(pulses.length).toBe(1)
@@ -111,7 +111,7 @@ describe('B5b: Experience Subscriptions', () => {
       VALUES (?, ?, ?, 'python pandas bug', 'Added dtype cast', 'succeeded', 'Always cast dtype', '["python","pandas"]', 'public', 0, 'pending', ?)
     `).run(expEventId, makeValidPubkey('e'), makeValidPubkey('e'), Math.floor(Date.now() / 1000))
 
-    const exp = db.query('SELECT id FROM experiences WHERE event_id = ?').get(expEventId) as { id: number }
+    const exp = db.prepare('SELECT id FROM experiences WHERE event_id = ?').get(expEventId) as { id: number }
 
     await manager.matchNewExperience(
       exp.id,
@@ -122,7 +122,7 @@ describe('B5b: Experience Subscriptions', () => {
       Math.floor(Date.now() / 1000)
     )
 
-    const pulses = db.query(`
+    const pulses = db.prepare(`
       SELECT * FROM pulse_events WHERE type = 'subscription_match' AND operator_pubkey = ?
     `).all(subscriberPubkey) as Array<Record<string, unknown>>
     expect(pulses.length).toBe(0)
@@ -213,7 +213,7 @@ describe('B5b: Experience Subscriptions', () => {
       VALUES (?, ?, ?, 'Docker networking issue', 'Tested DNS', 'succeeded', 'DNS config matters', '["docker","networking"]', 'public', 0, 'pending', ?)
     `).run(expEventId, makeValidPubkey('l'), makeValidPubkey('l'), Math.floor(Date.now() / 1000))
 
-    const exp = db.query('SELECT id FROM experiences WHERE event_id = ?').get(expEventId) as { id: number }
+    const exp = db.prepare('SELECT id FROM experiences WHERE event_id = ?').get(expEventId) as { id: number }
 
     // Experience has 'docker' + 'networking' but subscription requires 'kubernetes'
     await manager.matchNewExperience(
@@ -225,7 +225,7 @@ describe('B5b: Experience Subscriptions', () => {
       Math.floor(Date.now() / 1000)
     )
 
-    const pulses = db.query(`
+    const pulses = db.prepare(`
       SELECT * FROM pulse_events WHERE type = 'subscription_match' AND operator_pubkey = ?
     `).all(subscriberPubkey) as Array<Record<string, unknown>>
     expect(pulses.length).toBe(0) // Should NOT match: missing 'kubernetes' tag

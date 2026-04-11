@@ -3,7 +3,7 @@
 // Middleware: structured logging, rate limiting, circuit breaker.
 
 import { Hono } from 'hono'
-import { Database } from 'bun:sqlite'
+import type Database from 'better-sqlite3'
 import { openDatabase } from './db'
 import { RateLimiter, getClientIp } from './rate-limit'
 import { CircuitBreaker, getCircuitBreaker, setCircuitBreaker } from './circuit-breaker'
@@ -28,7 +28,7 @@ export interface AppOptions {
   /** Circuit breaker threshold for embedding queue (default: 10000) */
   circuitBreakerThreshold?: number
   /** Pre-existing database instance (for testing) */
-  db?: Database
+  db?: Database.Database
   /** Embedding generator function (for testing) */
   generateEmbedding?: (text: string) => Promise<number[]>
 }
@@ -100,7 +100,7 @@ export function createApp(opts: AppOptions = {}): Hono {
   api.get('/events', (c) => {
     const limit = Math.min(Number(c.req.query('limit') ?? 20), 100)
     const events = db
-      .query('SELECT id, pubkey, kind, created_at, tags, visibility FROM events ORDER BY created_at DESC LIMIT ?')
+      .prepare('SELECT id, pubkey, kind, created_at, tags, visibility FROM events ORDER BY created_at DESC LIMIT ?')
       .all(limit)
     return c.json({ events })
   })
@@ -140,7 +140,7 @@ export function createApp(opts: AppOptions = {}): Hono {
   api.get('/events/:id', (c) => {
     const id = c.req.param('id')
     const event = db
-      .query('SELECT * FROM events WHERE id = ?')
+      .prepare('SELECT * FROM events WHERE id = ?')
       .get(id) as Record<string, unknown> | null
     if (!event) return c.json({ error: 'not found' }, 404)
     return c.json(event)
@@ -260,7 +260,7 @@ export function createApp(opts: AppOptions = {}): Hono {
   // --- Relay Sync: expose identity events for bootstrap ---
   api.get('/sync/identity', (c) => {
     const identityEvents = db
-      .query(`
+      .prepare(`
         SELECT * FROM events
         WHERE kind IN ('identity.register', 'identity.delegate', 'identity.revoke')
         ORDER BY created_at ASC

@@ -1,178 +1,167 @@
 // Supernode — WebSocket Connection Manager
-// Manages the connection pool with ping/pong keepalive and disconnect cleanup.
-// Enforces global connection cap and per-operator limit.
+// Manages WebSocket connection pool, ping/pong health checks,
+// global cap (1000), per-operator cap (10), and clean disconnect.
 
-import { logger } from '../logger'
-
-export const PING_INTERVAL_MS = 30_000    // 30s between pings
-export const MAX_MISSED_PINGS = 3         // Disconnect after 3 missed pongs
 export const MAX_CONNECTIONS_DEFAULT = 1000
 export const MAX_CONNECTIONS_PER_OPERATOR = 10
+export const MAX_MISSED_PINGS = 3
+export const PING_INTERVAL_MS = 30_000
 
-export interface Connection {
+export interface ConnectionRecord {
   id: string
   operatorPubkey: string
   ws: WebSocket
   missedPings: number
-  lastPingAt: number
   connectedAt: number
 }
 
+export interface ConnectionManagerOptions {
+  /** Global max connections. Default: MAX_CONNECTIONS_DEFAULT */
+  maxConnections?: number
+  /** Max connections per operator pubkey. Default: MAX_CONNECTIONS_PER_OPERATOR */
+  maxPerOperator?: number
+  /** Ping interval in ms. Default: PING_INTERVAL_MS */
+  pingIntervalMs?: number
+}
+
 export class ConnectionManager {
-  private connections: Map<string, Connection> = new Map()
-  private operatorConnections: Map<string, Set<string>> = new Map()
-  private pingInterval: ReturnType<typeof setInterval> | null = null
   readonly maxConnections: number
   readonly maxPerOperator: number
+  private pingIntervalMs: number
+  private connections: Map<string, ConnectionRecord> = new Map()
+  private operatorCounts: Map<string, number> = new Map()
+  private pingTimer: ReturnType<typeof setInterval> | null = null
 
-  constructor(opts: {
-    maxConnections?: number
-    maxPerOperator?: number
-  } = {}) {
+  constructor(opts: ConnectionManagerOptions = {}) {
     this.maxConnections = opts.maxConnections ?? MAX_CONNECTIONS_DEFAULT
     this.maxPerOperator = opts.maxPerOperator ?? MAX_CONNECTIONS_PER_OPERATOR
+    this.pingIntervalMs = opts.pingIntervalMs ?? PING_INTERVAL_MS
   }
 
-  /** Total number of active connections. */
+  /** Current number of active connections. */
   get connectionCount(): number {
     return this.connections.size
   }
 
-  /** Check if global cap is reached. */
+  /** Whether the global cap has been reached. */
   isFull(): boolean {
     return this.connections.size >= this.maxConnections
   }
 
-  /** Check if operator has reached their per-operator limit. */
-  isOperatorFull(operatorPubkey: string): boolean {
-    const opConns = this.operatorConnections.get(operatorPubkey)
-    return (opConns?.size ?? 0) >= this.maxPerOperator
-  }
-
-  /** Add a connection to the pool. Returns false if cap is reached. */
-  add(id: string, operatorPubkey: string, ws: WebSocket): boolean {
-    if (this.isFull()) {
-      logger.warn('Connection rejected: global cap reached', {
-        connectionCount: this.connections.size,
-      })
+  /**
+   * Add a connection to the pool.
+   * Returns false if global cap or per-operator cap is reached.
+   */
+  add(connectionId: string, operatorPubkey: string, ws: WebSocket): boolean {
+    // Global cap check
+    if (this.connections.size >= this.maxConnections) {
       return false
     }
 
-    if (this.isOperatorFull(operatorPubkey)) {
-      logger.warn('Connection rejected: per-operator cap reached', {
-        operatorPubkey,
-      })
+    // Per-operator cap check
+    const operatorCount = this.operatorCounts.get(operatorPubkey) ?? 0
+    if (operatorCount >= this.maxPerOperator) {
       return false
     }
 
-    this.connections.set(id, {
-      id,
+    const record: ConnectionRecord = {
+      id: connectionId,
       operatorPubkey,
       ws,
       missedPings: 0,
-      lastPingAt: Date.now(),
       connectedAt: Date.now(),
-    })
+    }
 
-    const opConns = this.operatorConnections.get(operatorPubkey) ?? new Set()
-    opConns.add(id)
-    this.operatorConnections.set(operatorPubkey, opConns)
-
-    logger.info('Connection added', {
-      connectionId: id,
-      operatorPubkey,
-      totalConnections: this.connections.size,
-    })
+    this.connections.set(connectionId, record)
+    this.operatorCounts.set(operatorPubkey, operatorCount + 1)
     return true
   }
 
   /** Remove a connection from the pool. */
-  remove(id: string): void {
-    const conn = this.connections.get(id)
-    if (!conn) return
+  remove(connectionId: string): void {
+    const record = this.connections.get(connectionId)
+    if (!record) return
 
-    this.connections.delete(id)
+    this.connections.delete(connectionId)
 
-    const opConns = this.operatorConnections.get(conn.operatorPubkey)
-    if (opConns) {
-      opConns.delete(id)
-      if (opConns.size === 0) {
-        this.operatorConnections.delete(conn.operatorPubkey)
-      }
-    }
-
-    logger.info('Connection removed', {
-      connectionId: id,
-      operatorPubkey: conn.operatorPubkey,
-      totalConnections: this.connections.size,
-    })
-  }
-
-  /** Get a connection by ID. */
-  get(id: string): Connection | undefined {
-    return this.connections.get(id)
-  }
-
-  /** Record a pong received for a connection. */
-  recordPong(id: string): void {
-    const conn = this.connections.get(id)
-    if (conn) {
-      conn.missedPings = 0
+    const operatorCount = this.operatorCounts.get(record.operatorPubkey) ?? 1
+    if (operatorCount <= 1) {
+      this.operatorCounts.delete(record.operatorPubkey)
+    } else {
+      this.operatorCounts.set(record.operatorPubkey, operatorCount - 1)
     }
   }
 
-  /** Send ping to all connections and disconnect those that missed too many. */
+  /** Get a connection record by ID. */
+  get(connectionId: string): ConnectionRecord | undefined {
+    return this.connections.get(connectionId)
+  }
+
+  /**
+   * Send a ping to all connections.
+   * Increments missedPings for each connection.
+   * If a connection exceeds MAX_MISSED_PINGS, it is disconnected.
+   */
   pingAll(): void {
-    for (const [id, conn] of this.connections) {
-      if (conn.missedPings >= MAX_MISSED_PINGS) {
-        logger.warn('Disconnecting dead connection', {
-          connectionId: id,
-          missedPings: conn.missedPings,
-        })
-        try {
-          conn.ws.close(1001, 'ping timeout')
-        } catch {
-          // Already closed
-        }
+    for (const [id, record] of this.connections) {
+      if (record.missedPings >= MAX_MISSED_PINGS) {
+        // Too many missed pings — disconnect
+        record.ws.close(1008, 'ping timeout')
         this.remove(id)
         continue
       }
 
+      record.missedPings++
       try {
-        // WebSocket ping frame
-        conn.ws.send(JSON.stringify({ type: 'ping' }))
-        conn.missedPings++
-        conn.lastPingAt = Date.now()
+        record.ws.send(JSON.stringify({ type: 'ping' }))
+      } catch {
+        // Connection may be broken — remove it
+        this.remove(id)
+      }
+    }
+  }
+
+  /** Record a pong from a connection — resets missedPings to 0. */
+  recordPong(connectionId: string): void {
+    const record = this.connections.get(connectionId)
+    if (record) {
+      record.missedPings = 0
+    }
+  }
+
+  /** Start the automatic ping loop. */
+  startPingLoop(): void {
+    if (this.pingTimer) return
+    this.pingTimer = setInterval(() => {
+      this.pingAll()
+    }, this.pingIntervalMs)
+  }
+
+  /** Stop the automatic ping loop. */
+  stopPingLoop(): void {
+    if (this.pingTimer) {
+      clearInterval(this.pingTimer)
+      this.pingTimer = null
+    }
+  }
+
+  /** Broadcast a message to all connected clients. */
+  broadcast(message: string): void {
+    for (const [id, record] of this.connections) {
+      try {
+        record.ws.send(message)
       } catch {
         this.remove(id)
       }
     }
   }
 
-  /** Start background ping/pong maintenance. */
-  startPingLoop(intervalMs: number = PING_INTERVAL_MS): void {
-    if (this.pingInterval) return
-    this.pingInterval = setInterval(() => this.pingAll(), intervalMs)
-  }
-
-  /** Stop background ping/pong maintenance. */
-  stopPingLoop(): void {
-    if (this.pingInterval) {
-      clearInterval(this.pingInterval)
-      this.pingInterval = null
-    }
-  }
-
-  /** Broadcast a message to all connections for a given operator. */
+  /** Broadcast a message to all connections for a specific operator. */
   broadcastToOperator(operatorPubkey: string, message: string): void {
-    const opConns = this.operatorConnections.get(operatorPubkey)
-    if (!opConns) return
-
-    for (const id of opConns) {
-      const conn = this.connections.get(id)
-      if (conn) {
+    for (const [id, record] of this.connections) {
+      if (record.operatorPubkey === operatorPubkey) {
         try {
-          conn.ws.send(message)
+          record.ws.send(message)
         } catch {
           this.remove(id)
         }
@@ -180,35 +169,16 @@ export class ConnectionManager {
     }
   }
 
-  /** Broadcast to all connections. */
-  broadcast(message: string): void {
-    for (const [id, conn] of this.connections) {
-      try {
-        conn.ws.send(message)
-      } catch {
-        this.remove(id)
-      }
-    }
-  }
-
-  /** Get all connection IDs. */
-  getAllIds(): string[] {
-    return Array.from(this.connections.keys())
-  }
-
-  /** Disconnect all connections (cleanup). */
+  /** Disconnect all connections and clear the pool. */
   disconnectAll(): void {
-    for (const [id, conn] of this.connections) {
+    for (const [id, record] of this.connections) {
       try {
-        conn.ws.close(1001, 'server shutdown')
+        record.ws.close(1001, 'server shutting down')
       } catch {
-        // Already closed
+        // Ignore errors during shutdown
       }
     }
     this.connections.clear()
-    this.operatorConnections.clear()
+    this.operatorCounts.clear()
   }
 }
-
-/** Singleton connection manager */
-export const connectionManager = new ConnectionManager()

@@ -1,7 +1,7 @@
 // B1 Test Suite: Project Scaffold
 // TDD: Tests written first, implementation follows.
-import { describe, it, expect, beforeAll } from 'bun:test'
-import { Database } from 'bun:sqlite'
+import { describe, it, expect, beforeAll } from 'vitest'
+import Database from 'better-sqlite3'
 import { runMigrations } from '../src/db'
 import { createApp } from '../src/app'
 import { createLogger, captureLogOutput } from '../src/logger'
@@ -63,7 +63,7 @@ describe('B1: Migration Runner', () => {
   it('executes pending migrations on startup', () => {
     const db = new Database(':memory:')
     runMigrations(db)
-    const tables = db.query(
+    const tables = db.prepare(
       "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
     ).all() as Array<{ name: string }>
     const tableNames = tables.map((t) => t.name)

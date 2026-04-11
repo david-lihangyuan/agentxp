@@ -1,7 +1,7 @@
 // B4 Test Suite: Intent Broadcast Handling
 // TDD: Experience stored with pending embedding, async embedding worker, scope, failure flag, circuit breaker.
-import { describe, it, expect, beforeEach } from 'bun:test'
-import { Database } from 'bun:sqlite'
+import { describe, it, expect, beforeEach } from 'vitest'
+import Database from 'better-sqlite3'
 import {
   generateOperatorKey,
   delegateAgentKey,
@@ -53,7 +53,7 @@ describe('B4: Intent Broadcast — Immediate Storage', () => {
     expect(result.ok).toBe(true)
     expect(result.experienceId).toBeDefined()
 
-    const stored = db.query('SELECT * FROM experiences WHERE event_id = ?').get(event.id) as Record<string, unknown>
+    const stored = db.prepare('SELECT * FROM experiences WHERE event_id = ?').get(event.id) as Record<string, unknown>
     expect(stored).toBeDefined()
     expect(stored['embedding_status']).toBe('pending')
     expect(stored['embedding']).toBeNull()
@@ -65,7 +65,7 @@ describe('B4: Intent Broadcast — Immediate Storage', () => {
     })
     store.store(event)
 
-    const stored = db.query('SELECT scope FROM experiences WHERE event_id = ?').get(event.id) as { scope: string }
+    const stored = db.prepare('SELECT scope FROM experiences WHERE event_id = ?').get(event.id) as { scope: string }
     expect(stored).toBeDefined()
     const scope = JSON.parse(stored.scope)
     expect(scope.versions).toContain('docker>=24')
@@ -81,7 +81,7 @@ describe('B4: Intent Broadcast — Immediate Storage', () => {
     })
     store.store(event)
 
-    const stored = db.query('SELECT is_failure FROM experiences WHERE event_id = ?').get(event.id) as { is_failure: number }
+    const stored = db.prepare('SELECT is_failure FROM experiences WHERE event_id = ?').get(event.id) as { is_failure: number }
     expect(stored.is_failure).toBe(1)
   })
 
@@ -89,7 +89,7 @@ describe('B4: Intent Broadcast — Immediate Storage', () => {
     const event = await makeExperienceEvent(agentKey)
     store.store(event)
 
-    const stored = db.query('SELECT is_failure FROM experiences WHERE event_id = ?').get(event.id) as { is_failure: number }
+    const stored = db.prepare('SELECT is_failure FROM experiences WHERE event_id = ?').get(event.id) as { is_failure: number }
     expect(stored.is_failure).toBe(0)
   })
 
@@ -97,7 +97,7 @@ describe('B4: Intent Broadcast — Immediate Storage', () => {
     const event = await makeExperienceEvent(agentKey, { outcome: 'partial' })
     store.store(event)
 
-    const stored = db.query('SELECT is_failure FROM experiences WHERE event_id = ?').get(event.id) as { is_failure: number }
+    const stored = db.prepare('SELECT is_failure FROM experiences WHERE event_id = ?').get(event.id) as { is_failure: number }
     expect(stored.is_failure).toBe(0)
   })
 })
@@ -134,7 +134,7 @@ describe('B4: Async Embedding Worker', () => {
     // Wait for worker to process
     await new Promise((resolve) => setTimeout(resolve, 500))
 
-    const indexed = db.query('SELECT embedding_status, embedding FROM experiences WHERE event_id = ?').get(event.id) as { embedding_status: string; embedding: string }
+    const indexed = db.prepare('SELECT embedding_status, embedding FROM experiences WHERE event_id = ?').get(event.id) as { embedding_status: string; embedding: string }
     expect(indexed.embedding_status).toBe('indexed')
     expect(indexed.embedding).toBeDefined()
     const vec = JSON.parse(indexed.embedding)

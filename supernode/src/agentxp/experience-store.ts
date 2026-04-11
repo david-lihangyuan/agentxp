@@ -3,7 +3,7 @@
 // Stores immediately with embedding_status='pending'.
 // Async embedding queue processes in background.
 
-import { Database } from 'bun:sqlite'
+import type Database from 'better-sqlite3'
 import type { SerendipEvent, ExperienceData } from '@serendip/protocol'
 import { CircuitBreaker } from '../circuit-breaker'
 import { logger } from '../logger'
@@ -41,7 +41,7 @@ export class ExperienceStore {
   private generateEmbedding: ((text: string) => Promise<number[]>) | null = null
 
   constructor(
-    private db: Database,
+    private db: Database.Database,
     private circuitBreaker: CircuitBreaker,
     opts: EmbeddingWorkerOptions = {}
   ) {
@@ -74,6 +74,27 @@ export class ExperienceStore {
     const tags = JSON.stringify(event.tags)
 
     try {
+      // Ensure event exists in events table (FK constraint)
+      // Uses INSERT OR IGNORE so EventHandler's prior insert is not overwritten
+      this.db
+        .prepare(`
+          INSERT OR IGNORE INTO events
+            (id, pubkey, operator_pubkey, kind, created_at, payload, tags, visibility, sig, received_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `)
+        .run(
+          event.id,
+          event.pubkey,
+          event.operator_pubkey,
+          event.kind,
+          event.created_at,
+          JSON.stringify(event.payload),
+          JSON.stringify(event.tags),
+          event.visibility,
+          event.sig,
+          Math.floor(Date.now() / 1000)
+        )
+
       const stmt = this.db.prepare(`
         INSERT INTO experiences
           (event_id, pubkey, operator_pubkey, what, tried, outcome, learned, tags, visibility, scope, is_failure, embedding_status, created_at)
@@ -98,8 +119,8 @@ export class ExperienceStore {
       )
 
       const experience = this.db
-        .query('SELECT id FROM experiences WHERE event_id = ?')
-        .get(event.id) as { id: number } | null
+        .prepare('SELECT id FROM experiences WHERE event_id = ?')
+        .get(event.id) as { id: number } | undefined
 
       if (!experience) {
         return { ok: false, error: 'failed to store experience' }
@@ -183,10 +204,10 @@ export class ExperienceStore {
   }
 
   /** Get an experience by event_id. */
-  getByEventId(eventId: string): ExperienceRecord | null {
+  getByEventId(eventId: string): ExperienceRecord | undefined {
     return this.db
-      .query('SELECT * FROM experiences WHERE event_id = ?')
-      .get(eventId) as ExperienceRecord | null
+      .prepare('SELECT * FROM experiences WHERE event_id = ?')
+      .get(eventId) as ExperienceRecord | undefined
   }
 
   /** Manually trigger embedding for testing. */

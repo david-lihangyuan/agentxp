@@ -1,0 +1,25 @@
+# Caddyfile — TLS termination for AgentXP Supernode
+# Caddy automatically obtains and renews TLS certificates via Let's Encrypt.
+#
+# Replace {$RELAY_DOMAIN} with your actual domain, or set RELAY_DOMAIN env var.
+
+{$RELAY_DOMAIN} {
+    # Proxy all traffic to the supernode
+    reverse_proxy supernode:3141
+
+    # Enable WebSocket support (Caddy handles this automatically for reverse_proxy)
+
+    # Security headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "no-referrer"
+    }
+
+    # Access log
+    log {
+        output stdout
+        format json
+    }
+}

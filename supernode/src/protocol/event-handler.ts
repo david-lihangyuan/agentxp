@@ -2,7 +2,7 @@
 // Accepts events via WebSocket + HTTP POST /api/v1/events
 // Verifies Ed25519 signatures, deduplicates by event.id, scans for injection.
 
-import { Database } from 'bun:sqlite'
+import type Database from 'better-sqlite3'
 import { verifyEvent, type SerendipEvent } from '@serendip/protocol'
 import { validatePayloadSize, scanForPromptInjection, validateTags, validateTimestamp, validatePubkey } from '../validate'
 import { IdentityStore } from './identity-store'
@@ -17,7 +17,7 @@ export interface EventHandlerResult {
 export class EventHandler {
   private identityStore: IdentityStore
 
-  constructor(private db: Database) {
+  constructor(private db: Database.Database) {
     this.identityStore = new IdentityStore(db)
   }
 
@@ -78,7 +78,7 @@ export class EventHandler {
 
     // 9. Deduplication: reject replay attacks
     const existing = this.db
-      .query('SELECT id FROM events WHERE id = ?')
+      .prepare('SELECT id FROM events WHERE id = ?')
       .get(ev.id)
     if (existing) {
       return { ok: false, error: 'duplicate event id (replay rejected)' }

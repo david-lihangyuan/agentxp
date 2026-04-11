@@ -1,7 +1,7 @@
 // B3 Test Suite: Event Receive & Verify
 // TDD: Valid events stored, invalid rejected, replay prevention, prompt injection scan.
-import { describe, it, expect, beforeEach } from 'bun:test'
-import { Database } from 'bun:sqlite'
+import { describe, it, expect, beforeEach } from 'vitest'
+import Database from 'better-sqlite3'
 import {
   generateOperatorKey,
   delegateAgentKey,
@@ -62,7 +62,7 @@ describe('B3: Event Receive & Verify', () => {
     expect(result.ok).toBe(true)
     expect(result.stored).toBe(true)
 
-    const stored = db.query('SELECT * FROM events WHERE id = ?').get(event.id)
+    const stored = db.prepare('SELECT * FROM events WHERE id = ?').get(event.id)
     expect(stored).toBeDefined()
   })
 
@@ -76,8 +76,8 @@ describe('B3: Event Receive & Verify', () => {
     expect(result.ok).toBe(false)
     expect(result.error).toContain('invalid signature')
 
-    const notStored = db.query('SELECT * FROM events WHERE id = ?').get(event.id)
-    expect(notStored).toBeNull()
+    const notStored = db.prepare('SELECT * FROM events WHERE id = ?').get(event.id)
+    expect(notStored).toBeFalsy()
   })
 
   it('replay attack rejected — same event.id only stored once', async () => {
@@ -90,7 +90,7 @@ describe('B3: Event Receive & Verify', () => {
     expect(replay.ok).toBe(false)
     expect(replay.error).toContain('duplicate')
 
-    const count = db.query('SELECT COUNT(*) as c FROM events WHERE id = ?').get(event.id) as { c: number }
+    const count = db.prepare('SELECT COUNT(*) as c FROM events WHERE id = ?').get(event.id) as { c: number }
     expect(count.c).toBe(1)
   })
 

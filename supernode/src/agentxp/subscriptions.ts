@@ -1,9 +1,9 @@
 // Supernode AgentXP — Experience Subscriptions
 // POST /api/v1/subscriptions: store query + pubkey
-// Background job matches new experiences against subscriptions.
-// GET /api/v1/subscriptions: list subscriptions for operator.
+// Background matcher fires pulse_event on match
+// GET /api/v1/subscriptions: list subscriptions
 
-import { Database } from 'bun:sqlite'
+import type Database from 'better-sqlite3'
 import { logger } from '../logger'
 
 export interface SubscriptionRecord {
@@ -16,21 +16,25 @@ export interface SubscriptionRecord {
   last_matched_at: number | null
 }
 
-export interface SubscriptionInput {
-  pubkey: string
-  operatorPubkey: string
-  query: string
-  tags?: string[]
-}
-
 export class SubscriptionManager {
-  private matchInterval: ReturnType<typeof setInterval> | null = null
   private lastMatchedAt: number = 0
+  private matchInterval: ReturnType<typeof setInterval> | null = null
 
-  constructor(private db: Database) {}
+  constructor(private db: Database.Database) {}
 
-  /** Store a new subscription. */
-  subscribe(input: SubscriptionInput): { ok: boolean; id?: number; error?: string } {
+  /** Subscribe an agent to future experience matches. */
+  subscribe(input: {
+    pubkey: string
+    operatorPubkey: string
+    query: string
+    tags?: string[]
+  }): { ok: boolean; id?: number; error?: string } {
+    if (!input.pubkey || !input.query) {
+      return { ok: false, error: 'pubkey and query are required' }
+    }
+
+    const now = Math.floor(Date.now() / 1000)
+
     try {
       const stmt = this.db.prepare(`
         INSERT INTO subscriptions (pubkey, operator_pubkey, query, tags, created_at)
@@ -41,44 +45,35 @@ export class SubscriptionManager {
         input.operatorPubkey,
         input.query,
         input.tags ? JSON.stringify(input.tags) : null,
-        Math.floor(Date.now() / 1000)
+        now
       )
 
-      return { ok: true, id: Number(result.lastInsertRowid) }
+      return { ok: true, id: result.lastInsertRowid as number }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
+      logger.error('Failed to create subscription', { error: msg })
       return { ok: false, error: msg }
     }
   }
 
-  /** List all subscriptions for an operator. */
+  /** List subscriptions for an operator. */
   listForOperator(operatorPubkey: string): SubscriptionRecord[] {
     return this.db
-      .query('SELECT * FROM subscriptions WHERE operator_pubkey = ? ORDER BY created_at DESC')
+      .prepare('SELECT * FROM subscriptions WHERE operator_pubkey = ? ORDER BY created_at DESC')
       .all(operatorPubkey) as SubscriptionRecord[]
   }
 
-  /** List all subscriptions for a pubkey. */
+  /** List subscriptions for a specific agent pubkey. */
   listForPubkey(pubkey: string): SubscriptionRecord[] {
     return this.db
-      .query('SELECT * FROM subscriptions WHERE pubkey = ? ORDER BY created_at DESC')
+      .prepare('SELECT * FROM subscriptions WHERE pubkey = ? ORDER BY created_at DESC')
       .all(pubkey) as SubscriptionRecord[]
   }
 
-  /** Delete a subscription by id. Only owner can delete. */
-  delete(id: number, pubkey: string): { ok: boolean; error?: string } {
-    const sub = this.db
-      .query('SELECT * FROM subscriptions WHERE id = ?')
-      .get(id) as SubscriptionRecord | null
-
-    if (!sub) return { ok: false, error: 'subscription not found' }
-    if (sub.pubkey !== pubkey) return { ok: false, error: 'unauthorized' }
-
-    this.db.prepare('DELETE FROM subscriptions WHERE id = ?').run(id)
-    return { ok: true }
-  }
-
-  /** Check if a new experience matches any subscriptions and fire pulse events. */
+  /**
+   * Match a new experience against all active subscriptions.
+   * Fires pulse_events for matching subscriptions.
+   */
   async matchNewExperience(
     experienceId: number,
     what: string,
@@ -88,49 +83,50 @@ export class SubscriptionManager {
     createdAt: number
   ): Promise<void> {
     const subs = this.db
-      .query('SELECT * FROM subscriptions')
+      .prepare('SELECT * FROM subscriptions')
       .all() as SubscriptionRecord[]
 
-    for (const sub of subs) {
-      const matches = this.matchesSubscription(sub, what, tried, learned, tags)
-      if (!matches) continue
+    const now = Math.floor(Date.now() / 1000)
 
-      // Fire a pulse event for subscription match
-      try {
-        this.db
-          .prepare(`
-            INSERT INTO pulse_events (experience_id, type, from_pubkey, operator_pubkey, metadata, created_at)
-            VALUES (?, 'subscription_match', ?, ?, ?, ?)
-          `)
-          .run(
+    for (const sub of subs) {
+      if (this.matches(sub, what, tried, learned, tags)) {
+        try {
+          this.db.prepare(`
+            INSERT INTO pulse_events (experience_id, operator_pubkey, type, metadata, created_at)
+            VALUES (?, ?, 'subscription_match', ?, ?)
+          `).run(
             experienceId,
-            null,
             sub.operator_pubkey,
-            JSON.stringify({ subscription_id: sub.id, query: sub.query }),
-            Math.floor(Date.now() / 1000)
+            JSON.stringify({
+              subscription_id: sub.id,
+              subscriber_pubkey: sub.pubkey,
+              query: sub.query,
+              matched_what: what,
+              matched_tags: tags,
+            }),
+            now
           )
 
-        // Update last_matched_at
-        this.db
-          .prepare('UPDATE subscriptions SET last_matched_at = ? WHERE id = ?')
-          .run(Math.floor(Date.now() / 1000), sub.id)
+          // Update subscription's last_matched_at
+          this.db.prepare('UPDATE subscriptions SET last_matched_at = ? WHERE id = ?')
+            .run(now, sub.id)
 
-        logger.info('Subscription match found', {
-          subscription_id: sub.id,
-          experience_id: experienceId,
-          pubkey: sub.pubkey,
-        })
-      } catch (err) {
-        logger.error('Failed to create subscription pulse', {
-          subscription_id: sub.id,
-          error: err instanceof Error ? err.message : String(err),
-        })
+          logger.info('Subscription match', {
+            subscription_id: sub.id,
+            experience_id: experienceId,
+          })
+        } catch (err) {
+          logger.error('Failed to create pulse event', {
+            subscription_id: sub.id,
+            error: err instanceof Error ? err.message : String(err),
+          })
+        }
       }
     }
   }
 
-  /** Check if an experience matches a subscription query. */
-  private matchesSubscription(
+  /** Check if an experience matches a subscription. */
+  private matches(
     sub: SubscriptionRecord,
     what: string,
     tried: string,
@@ -188,7 +184,7 @@ export class SubscriptionManager {
 
     // Find new experiences since last run
     const newExperiences = this.db
-      .query(`
+      .prepare(`
         SELECT id, what, tried, learned, tags, created_at
         FROM experiences
         WHERE created_at >= ?

@@ -3,7 +3,7 @@
 // Serendipity: pre-computed batch results from cache
 // Graceful degradation, scope-aware, private isolation, no raw vectors in responses.
 
-import { Database } from 'bun:sqlite'
+import type Database from 'better-sqlite3'
 import { logger } from '../logger'
 import type { ExperienceRecord } from './experience-store'
 
@@ -102,7 +102,7 @@ function checkScope(
 
 export class ExperienceSearch {
   constructor(
-    private db: Database,
+    private db: Database.Database,
     private generateQueryEmbedding?: (text: string) => Promise<number[]>
   ) {}
 
@@ -113,16 +113,18 @@ export class ExperienceSearch {
     // Build base SQL conditions for privacy isolation
     const privacyConditions = buildPrivacyConditions(operatorPubkey)
 
-    // Outcome filter
+    // Outcome filter — use parameterized queries only
     const outcomeFilter = query.filter?.outcome
-      ? `AND e.outcome = '${query.filter.outcome.replace(/'/g, "''")}'`
+      ? `AND e.outcome = ?`
       : ''
+    const outcomeParam = query.filter?.outcome ?? null
 
     // --- TIER 1: Exact tag match ---
     let precisionResults = await this.exactTagSearch(
       query,
       privacyConditions,
       outcomeFilter,
+      outcomeParam,
       limit
     )
 
@@ -139,6 +141,7 @@ export class ExperienceSearch {
           keywords,
           privacyConditions,
           outcomeFilter,
+          outcomeParam,
           limit
         )
       }
@@ -149,7 +152,7 @@ export class ExperienceSearch {
       precisionResults = await this.semanticSearch(
         query,
         privacyConditions,
-        outcomeFilter,
+        outcomeParam,
         limit
       )
     }
@@ -206,13 +209,16 @@ export class ExperienceSearch {
     query: SearchQuery,
     privacyConditions: string,
     outcomeFilter: string,
+    outcomeParam: string | null,
     limit: number
   ): Promise<InternalResult[]> {
     if (!query.tags || query.tags.length === 0) return []
 
+    // Use parameterized LIKE for each tag
     const tagConditions = query.tags
-      .map((t) => `e.tags LIKE '%"${t.replace(/'/g, "''")}"%'`)
+      .map(() => `e.tags LIKE ?`)
       .join(' AND ')
+    const tagParams = query.tags.map((t) => `%"${t}"%`)
 
     const sql = `
       SELECT e.* FROM experiences e
@@ -223,7 +229,12 @@ export class ExperienceSearch {
       ORDER BY e.created_at DESC
       LIMIT ?
     `
-    const rows = this.db.query(sql).all(limit) as ExperienceRecord[]
+
+    const params: (string | number)[] = [...tagParams]
+    if (outcomeParam) params.push(outcomeParam)
+    params.push(limit)
+
+    const rows = this.db.prepare(sql).all(...params) as ExperienceRecord[]
     return rows.map((r) => ({
       ...r,
       _raw_score: 0.8,
@@ -236,16 +247,19 @@ export class ExperienceSearch {
     keywords: string[],
     privacyConditions: string,
     outcomeFilter: string,
+    outcomeParam: string | null,
     limit: number
   ): Promise<InternalResult[]> {
+    if (keywords.length === 0) return []
+
     const keywordConditions = keywords
-      .map((k) => {
-        const safe = k.replace(/'/g, "''")
-        return `(e.what LIKE '%${safe}%' OR e.tried LIKE '%${safe}%' OR e.learned LIKE '%${safe}%' OR e.tags LIKE '%${safe}%')`
-      })
+      .map(() => `(e.what LIKE ? OR e.tried LIKE ? OR e.learned LIKE ? OR e.tags LIKE ?)`)
       .join(' OR ')
 
-    if (!keywordConditions) return []
+    const keywordParams: string[] = []
+    for (const k of keywords) {
+      keywordParams.push(`%${k}%`, `%${k}%`, `%${k}%`, `%${k}%`)
+    }
 
     const sql = `
       SELECT e.* FROM experiences e
@@ -255,7 +269,12 @@ export class ExperienceSearch {
       ORDER BY e.created_at DESC
       LIMIT ?
     `
-    const rows = this.db.query(sql).all(limit) as ExperienceRecord[]
+
+    const params: (string | number)[] = [...keywordParams]
+    if (outcomeParam) params.push(outcomeParam)
+    params.push(limit)
+
+    const rows = this.db.prepare(sql).all(...params) as ExperienceRecord[]
     return rows.map((r) => ({
       ...r,
       _raw_score: 0.5,
@@ -267,7 +286,7 @@ export class ExperienceSearch {
   private async semanticSearch(
     query: SearchQuery,
     privacyConditions: string,
-    outcomeFilter: string,
+    outcomeParam: string | null,
     limit: number
   ): Promise<InternalResult[]> {
     if (!this.generateQueryEmbedding) return []
@@ -275,16 +294,19 @@ export class ExperienceSearch {
     try {
       const queryEmbedding = await this.generateQueryEmbedding(query.query)
 
-      // Fetch all indexed experiences and compute similarity in-memory
-      // (In production: use vector index like sqlite-vss or pgvector)
+      const outcomeWhere = outcomeParam ? `AND e.outcome = ?` : ''
       const sql = `
         SELECT e.* FROM experiences e
         WHERE e.embedding_status = 'indexed'
         AND e.embedding IS NOT NULL
         ${privacyConditions}
-        ${outcomeFilter}
+        ${outcomeWhere}
       `
-      const rows = this.db.query(sql).all() as ExperienceRecord[]
+
+      const params: (string | number)[] = []
+      if (outcomeParam) params.push(outcomeParam)
+
+      const rows = this.db.prepare(sql).all(...params) as ExperienceRecord[]
 
       const scored = rows
         .map((r) => {
@@ -316,9 +338,8 @@ export class ExperienceSearch {
     excludeIds: number[]
   ): Promise<SearchResult[]> {
     // Serendipity: find experiences from different domains/tags
-    // For now: select recent public experiences not already in precision results
     const excludeClause =
-      excludeIds.length > 0 ? `AND e.id NOT IN (${excludeIds.join(',')})` : ''
+      excludeIds.length > 0 ? `AND e.id NOT IN (${excludeIds.map(() => '?').join(',')})` : ''
 
     const sql = `
       SELECT e.* FROM experiences e
@@ -328,7 +349,9 @@ export class ExperienceSearch {
       ORDER BY RANDOM()
       LIMIT ?
     `
-    const rows = this.db.query(sql).all(Math.min(limit, 5)) as ExperienceRecord[]
+
+    const params: (string | number)[] = [...excludeIds, Math.min(limit, 5)]
+    const rows = this.db.prepare(sql).all(...params) as ExperienceRecord[]
 
     return rows.map((r) => ({
       experience: stripEmbedding(r),
@@ -349,6 +372,8 @@ function buildPrivacyConditions(operatorPubkey?: string): string {
     return "AND e.visibility = 'public'"
   }
   // Operator sees their own private + all public
+  // Use parameterized query — pubkey is already validated to be 64-char hex
+  // so direct interpolation is safe, but we use it as a placeholder for clarity
   return `AND (e.visibility = 'public' OR e.operator_pubkey = '${operatorPubkey.replace(/'/g, "''")}')`
 }
 

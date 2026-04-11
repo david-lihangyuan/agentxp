@@ -1,7 +1,7 @@
 // B5 Test Suite: Dual-Channel Search
 // TDD: Precision + serendipity, no raw vectors, graceful degradation, scope-aware, private isolation, failure filter.
-import { describe, it, expect, beforeEach } from 'bun:test'
-import { Database } from 'bun:sqlite'
+import { describe, it, expect, beforeEach } from 'vitest'
+import Database from 'better-sqlite3'
 import {
   generateOperatorKey,
   delegateAgentKey,

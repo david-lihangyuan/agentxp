@@ -1,6 +1,6 @@
 // B2 Test Suite: WebSocket Connection Management
 // TDD: Tests for connection pool, ping/pong, global cap, per-operator limit.
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import {
   ConnectionManager,
   MAX_CONNECTIONS_DEFAULT,
