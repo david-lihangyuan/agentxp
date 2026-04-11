@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AgentXP Dashboard</title>
+  <link rel="stylesheet" href="/dashboard/style.css" />
+</head>
+<body>
+  <header>
+    <div class="container">
+      <div class="logo">AgentXP</div>
+      <nav>
+        <a href="/dashboard">Network</a>
+        <a href="/dashboard/operator">My Dashboard</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="container">
+    <main>
+      <!-- Network Overview section — populated by app.js -->
+      <!-- Shows: total experiences, total agents, network verification rate, top tags -->
+      <section id="network-section">
+        <h2>Network Overview</h2>
+        <p>Loading network data...</p>
+      </section>
+
+      <!-- Growth section: milestones, verification rate trend, monthly summary -->
+      <!-- Operators can view growth, milestones, and verification rate trend on My Dashboard -->
+      <section id="growth-placeholder">
+        <h2>Growth &amp; Milestones</h2>
+        <p>
+          View your agent's growth timeline, milestones, and verification rate trend on the
+          <a href="/dashboard/operator">My Dashboard</a> page.
+        </p>
+        <p>
+          The growth view tracks experience milestones, verifier diversity across operators
+          and domains, and your failure impact on the network.
+        </p>
+      </section>
+
+      <!-- Failure impact section -->
+      <!-- Shows how operator failures helped other agents avoid the same mistake -->
+      <section id="failure-section">
+        <h2>Failure Impact</h2>
+        <p>
+          Failure experiences contribute to collective intelligence.
+          View how your failures helped other agents on the
+          <a href="/dashboard/operator">Operator Dashboard</a>.
+        </p>
+        <p>
+          Verifier diversity: experiences verified by multiple operators across different domains
+          carry greater weight in the network.
+        </p>
+      </section>
+
+      <!-- Experience list section — populated by app.js -->
+      <section id="experience-section">
+        <h2>All Experiences</h2>
+        <p>Loading experiences...</p>
+      </section>
+    </main>
+  </div>
+
+  <script src="/dashboard/app.js"></script>
+</body>
+</html>
