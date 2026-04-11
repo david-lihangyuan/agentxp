@@ -4,6 +4,9 @@
 
 import { Hono } from 'hono'
 import type Database from 'better-sqlite3'
+import { readFileSync } from 'node:fs'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { openDatabase } from './db'
 import { RateLimiter, getClientIp } from './rate-limit'
 import { CircuitBreaker, getCircuitBreaker, setCircuitBreaker } from './circuit-breaker'
@@ -21,6 +24,7 @@ import { ExperienceRelations } from './agentxp/relations'
 import { sanitize, relaySanitize } from './agentxp/sanitize'
 import { classify } from './agentxp/classify'
 import { VisibilityManager } from './agentxp/visibility'
+import { DashboardAPI } from './agentxp/dashboard-api'
 import { createLogger } from './logger'
 import { validateQueryTags, validatePubkey } from './validate'
 
@@ -76,6 +80,11 @@ export function createApp(opts: AppOptions = {}): Hono {
   const impactVisibility = new ImpactVisibility(db)
   const experienceRelations = new ExperienceRelations(db)
   const visibilityManager = new VisibilityManager(db)
+  const dashboardAPI = new DashboardAPI(db)
+
+  // Resolve __dirname for ESM (needed to serve static dashboard files)
+  const __filename = fileURLToPath(import.meta.url)
+  const __dirname = dirname(__filename)
 
   // --- Global Middleware: Request Logging ---
   app.use('*', async (c, next) => {
@@ -405,8 +414,144 @@ export function createApp(opts: AppOptions = {}): Hono {
     return c.json(identityEvents)
   })
 
+  // --- F1: Dashboard Data API Routes ---
+
+  // Dashboard static asset helper (read from disk once per request)
+  function readDashboardFile(filename: string): string {
+    try {
+      return readFileSync(join(__dirname, '..', 'dashboard', filename), 'utf8')
+    } catch {
+      return ''
+    }
+  }
+
+  const CSP_HEADER = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'"
+
+  // GET /api/v1/dashboard/operator/:pubkey/summary
+  api.get('/dashboard/operator/:pubkey/summary', (c) => {
+    const pubkey = c.req.param('pubkey')
+    if (!dashboardAPI.operatorExists(pubkey)) {
+      return c.json({ error: 'operator not found' }, 404)
+    }
+    const summary = dashboardAPI.getOperatorSummary(pubkey)
+    return c.json(summary)
+  })
+
+  // GET /api/v1/dashboard/operator/:pubkey/growth
+  api.get('/dashboard/operator/:pubkey/growth', (c) => {
+    const pubkey = c.req.param('pubkey')
+    if (!dashboardAPI.operatorExists(pubkey)) {
+      return c.json({ error: 'operator not found' }, 404)
+    }
+    const growth = dashboardAPI.getOperatorGrowth(pubkey)
+    return c.json(growth)
+  })
+
+  // GET /api/v1/dashboard/operator/:pubkey/failures
+  api.get('/dashboard/operator/:pubkey/failures', (c) => {
+    const pubkey = c.req.param('pubkey')
+    if (!dashboardAPI.operatorExists(pubkey)) {
+      return c.json({ error: 'operator not found' }, 404)
+    }
+    const failures = dashboardAPI.getFailureImpact(pubkey)
+    return c.json(failures)
+  })
+
+  // GET /api/v1/dashboard/operator/:pubkey/weekly-report
+  api.get('/dashboard/operator/:pubkey/weekly-report', (c) => {
+    const pubkey = c.req.param('pubkey')
+    if (!dashboardAPI.operatorExists(pubkey)) {
+      return c.json({ error: 'operator not found' }, 404)
+    }
+    // Retrieve latest weekly_report from operator_notifications
+    const row = db
+      .prepare(`
+        SELECT content FROM operator_notifications
+        WHERE operator_pubkey = ? AND type = 'weekly_report'
+        ORDER BY created_at DESC LIMIT 1
+      `)
+      .get(pubkey) as { content: string } | undefined
+    if (!row) {
+      return c.json({ error: 'no weekly report available' }, 404)
+    }
+    try {
+      return c.json(JSON.parse(row.content))
+    } catch {
+      return c.json({ error: 'malformed report' }, 500)
+    }
+  })
+
+  // GET /api/v1/dashboard/experiences
+  api.get('/dashboard/experiences', (c) => {
+    const result = dashboardAPI.getExperienceList()
+    return c.json(result)
+  })
+
+  // GET /api/v1/dashboard/network
+  api.get('/dashboard/network', (c) => {
+    const result = dashboardAPI.getNetworkOverview()
+    return c.json(result)
+  })
+
   // --- Mount API routes under /api/v1/ ---
   app.route('/api/v1', api)
+
+  // --- F2: Dashboard Web UI — static HTML files ---
+  // GET /dashboard → index.html
+  app.get('/dashboard', (c) => {
+    const html = readDashboardFile('index.html')
+    if (!html) return c.json({ error: 'dashboard not found' }, 404)
+    return new Response(html, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Content-Security-Policy': CSP_HEADER,
+      },
+    })
+  })
+
+  // GET /dashboard/operator → operator.html
+  app.get('/dashboard/operator', (c) => {
+    const html = readDashboardFile('operator.html')
+    if (!html) return c.json({ error: 'dashboard not found' }, 404)
+    return new Response(html, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Content-Security-Policy': CSP_HEADER,
+      },
+    })
+  })
+
+  // GET /dashboard/app.js
+  app.get('/dashboard/app.js', (c) => {
+    const js = readDashboardFile('app.js')
+    if (!js) return c.json({ error: 'not found' }, 404)
+    return new Response(js, {
+      status: 200,
+      headers: { 'Content-Type': 'application/javascript; charset=utf-8' },
+    })
+  })
+
+  // GET /dashboard/operator.js
+  app.get('/dashboard/operator.js', (c) => {
+    const js = readDashboardFile('operator.js')
+    if (!js) return c.json({ error: 'not found' }, 404)
+    return new Response(js, {
+      status: 200,
+      headers: { 'Content-Type': 'application/javascript; charset=utf-8' },
+    })
+  })
+
+  // GET /dashboard/style.css
+  app.get('/dashboard/style.css', (c) => {
+    const css = readDashboardFile('style.css')
+    if (!css) return c.json({ error: 'not found' }, 404)
+    return new Response(css, {
+      status: 200,
+      headers: { 'Content-Type': 'text/css; charset=utf-8' },
+    })
+  })
 
   // --- 404 for unversioned /api/ paths (must come AFTER /api/v1 mount) ---
   app.all('/api/*', (c) => {
