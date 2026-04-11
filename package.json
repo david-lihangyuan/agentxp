@@ -2,7 +2,7 @@
   "name": "agentxp-monorepo",
   "version": "0.0.1",
   "private": true,
-  "workspaces": ["packages/*", "supernode", "skill"],
+  "workspaces": ["packages/*", "supernode"],
   "scripts": {
     "test": "bun test",
     "test:protocol": "bun test packages/protocol"
