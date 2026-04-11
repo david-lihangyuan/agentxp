@@ -6,6 +6,7 @@
 import type Database from 'better-sqlite3'
 import { logger } from '../logger'
 import type { ExperienceRecord } from './experience-store'
+import { ExperienceRelations } from './relations'
 
 export interface SearchQuery {
   query: string
@@ -25,6 +26,12 @@ export interface SearchQuery {
   limit?: number
 }
 
+export interface SearchRelation {
+  target_id: number
+  relation_type: string
+  what: string
+}
+
 export interface SearchResult {
   experience: Omit<ExperienceRecord, 'embedding'>
   match_score: number
@@ -35,6 +42,8 @@ export interface SearchResult {
     embedding_score: number
     scope_boost: number
   }
+  /** Direct outgoing relations for this experience (C3b) */
+  related?: SearchRelation[]
 }
 
 export interface SearchResponse {
@@ -101,10 +110,14 @@ function checkScope(
 }
 
 export class ExperienceSearch {
+  private relations: ExperienceRelations
+
   constructor(
     private db: Database.Database,
     private generateQueryEmbedding?: (text: string) => Promise<number[]>
-  ) {}
+  ) {
+    this.relations = new ExperienceRelations(db)
+  }
 
   async search(query: SearchQuery): Promise<SearchResponse> {
     const limit = query.limit ?? 20
@@ -161,10 +174,11 @@ export class ExperienceSearch {
       degradeMessage = 'no experiences found yet — your exploration will be the first'
     }
 
-    // Scope-aware scoring
+    // Scope-aware scoring + relations enrichment (C3b)
     const scoredPrecision = precisionResults.map((r) => {
       const scopeCheck = checkScope(r.scope, query.env)
       const scopeBoost = scopeCheck.match ? 0.1 : 0
+      const directRelations = this.relations.getDirectRelations(r.id)
       return {
         experience: stripEmbedding(r),
         match_score: r._raw_score + scopeBoost,
@@ -175,6 +189,7 @@ export class ExperienceSearch {
           embedding_score: r._embedding_score ?? 0,
           scope_boost: scopeBoost,
         },
+        related: directRelations.length > 0 ? directRelations : undefined,
       }
     })
 
