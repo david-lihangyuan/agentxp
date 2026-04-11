@@ -14,12 +14,15 @@ export interface SanitizeResult {
 // High-risk patterns: API keys, private keys, DB connection strings
 const HIGH_RISK_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
   { pattern: /sk-[a-zA-Z0-9]{20,}/, reason: 'API key (OpenAI format)' },
+  { pattern: /ghp_[a-zA-Z0-9]{20,}/, reason: 'API key (GitHub PAT)' },
+  { pattern: /AKIA[A-Z0-9]{16}/, reason: 'API key (AWS access key)' },
   { pattern: /[a-zA-Z0-9_\-]+(API|api)_?(KEY|key)\s*=\s*\S+/, reason: 'API key assignment' },
   { pattern: /OPENAI_API_KEY\s*=\s*\S+/, reason: 'API key' },
   { pattern: /-----BEGIN (PRIVATE KEY|RSA PRIVATE KEY|EC PRIVATE KEY|OPENSSH PRIVATE KEY)-----/, reason: 'Private key' },
   { pattern: /private key/i, reason: 'Private key reference' },
   { pattern: /mongodb\+srv:\/\/[^@]+@/, reason: 'DB connection string with credentials' },
-  { pattern: /postgres:\/\/[^@]+@/, reason: 'DB connection string with credentials' },
+  { pattern: /postgres(?:ql)?:\/\/[^\s"']+/, reason: 'DB connection string' },
+  { pattern: /mysql:\/\/[^\s"']+/, reason: 'DB connection string' },
 ]
 
 // Medium-risk patterns: private IPs, internal URLs, emails, absolute paths
