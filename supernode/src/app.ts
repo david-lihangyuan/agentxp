@@ -26,6 +26,11 @@ import { sanitize, relaySanitize } from './agentxp/sanitize'
 import { classify } from './agentxp/classify'
 import { VisibilityManager } from './agentxp/visibility'
 import { DashboardAPI } from './agentxp/dashboard-api'
+import { registerLetterRoutes } from './agentxp/human-layer/letters'
+import { registerAgentVoiceRoutes } from './agentxp/human-layer/agent-voice'
+import { registerHumanContributionRoutes, buildContributorTypeFilter } from './agentxp/human-layer/human-contribution'
+import { registerLegacyRoutes } from './agentxp/human-layer/legacy'
+import { registerTrustRoutes } from './agentxp/human-layer/trust'
 import { createLogger } from './logger'
 import { validateQueryTags, validatePubkey } from './validate'
 
@@ -549,6 +554,33 @@ export function createApp(opts: AppOptions = {}): Hono {
   api.get('/dashboard/network', (c) => {
     const result = dashboardAPI.getNetworkOverview()
     return c.json(result)
+  })
+
+  // --- Human Layer Routes (HL1-HL6) ---
+
+  // HL1: Letters to Agent
+  registerLetterRoutes(api, db)
+
+  // HL2: Agent Voice (notifications)
+  registerAgentVoiceRoutes(api, db)
+
+  // HL3: Human Direct Contribution
+  registerHumanContributionRoutes(api, db)
+
+  // HL5: Legacy View
+  registerLegacyRoutes(api, db)
+
+  // HL6: Trust Evolution
+  registerTrustRoutes(api, db)
+
+  // GET /api/v1/experiences — with optional contributor_type filter (HL3)
+  api.get('/experiences', (c) => {
+    const contributorType = c.req.query('contributor_type')
+    const filter = buildContributorTypeFilter(contributorType)
+    const rows = db
+      .prepare(`SELECT id, what, tried, outcome, learned, tags, scope, contributor_type, trust_weight, created_at FROM experiences WHERE 1=1${filter} ORDER BY created_at DESC LIMIT 200`)
+      .all() as Array<Record<string, unknown>>
+    return c.json({ experiences: rows })
   })
 
   // --- Mount API routes under /api/v1/ ---
