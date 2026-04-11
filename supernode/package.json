@@ -12,9 +12,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@hono/node-server": "^1.19.13",
     "@serendip/protocol": "file:../packages/protocol",
     "better-sqlite3": "^12.8.0",
-    "hono": "^4.2.0"
+    "hono": "^4.2.0",
+    "tsx": "^4.21.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.8",

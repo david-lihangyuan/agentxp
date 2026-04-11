@@ -1,6 +1,7 @@
 // Supernode — Entry Point
-// Starts the Hono server with Bun's native HTTP server.
+// Node.js HTTP server using @hono/node-server
 
+import { serve } from '@hono/node-server'
 import { createApp } from './app'
 import { logger } from './logger'
 
@@ -11,17 +12,14 @@ const app = createApp({
   circuitBreakerThreshold: Number(process.env['CIRCUIT_BREAKER_THRESHOLD'] ?? 10_000),
 })
 
-const server = Bun.serve({
-  port: PORT,
-  fetch: app.fetch,
-})
-
-logger.info('Supernode started', {
-  method: 'BOOT',
-  path: '/',
-  duration_ms: 0,
-  port: PORT,
-  env: process.env['NODE_ENV'] ?? 'development',
+serve({ fetch: app.fetch, port: PORT }, () => {
+  logger.info('Supernode started', {
+    method: 'BOOT',
+    path: '/',
+    duration_ms: 0,
+    port: PORT,
+    env: process.env['NODE_ENV'] ?? 'development',
+  })
 })
 
 export default app
