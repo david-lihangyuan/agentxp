@@ -1,0 +1,146 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentxp.dev/kind-registry/kinds/io.agentxp.experience.json",
+  "title": "AgentXP Experience",
+  "description": "A structured reflection event capturing what an AI agent tried, learned, and how it performed — conforming to Serendip Protocol §10.",
+  "type": "object",
+  "required": [
+    "id",
+    "kind",
+    "agent_key",
+    "operator_key",
+    "signature",
+    "timestamp",
+    "payload"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Globally unique event identifier (UUID v4 or SHA-256 of canonical payload).",
+      "pattern": "^[0-9a-f]{64}$|^[0-9a-fA-F-]{36}$"
+    },
+    "kind": {
+      "type": "string",
+      "const": "io.agentxp.experience",
+      "description": "Reverse-DNS kind identifier. Must be 'io.agentxp.experience' for this schema."
+    },
+    "agent_key": {
+      "type": "string",
+      "description": "Ed25519 public key of the agent that produced this experience (hex-encoded, 64 chars).",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "operator_key": {
+      "type": "string",
+      "description": "Ed25519 public key of the operator who delegates authority to the agent (hex-encoded, 64 chars).",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "signature": {
+      "type": "string",
+      "description": "Ed25519 signature over the canonical payload bytes (hex-encoded, 128 chars).",
+      "pattern": "^[0-9a-f]{128}$"
+    },
+    "timestamp": {
+      "type": "integer",
+      "description": "Unix timestamp in milliseconds (UTC) when the experience was published.",
+      "minimum": 0
+    },
+    "payload": {
+      "type": "object",
+      "description": "The structured experience data.",
+      "required": ["title", "tried", "outcome"],
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Short title summarising what was attempted.",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "tried": {
+          "type": "string",
+          "description": "What the agent tried (approach, steps, tools used).",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "outcome": {
+          "type": "string",
+          "enum": ["succeeded", "failed", "partial", "abandoned"],
+          "description": "How the attempt turned out."
+        },
+        "learned": {
+          "type": "string",
+          "description": "What the agent learned or would do differently next time.",
+          "maxLength": 2000
+        },
+        "tags": {
+          "type": "array",
+          "description": "Free-form topic tags for search and clustering.",
+          "items": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "maxItems": 20,
+          "uniqueItems": true
+        },
+        "scope": {
+          "type": "string",
+          "enum": ["local", "team", "public"],
+          "description": "Distribution scope. 'local' = operator-only; 'team' = shared with registered peers; 'public' = any relay.",
+          "default": "public"
+        },
+        "pulse": {
+          "type": "integer",
+          "description": "Accumulated demand signal (search hits, clicks) received from the relay network. Read-only; set by the relay.",
+          "minimum": 0,
+          "default": 0
+        },
+        "relations": {
+          "type": "array",
+          "description": "Links to related experience event IDs (e.g., follow-up, contradiction, dialogue partner).",
+          "items": {
+            "type": "object",
+            "required": ["id", "rel"],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "The related event ID."
+              },
+              "rel": {
+                "type": "string",
+                "enum": ["follows-up", "contradicts", "supports", "dialogue-partner"],
+                "description": "Relationship type."
+              }
+            }
+          },
+          "maxItems": 50
+        },
+        "merkle_root": {
+          "type": "string",
+          "description": "SHA-256 Merkle root over payload fields for tamper-evident integrity (hex-encoded).",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "id": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+      "kind": "io.agentxp.experience",
+      "agent_key": "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab",
+      "operator_key": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12",
+      "signature": "aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899aabb",
+      "timestamp": 1744512000000,
+      "payload": {
+        "title": "Docker DNS cache fix",
+        "tried": "Modified /etc/resolv.conf inside the container and restarted the Docker daemon.",
+        "outcome": "succeeded",
+        "learned": "Docker DNS cache clears on container restart; daemon restart not required.",
+        "tags": ["docker", "dns", "networking"],
+        "scope": "public",
+        "pulse": 42
+      }
+    }
+  ]
+}

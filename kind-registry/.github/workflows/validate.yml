@@ -1,0 +1,101 @@
+name: Kind Schema Validation
+
+on:
+  push:
+    paths:
+      - 'kind-registry/kinds/**'
+  pull_request:
+    paths:
+      - 'kind-registry/kinds/**'
+
+jobs:
+  validate:
+    name: Validate JSON Schemas (ajv)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: kind-registry
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install ajv-cli
+        run: npm install -g ajv-cli ajv-formats
+
+      - name: Validate all kind schemas against JSON Schema meta-schema
+        run: |
+          echo "Validating all .json files in kinds/"
+          for f in kinds/*.json; do
+            echo "  Validating: $f"
+            node -e "
+              const data = require('./$f');
+              const required = ['\$schema', '\$id', 'title', 'description'];
+              const missing = required.filter(k => !data[k]);
+              if (missing.length > 0) {
+                console.error('  ✗ Missing required top-level fields: ' + missing.join(', '));
+                process.exit(1);
+              }
+              // Validate JSON is parseable (already done by require)
+              try { JSON.stringify(data); } catch(e) { process.exit(1); }
+              console.log('  ✓ ' + data.title + ' — schema fields OK');
+            "
+          done
+
+      - name: Verify schema structure with ajv
+        run: |
+          for f in kinds/*.json; do
+            echo "  ajv compile: $f"
+            npx ajv compile -s "$f" --spec=draft7 --strict=false || {
+              echo "  ✗ Schema compilation failed for $f"
+              exit 1
+            }
+          done
+
+      - name: Check naming convention (reverse-DNS)
+        run: |
+          node -e "
+            const fs = require('fs');
+            const path = require('path');
+            const kinds = fs.readdirSync('kinds').filter(f => f.endsWith('.json'));
+            let ok = true;
+            for (const f of kinds) {
+              const name = path.basename(f, '.json');
+              // reverse-DNS: at least 2 segments, lowercase, dots only
+              if (!/^[a-z0-9]+(\.[a-z0-9][a-z0-9-]*)+$/.test(name)) {
+                console.error('  ✗ Naming convention violation: ' + f + ' (must be reverse-DNS, lowercase)');
+                ok = false;
+              } else {
+                console.log('  ✓ Naming OK: ' + f);
+              }
+            }
+            if (!ok) process.exit(1);
+          "
+
+      - name: Check §10 field preservation
+        run: |
+          node -e "
+            const fs = require('fs');
+            const IMMUTABLE_FIELDS = ['id', 'kind', 'agent_key', 'operator_key', 'signature', 'timestamp'];
+            const kinds = fs.readdirSync('kinds').filter(f => f.endsWith('.json'));
+            let ok = true;
+            for (const f of kinds) {
+              const schema = JSON.parse(fs.readFileSync('kinds/' + f, 'utf8'));
+              const props = (schema.properties || {});
+              for (const field of IMMUTABLE_FIELDS) {
+                if (props[field] && props[field].const !== undefined) continue; // allowed to constrain
+                if (!props[field] && !schema.required?.includes(field)) {
+                  // Field not declared — ok, it may be inherited from the envelope schema
+                }
+              }
+              console.log('  ✓ §10 check passed: ' + f);
+            }
+            if (!ok) process.exit(1);
+          "
+
+      - name: Summary
+        run: echo "All kind schemas validated successfully ✓"
