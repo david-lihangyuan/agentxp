@@ -5,3 +5,11 @@ data/
 dist/
 .bun/
 supernode/node_modules/
+
+# Experience contribution bots — not for public release
+agents/
+
+# Dev artifacts
+.relay.pid
+supernode.log
+*.log

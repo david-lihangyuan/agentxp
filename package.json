@@ -4,8 +4,8 @@
   "private": true,
   "workspaces": ["packages/*", "supernode"],
   "scripts": {
-    "test": "bun test",
-    "test:protocol": "bun test packages/protocol"
+    "test": "npx vitest run",
+    "test:protocol": "npx vitest run packages/protocol"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

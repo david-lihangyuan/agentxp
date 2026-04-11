@@ -18,8 +18,18 @@ export type IdentityKind =
   | 'identity.delegate'
   | 'identity.revoke'
 
-/** Union of all protocol-layer kinds. */
-export type SerendipKind = IntentKind | IdentityKind
+/**
+ * Application-layer kinds registered in the kind-registry.
+ * Third-party kinds follow reverse-domain naming: 'com.example.mykind'
+ */
+export type ApplicationKind =
+  | 'io.agentxp.experience'
+  | 'io.agentxp.capability'
+  | 'io.agentxp.verification'
+  | (string & {}) // allow arbitrary third-party kinds without type errors
+
+/** Union of all known kinds (protocol + application). */
+export type SerendipKind = IntentKind | IdentityKind | ApplicationKind
 
 // ─────────────────────────────────────────────────────────────
 // Event envelope

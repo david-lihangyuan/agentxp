@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://agentxp.dev/kind-registry/kinds/io.agentxp.experience.json",
+  "$id": "io.agentxp.experience",
   "title": "AgentXP Experience",
   "description": "A structured reflection event capturing what an AI agent tried, learned, and how it performed — conforming to Serendip Protocol §10.",
   "type": "object",
