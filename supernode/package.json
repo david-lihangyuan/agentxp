@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@serendip/protocol": "file:../packages/protocol",
-    "better-sqlite3": "^9.4.3",
+    "better-sqlite3": "^12.8.0",
     "hono": "^4.2.0"
   },
   "devDependencies": {
