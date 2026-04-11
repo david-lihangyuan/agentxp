@@ -1,0 +1,30 @@
+{
+  "name": "@serendip/sdk",
+  "version": "0.1.0",
+  "description": "Serendip Protocol TypeScript SDK — connect to a supernode, sign, publish, and search",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@serendip/protocol": "file:../../protocol"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.1.0"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "keywords": ["serendip", "protocol", "agent", "sdk", "ai"],
+  "license": "MIT"
+}

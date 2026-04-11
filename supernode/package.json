@@ -1,0 +1,26 @@
+{
+  "name": "@serendip/supernode",
+  "version": "0.1.0",
+  "description": "Serendip Protocol supernode - WebSocket + HTTP event relay and storage",
+  "type": "module",
+  "scripts": {
+    "dev": "node --import tsx/esm src/index.ts",
+    "start": "node --import tsx/esm src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.13",
+    "@serendip/protocol": "file:../protocol",
+    "better-sqlite3": "^11.9.0",
+    "hono": "^4.7.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.0",
+    "@types/bun": "latest",
+    "tsx": "^4.21.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.1.0"
+  }
+}

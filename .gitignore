@@ -18,3 +18,9 @@ __pycache__/
 python-sdk/dist/
 python-sdk/*.egg-info/
 .pytest_cache/
+node_modules/
+dist/
+.env
+*.db
+.venv/
+__pycache__/
