@@ -12,7 +12,8 @@ import { RateLimiter, getClientIp } from './rate-limit'
 import { CircuitBreaker, getCircuitBreaker, setCircuitBreaker } from './circuit-breaker'
 import { EventHandler } from './protocol/event-handler'
 import { IdentityStore } from './protocol/identity-store'
-import { NodeRegistry } from './protocol/node-registry'
+import { NodeRegistry, generateChallenge } from './protocol/node-registry'
+import { SyncManager } from './protocol/sync'
 import { ExperienceStore } from './agentxp/experience-store'
 import { ExperienceSearch } from './agentxp/experience-search'
 import { SubscriptionManager } from './agentxp/subscriptions'
@@ -68,6 +69,7 @@ export function createApp(opts: AppOptions = {}): Hono {
   const eventHandler = new EventHandler(db)
   const identityStore = new IdentityStore(db)
   const nodeRegistry = new NodeRegistry(db)
+  const syncManager = new SyncManager(db, nodeRegistry)
   const experienceStore = new ExperienceStore(db, circuitBreaker, {
     generateEmbedding: opts.generateEmbedding,
     pollIntervalMs: opts.generateEmbedding ? 500 : 0,
@@ -253,11 +255,20 @@ export function createApp(opts: AppOptions = {}): Hono {
     return c.json(identity)
   })
 
-  // --- Node Registry Routes ---
-  api.get('/nodes', (c) => {
-    return c.json({ nodes: nodeRegistry.list() })
+  // --- G1: Node Registry Routes ---
+
+  // GET /api/v1/nodes/challenge — issue a registration challenge
+  api.get('/nodes/challenge', (c) => {
+    const challengeData = generateChallenge()
+    return c.json(challengeData)
   })
 
+  // GET /api/v1/nodes — list registered nodes with last_seen and status
+  api.get('/nodes', (c) => {
+    return c.json({ nodes: nodeRegistry.listWithStatus() })
+  })
+
+  // POST /api/v1/nodes/register — register with challenge-response proof
   api.post('/nodes/register', async (c) => {
     let body: unknown
     try {
@@ -267,17 +278,64 @@ export function createApp(opts: AppOptions = {}): Hono {
     }
 
     const input = body as Record<string, unknown>
-    const result = await nodeRegistry.register({
-      pubkey: input['pubkey'] as string,
-      url: input['url'] as string,
-      challengeSignature: input['challengeSignature'] as string,
-    })
+
+    // Support both old interface (pubkey/url/challengeSignature)
+    // and new interface (relay_pubkey/challenge/signature/url)
+    const result = input['relay_pubkey']
+      ? await nodeRegistry.registerWithProof({
+          relay_pubkey: input['relay_pubkey'] as string,
+          challenge: input['challenge'] as string,
+          signature: input['signature'] as string,
+          url: input['url'] as string,
+        })
+      : await nodeRegistry.register({
+          pubkey: input['pubkey'] as string,
+          url: input['url'] as string,
+          challengeSignature: input['challengeSignature'] as string,
+        })
 
     if (!result.ok) {
       return c.json({ error: result.error }, 400)
     }
 
-    return c.json({ ok: true }, 201)
+    return c.json({ success: true }, 201)
+  })
+
+  // POST /api/v1/nodes/:pubkey/heartbeat — update last_seen
+  api.post('/nodes/:pubkey/heartbeat', (c) => {
+    const pubkey = c.req.param('pubkey')
+    const result = nodeRegistry.heartbeat(pubkey)
+    if (!result.ok) {
+      return c.json({ error: result.error }, 404)
+    }
+    return c.json({ ok: true })
+  })
+
+  // --- G2: Relay Sync Routes ---
+
+  // GET /api/v1/sync — pull events for relay-to-relay sync
+  api.get('/sync', (c) => {
+    const relayPubkey = c.req.header('X-Relay-Pubkey')
+    const relaySignature = c.req.header('X-Relay-Signature')
+
+    // Require relay identity signature headers
+    if (!relayPubkey || !relaySignature) {
+      return c.json({ error: 'X-Relay-Pubkey and X-Relay-Signature headers are required' }, 401)
+    }
+
+    const sinceMs = Number(c.req.query('since') ?? 0)
+    const kinds = c.req.query('kinds') ?? undefined
+
+    const isRegistered = nodeRegistry.isRegistered(relayPubkey)
+
+    const result = syncManager.getEventsForSync({
+      since: sinceMs,
+      kinds,
+      relayPubkey,
+      isRegistered,
+    })
+
+    return c.json(result)
   })
 
   // --- Pulse Routes ---
