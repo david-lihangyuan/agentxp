@@ -6,6 +6,7 @@ import type Database from 'better-sqlite3'
 import { verifyEvent, type SerendipEvent } from '@serendip/protocol'
 import { validatePayloadSize, scanForPromptInjection, validateTags, validateTimestamp, validatePubkey } from '../validate'
 import { IdentityStore } from './identity-store'
+import { relaySanitize } from '../agentxp/sanitize'
 import { logger } from '../logger'
 
 export interface EventHandlerResult {
@@ -53,7 +54,18 @@ export class EventHandler {
       return { ok: false, error: pubkeyResult.error }
     }
 
-    // 6. Prompt injection scan on text fields
+    // 6. Relay-side sanitization: reject events with sensitive content (API keys, private keys, DB creds)
+    const sanitizeResult = relaySanitize(ev.payload)
+    if (sanitizeResult.blocked) {
+      logger.warn('Sensitive content detected', {
+        event_id: ev.id,
+        pubkey: ev.pubkey,
+        reason: sanitizeResult.reason,
+      })
+      return { ok: false, error: 'Sensitive content detected' }
+    }
+
+    // 7. Prompt injection scan on text fields
     const injectionResult = scanForPromptInjection(ev.payload)
     if (!injectionResult.valid) {
       logger.warn('Prompt injection rejected', {

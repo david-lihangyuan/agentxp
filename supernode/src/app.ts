@@ -364,6 +364,35 @@ export function createApp(opts: AppOptions = {}): Hono {
     return c.json({ relations })
   })
 
+  // --- D3: Operator Visibility API ---
+  // GET /api/v1/visibility/:operator_pubkey → { default_visibility }
+  api.get('/visibility/:operator_pubkey', (c) => {
+    const operatorPubkey = c.req.param('operator_pubkey')
+    const visibility = visibilityManager.getOperatorVisibility(operatorPubkey)
+    if (visibility === null) {
+      return c.json({ default_visibility: 'public' }) // system default
+    }
+    return c.json({ default_visibility: visibility })
+  })
+
+  // PATCH /api/v1/visibility/:operator_pubkey { default_visibility }
+  api.patch('/visibility/:operator_pubkey', async (c) => {
+    const operatorPubkey = c.req.param('operator_pubkey')
+    let body: unknown
+    try {
+      body = await c.req.json()
+    } catch {
+      return c.json({ error: 'invalid JSON' }, 400)
+    }
+    const input = body as Record<string, unknown>
+    const defaultVisibility = input['default_visibility']
+    if (defaultVisibility !== 'public' && defaultVisibility !== 'private') {
+      return c.json({ error: 'default_visibility must be public or private' }, 400)
+    }
+    visibilityManager.setOperatorVisibility(operatorPubkey, defaultVisibility)
+    return c.json({ ok: true, default_visibility: defaultVisibility })
+  })
+
   // --- Relay Sync: expose identity events for bootstrap ---
   api.get('/sync/identity', (c) => {
     const identityEvents = db
