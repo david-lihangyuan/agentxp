@@ -11,13 +11,14 @@
   "dependencies": {
     "@agentxp/skill": "file:../../packages/skill",
     "@agentxp/supernode": "file:../../supernode",
+    "@hono/node-server": "^1.19.13",
     "@serendip/protocol": "file:../../packages/protocol",
-    "better-sqlite3": "^12.8.0"
+    "better-sqlite3": "^12.8.0",
+    "vitest": "^3.0.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.8",
     "@types/node": "^25.6.0",
-    "typescript": "^5.4.5",
-    "vitest": "^3.0.0"
+    "typescript": "^5.4.5"
   }
 }
