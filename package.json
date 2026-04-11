@@ -6,5 +6,12 @@
   "scripts": {
     "test": "bun test",
     "test:protocol": "bun test packages/protocol"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "vitest": "^4.1.4"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.8.0"
   }
 }
