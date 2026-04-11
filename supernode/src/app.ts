@@ -13,6 +13,14 @@ import { NodeRegistry } from './protocol/node-registry'
 import { ExperienceStore } from './agentxp/experience-store'
 import { ExperienceSearch } from './agentxp/experience-search'
 import { SubscriptionManager } from './agentxp/subscriptions'
+import { PulseStateMachine } from './agentxp/pulse'
+import { PulseAPI } from './agentxp/pulse-api'
+import { ImpactScoring } from './agentxp/scoring'
+import { ImpactVisibility } from './agentxp/impact-visibility'
+import { ExperienceRelations } from './agentxp/relations'
+import { sanitize, relaySanitize } from './agentxp/sanitize'
+import { classify } from './agentxp/classify'
+import { VisibilityManager } from './agentxp/visibility'
 import { createLogger } from './logger'
 import { validateQueryTags, validatePubkey } from './validate'
 
@@ -62,6 +70,12 @@ export function createApp(opts: AppOptions = {}): Hono {
   })
   const experienceSearch = new ExperienceSearch(db, opts.generateEmbedding)
   const subscriptionManager = new SubscriptionManager(db)
+  const pulseStateMachine = new PulseStateMachine(db)
+  const pulseAPI = new PulseAPI(db)
+  const impactScoring = new ImpactScoring(db)
+  const impactVisibility = new ImpactVisibility(db)
+  const experienceRelations = new ExperienceRelations(db)
+  const visibilityManager = new VisibilityManager(db)
 
   // --- Global Middleware: Request Logging ---
   app.use('*', async (c, next) => {
@@ -255,6 +269,99 @@ export function createApp(opts: AppOptions = {}): Hono {
     }
 
     return c.json({ ok: true }, 201)
+  })
+
+  // --- Pulse Routes ---
+  api.get('/pulse', (c) => {
+    const pubkey = c.req.query('pubkey')
+    if (!pubkey) {
+      return c.json({ error: 'pubkey is required' }, 400)
+    }
+    const since = Number(c.req.query('since') ?? 0)
+    const result = pulseAPI.pull({ pubkey, since })
+    return c.json(result)
+  })
+
+  api.post('/pulse/outcome', async (c) => {
+    let body: unknown
+    try {
+      body = await c.req.json()
+    } catch {
+      return c.json({ error: 'invalid JSON' }, 400)
+    }
+
+    const input = body as Record<string, unknown>
+    if (!input['experience_id'] || !input['reporter_pubkey'] || !input['outcome']) {
+      return c.json({ error: 'experience_id, reporter_pubkey, and outcome are required' }, 400)
+    }
+
+    const result = pulseAPI.reportOutcome({
+      experienceId: input['experience_id'] as number,
+      reporterPubkey: input['reporter_pubkey'] as string,
+      outcome: input['outcome'] as string,
+      context: input['context'] as Record<string, unknown> | undefined,
+    })
+
+    if (!result.ok) {
+      return c.json({ error: result.error }, 400)
+    }
+
+    return c.json({ ok: true }, 201)
+  })
+
+  // --- Experience Impact Visibility (C2b) ---
+  api.get('/experiences/:id/impact', (c) => {
+    const id = Number(c.req.param('id'))
+    if (isNaN(id)) return c.json({ error: 'invalid experience id' }, 400)
+    const result = impactVisibility.getImpact(id)
+    return c.json(result)
+  })
+
+  // --- Experience Score (C3) ---
+  api.get('/experiences/:id/score', (c) => {
+    const id = Number(c.req.param('id'))
+    if (isNaN(id)) return c.json({ error: 'invalid experience id' }, 400)
+    const result = impactScoring.getScore(id)
+    return c.json(result)
+  })
+
+  // --- Experience Dialogue Relations (C3b) ---
+  api.post('/experiences/:id/relations', async (c) => {
+    const fromId = Number(c.req.param('id'))
+    if (isNaN(fromId)) return c.json({ error: 'invalid experience id' }, 400)
+
+    let body: unknown
+    try {
+      body = await c.req.json()
+    } catch {
+      return c.json({ error: 'invalid JSON' }, 400)
+    }
+
+    const input = body as Record<string, unknown>
+    if (!input['target_id'] || !input['relation_type']) {
+      return c.json({ error: 'target_id and relation_type are required' }, 400)
+    }
+
+    const pubkey = (input['pubkey'] as string) ?? 'unknown'
+    const result = experienceRelations.addRelation(
+      fromId,
+      Number(input['target_id']),
+      input['relation_type'] as 'extends' | 'qualifies' | 'supersedes',
+      pubkey
+    )
+
+    if (!result.ok) {
+      return c.json({ error: result.error }, 400)
+    }
+
+    return c.json({ ok: true, id: result.id }, 201)
+  })
+
+  api.get('/experiences/:id/relations', (c) => {
+    const id = Number(c.req.param('id'))
+    if (isNaN(id)) return c.json({ error: 'invalid experience id' }, 400)
+    const relations = experienceRelations.getRelations(id)
+    return c.json({ relations })
   })
 
   // --- Relay Sync: expose identity events for bootstrap ---
