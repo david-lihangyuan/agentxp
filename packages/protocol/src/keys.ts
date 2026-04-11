@@ -43,6 +43,42 @@ export async function delegateAgentKey(
 }
 
 /**
+ * Delegate an Agent sub-key. Produces a signed identity.delegate event.
+ * The operator signs the delegation — relays use this to establish the trust chain.
+ *
+ * @param operatorKey - Operator master key authorizing the delegation
+ * @param agentKey - The agent key being delegated
+ */
+export async function createDelegateEvent(
+  operatorKey: OperatorKey,
+  agentKey: AgentKey
+): Promise<SerendipEvent> {
+  // Import here to avoid circular dependency between keys.ts and events.ts
+  const { createEvent, signEvent } = await import('./events')
+
+  // The operator key acts as its own agent for signing this delegation
+  const operatorAsAgent: AgentKey = {
+    publicKey: operatorKey.publicKey,
+    privateKey: operatorKey.privateKey,
+    delegatedBy: operatorKey.publicKey,
+    expiresAt: Math.floor(Date.now() / 1000) + 365 * 86400, // operators don't expire
+  }
+
+  const payload = {
+    type: 'identity.delegate',
+    data: {
+      agentPubkey: agentKey.publicKey,
+      expiresAt: agentKey.expiresAt,
+      agentId: agentKey.agentId,
+      delegatedAt: Math.floor(Date.now() / 1000),
+    },
+  }
+
+  const unsignedEvent = createEvent('identity.delegate', payload, [])
+  return signEvent(unsignedEvent, operatorAsAgent)
+}
+
+/**
  * Revoke an Agent sub-key. Produces a signed identity.revoke event.
  * The operator signs the revocation — relays check operator signature to validate.
  *
