@@ -155,10 +155,13 @@ export async function relayRecall(
   const searchUrl = `${baseUrl}/api/v1/search`
 
   try {
-    const res = await fetch(searchUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, limit: limit + 3 }), // fetch extra to filter
+    // Search API is GET with query params
+    const params = new URLSearchParams({
+      q: query,
+      limit: String(limit + 3), // fetch extra to filter
+    })
+    const res = await fetch(`${searchUrl}?${params}`, {
+      method: 'GET',
       signal: AbortSignal.timeout(timeout),
     })
 

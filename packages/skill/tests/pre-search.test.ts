@@ -229,8 +229,8 @@ describe('Pre-Search Duplicate Check', () => {
     const draft: DraftEntry = { ...sampleDraft, retry_count: 0, last_attempt: null }
     await preSearchRelay(draft, { relayUrl: 'wss://relay.agentxp.io' })
 
-    const calledUrl = mockFetch.mock.calls[0][0]
-    expect(calledUrl).toBe('https://relay.agentxp.io/api/v1/search')
+    const calledUrl = mockFetch.mock.calls[0][0] as string
+    expect(calledUrl).toContain('https://relay.agentxp.io/api/v1/search')
   })
 
   it('preSearchRelay truncates query to 300 chars', async () => {
@@ -251,7 +251,9 @@ describe('Pre-Search Duplicate Check', () => {
 
     await preSearchRelay(longDraft, { relayUrl: 'wss://relay.agentxp.io' })
 
-    const body = JSON.parse(mockFetch.mock.calls[0][1].body)
-    expect(body.query.length).toBeLessThanOrEqual(300)
+    // GET request: query is in URL params
+    const calledUrl = new URL(mockFetch.mock.calls[0][0] as string)
+    const query = calledUrl.searchParams.get('q') || ''
+    expect(query.length).toBeLessThanOrEqual(300)
   })
 })

@@ -232,10 +232,10 @@ export async function preSearchRelay(
   const query = `${draft.what} ${draft.learned}`.slice(0, 300)
 
   try {
-    const res = await fetch(searchUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, limit: 3 }),
+    // Search API is GET with query params
+    const params = new URLSearchParams({ q: query, limit: '3' })
+    const res = await fetch(`${searchUrl}?${params}`, {
+      method: 'GET',
       signal: AbortSignal.timeout(5_000),
     })
 

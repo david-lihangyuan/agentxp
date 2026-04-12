@@ -186,8 +186,8 @@ describe('Relay Recall', () => {
       relayUrl: 'wss://relay.agentxp.io',
     })
 
-    const calledUrl = mockFetch.mock.calls[0][0]
-    expect(calledUrl).toBe('https://relay.agentxp.io/api/v1/search')
+    const calledUrl = mockFetch.mock.calls[0][0] as string
+    expect(calledUrl).toContain('https://relay.agentxp.io/api/v1/search')
   })
 
   it('formats failed experiences with ❌ marker', async () => {
@@ -253,9 +253,11 @@ describe('Relay Recall', () => {
 
     await relayRecall(longWhat, longLearned, baseOptions)
 
-    const body = JSON.parse(mockFetch.mock.calls[0][1].body)
-    expect(body.query.length).toBeLessThanOrEqual(200)
+    // GET request: query is in URL params
+    const calledUrl = new URL(mockFetch.mock.calls[0][0] as string)
+    const query = calledUrl.searchParams.get('q') || ''
+    expect(query.length).toBeLessThanOrEqual(200)
     // Should start with the 'what' content
-    expect(body.query.startsWith(longWhat)).toBe(true)
+    expect(query.startsWith(longWhat)).toBe(true)
   })
 })
