@@ -611,7 +611,7 @@ export function createApp(opts: AppOptions = {}): Hono {
     const contributorType = c.req.query('contributor_type')
     const filter = buildContributorTypeFilter(contributorType)
     const rows = db
-      .prepare(`SELECT id, what, tried, outcome, learned, tags, scope, contributor_type, trust_weight, operator_pubkey, created_at FROM experiences WHERE 1=1${filter} ORDER BY created_at DESC LIMIT 200`)
+      .prepare(`SELECT id, event_id, pubkey, operator_pubkey, what, tried, outcome, learned, tags, visibility, scope, is_failure, embedding_status, created_at, indexed_at, last_activity_at, contributor_type, trust_weight FROM experiences WHERE 1=1${filter} ORDER BY created_at DESC LIMIT 200`)
       .all() as Array<Record<string, unknown>>
     return c.json({ experiences: rows })
   })
