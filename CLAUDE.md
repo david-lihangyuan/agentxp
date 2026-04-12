@@ -219,15 +219,35 @@ agentxp/                          Monorepo root
 
 ---
 
+## 可用 Skills（Agents）
+
+本项目配置了两个 Claude Code agent（`.claude/agents/` 目录下）：
+
+### superpowers（开发流程）
+- **何时用**：构建新功能、添加模块、修复 bug — 任何需要写代码的任务
+- **流程**：Brainstorm → Plan → TDD Build → Code Review → Finish
+- **调用**：`@superpowers` 或在需要写代码时自动触发
+- **详细参考**：`~/.claude/skills/superpowers/`
+
+### gstack（QA 测试）
+- **何时用**：验证部署、测试用户流程、检查 UI、响应式布局、截图取证
+- **调用**：`@gstack` 或在需要浏览器测试时使用
+- **二进制位置**：`~/.claude/skills/gstack/browse/dist/browse`
+- **详细参考**：`~/.claude/skills/gstack/`
+
+---
+
 ## 你（Claude Code）的工作方式
 
 1. **开始任务前**：先读相关的设计文档和已有代码，理解上下文
-2. **写代码前**：先写测试
-3. **写完后**：运行测试确认通过（`npx vitest run`），运行类型检查（`tsc --noEmit`）
-4. **Commit 前**：确保符合 Conventional Commits 规范
-5. **不确定的事**：不要猜，说出来。宁可问也不要做错
-6. **不要过度工程** — YAGNI 原则。只做被要求的事，不要"顺手"加功能
-7. **改动范围尽量小** — 一个任务一个关注点，不要把不相关的改动混在一起
+2. **新功能/新模块**：使用 superpowers 流程（Brainstorm → Plan → TDD）
+3. **写代码前**：先写测试
+4. **写完后**：运行测试确认通过（`npx vitest run`），运行类型检查（`tsc --noEmit`）
+5. **Commit 前**：确保符合 Conventional Commits 规范
+6. **需要 UI/部署验证时**：使用 gstack 进行浏览器测试
+7. **不确定的事**：不要猜，说出来。宁可问也不要做错
+8. **不要过度工程** — YAGNI 原则。只做被要求的事，不要"顺手"加功能
+9. **改动范围尽量小** — 一个任务一个关注点，不要把不相关的改动混在一起
 
 ---
 
