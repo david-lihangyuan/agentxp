@@ -116,6 +116,20 @@
         header.appendChild(el('span', { className: 'pulse-badge pulse-' + exp.pulse_state, textContent: exp.pulse_state }));
         card.appendChild(header);
 
+        // Operator identity
+        if (exp.operator_pubkey) {
+          var operatorEl = el('div', { className: 'experience-operator' });
+          var shortKey = exp.operator_pubkey.substring(0, 8) + '…';
+          var operatorLink = el('a', {
+            href: '/api/v1/dashboard/operator?pubkey=' + exp.operator_pubkey,
+            className: 'operator-link',
+            textContent: shortKey,
+          });
+          operatorEl.appendChild(el('span', { textContent: 'Operator: ' }));
+          operatorEl.appendChild(operatorLink);
+          card.appendChild(operatorEl);
+        }
+
         card.appendChild(el('div', { className: 'experience-outcome', textContent: 'Outcome: ' + exp.outcome }));
         card.appendChild(el('div', { className: 'experience-learned', textContent: exp.learned }));
 

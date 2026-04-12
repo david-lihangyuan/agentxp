@@ -54,6 +54,7 @@ export interface ExperienceListItem {
   scope: Record<string, unknown> | null
   relations: Array<{ relation_type: string; direction: string; related_experience_id: number }>
   pulse_state: string
+  operator_pubkey: string
   created_at: number
 }
 
@@ -241,7 +242,7 @@ export class DashboardAPI {
   getExperienceList(): { experiences: ExperienceListItem[] } {
     const rows = this.db
       .prepare(`
-        SELECT id, what, tried, outcome, learned, tags, scope, created_at
+        SELECT id, what, tried, outcome, learned, tags, scope, operator_pubkey, created_at
         FROM experiences
         ORDER BY created_at DESC
         LIMIT 200
@@ -254,6 +255,7 @@ export class DashboardAPI {
         learned: string
         tags: string
         scope: string | null
+        operator_pubkey: string
         created_at: number
       }>
 
@@ -314,6 +316,7 @@ export class DashboardAPI {
         scope,
         relations: relationRows,
         pulse_state: pulseState,
+        operator_pubkey: row.operator_pubkey,
         created_at: row.created_at,
       }
     })
