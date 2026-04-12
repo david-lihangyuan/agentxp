@@ -25,7 +25,7 @@ vi.mock('../../../packages/protocol/src/index.js', () => ({
 import { fetchQuestions } from '../so-client.js'
 import { questionToEvent } from '../question-event.js'
 import { publishEvent } from '../publish.js'
-import { main } from '../harvest.js'
+import { runHarvest } from '../harvest.js'
 
 const mockFetchQuestions = vi.mocked(fetchQuestions)
 const mockQuestionToEvent = vi.mocked(questionToEvent)
@@ -45,12 +45,11 @@ function makeQuestion(id: number): SOQuestion {
 
 const mockEvent = { id: 'event-1' } as unknown as SerendipEvent
 
-describe('harvest main', () => {
+describe('runHarvest', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.spyOn(console, 'log').mockImplementation(() => undefined)
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    // Default: questionToEvent always returns a mock event
     mockQuestionToEvent.mockResolvedValue(mockEvent)
   })
 
@@ -59,26 +58,31 @@ describe('harvest main', () => {
     mockFetchQuestions.mockResolvedValue(questions)
     mockPublishEvent.mockResolvedValue({ ok: true })
 
-    const result = await main(['--tags=ai-agent', '--limit=10', '--relay=http://localhost:3141'])
+    const result = await runHarvest({
+      tags: ['ai-agent'],
+      limit: 10,
+      relayUrl: 'http://localhost:3141',
+    })
 
     expect(result.published).toBe(3)
-    expect(result.skipped).toBe(0)
     expect(result.failed).toBe(0)
     expect(mockPublishEvent).toHaveBeenCalledTimes(3)
   })
 
   it('skips a tag when fetchQuestions throws and continues with remaining tags', async () => {
-    // First tag fails, second tag succeeds
     mockFetchQuestions
       .mockRejectedValueOnce(new Error('network error'))
       .mockResolvedValueOnce([makeQuestion(10)])
     mockPublishEvent.mockResolvedValue({ ok: true })
 
-    const result = await main(['--tags=bad-tag,good-tag', '--limit=5', '--relay=http://localhost:3141'])
+    const result = await runHarvest({
+      tags: ['bad-tag', 'good-tag'],
+      limit: 5,
+      relayUrl: 'http://localhost:3141',
+    })
 
     expect(result.published).toBe(1)
     expect(result.failed).toBe(0)
-    // fetchQuestions called for both tags
     expect(mockFetchQuestions).toHaveBeenCalledTimes(2)
   })
 
@@ -89,7 +93,11 @@ describe('harvest main', () => {
       .mockResolvedValueOnce({ ok: true })
       .mockResolvedValueOnce({ ok: false, error: 'HTTP 500: Internal Server Error' })
 
-    const result = await main(['--tags=ai-agent', '--limit=5', '--relay=http://localhost:3141'])
+    const result = await runHarvest({
+      tags: ['ai-agent'],
+      limit: 5,
+      relayUrl: 'http://localhost:3141',
+    })
 
     expect(result.published).toBe(1)
     expect(result.failed).toBe(1)
@@ -99,7 +107,11 @@ describe('harvest main', () => {
     mockFetchQuestions.mockResolvedValue([makeQuestion(1)])
     mockQuestionToEvent.mockRejectedValueOnce(new Error('signing error'))
 
-    const result = await main(['--tags=ai-agent', '--limit=5', '--relay=http://localhost:3141'])
+    const result = await runHarvest({
+      tags: ['ai-agent'],
+      limit: 5,
+      relayUrl: 'http://localhost:3141',
+    })
 
     expect(result.published).toBe(0)
     expect(result.failed).toBe(1)

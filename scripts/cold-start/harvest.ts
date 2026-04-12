@@ -11,39 +11,29 @@ const DEFAULT_TAGS = ['openclaw', 'claude-code', 'ai-agent', 'mcp-protocol']
 const DEFAULT_LIMIT = 20
 const DEFAULT_RELAY = 'http://localhost:3141'
 
-export interface HarvestResult {
-  published: number
-  skipped: number
-  failed: number
-}
-
-export async function runHarvest(
-  tags: string[],
-  limit: number,
-  relayUrl: string,
-): Promise<HarvestResult> {
+export async function runHarvest(options: {
+  tags: string[]
+  limit: number
+  relayUrl: string
+  minVotes?: number
+}): Promise<{ published: number; failed: number }> {
+  const { tags, limit, relayUrl, minVotes } = options
   const operatorKey = await generateOperatorKey()
 
   let published = 0
-  let skipped = 0
   let failed = 0
 
   for (const tag of tags) {
     let questions: Awaited<ReturnType<typeof fetchQuestions>>
     try {
-      questions = await fetchQuestions([tag], { pageSize: limit })
+      questions = await fetchQuestions([tag], { pageSize: limit, minVotes })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       console.error(`[harvest] ✗ failed to fetch tag "${tag}" — ${msg}`)
-      skipped++
       continue
     }
 
-    if (!questions || !Array.isArray(questions)) {
-      console.error(`[harvest] ✗ no questions returned for tag "${tag}"`)
-      skipped++
-      continue
-    }
+    console.log(`[harvest] fetched ${questions.length} questions for tag "${tag}"`)
 
     for (const q of questions) {
       try {
@@ -64,21 +54,20 @@ export async function runHarvest(
     }
   }
 
-  console.log(`\n[harvest] done — published=${published} skipped=${skipped} failed=${failed}`)
-  return { published, skipped, failed }
+  console.log(`\n[harvest] done — published=${published} failed=${failed}`)
+  return { published, failed }
 }
 
 /**
- * CLI-compatible entry point. Accepts optional argv array for testability.
- * Returns the harvest result for programmatic callers.
+ * CLI entry point. Parses argv and delegates to runHarvest().
  */
-export async function main(argv?: string[]): Promise<HarvestResult> {
+async function main() {
   const { values } = parseArgs({
-    args: argv,
     options: {
       tags: { type: 'string', default: DEFAULT_TAGS.join(',') },
       limit: { type: 'string', default: String(DEFAULT_LIMIT) },
       relay: { type: 'string', default: DEFAULT_RELAY },
+      'min-votes': { type: 'string', default: '0' },
     },
     strict: false,
   })
@@ -86,8 +75,10 @@ export async function main(argv?: string[]): Promise<HarvestResult> {
   const tags = values.tags!.split(',').map((t) => t.trim()).filter(Boolean)
   const limit = parseInt(values.limit!, 10)
   const relayUrl = values.relay!
+  const minVotes = parseInt(values['min-votes']!, 10) || undefined
 
-  return runHarvest(tags, limit, relayUrl)
+  const result = await runHarvest({ tags, limit, relayUrl, minVotes })
+  process.exit(result.failed > 0 ? 1 : 0)
 }
 
 // Only auto-execute when run directly (not when imported by tests)
