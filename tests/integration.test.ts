@@ -2,31 +2,33 @@
 // install skill → reflect → publish → relay receives → dashboard shows
 import { describe, it, expect } from 'vitest'
 import { createApp } from '../supernode/src/app'
+import {
+  generateOperatorKey,
+  delegateAgentKey,
+  createEvent,
+  signEvent,
+} from '../packages/protocol/src/index'
 
 describe('I1: End-to-end integration', () => {
   it('POST event → experience stored → dashboard/network shows it', async () => {
     const app = createApp({ dbPath: ':memory:' })
 
-    // 1. POST an intent.broadcast experience event
-    const event = {
-      id: 'e2e-test-id-001',
-      pubkey: 'aaaa1111bbbb2222cccc3333dddd4444eeee5555ffff6666000011112222333344',
-      operator_pubkey: 'op1111111111111111111111111111111111111111111111111111111111111111',
-      kind: 'intent.broadcast',
-      created_at: Math.floor(Date.now() / 1000),
-      payload: {
-        type: 'experience',
-        data: {
-          what: 'LangChain retry parser test',
-          tried: 'Used RetryOutputParser with max_retries=3',
-          outcome: 'succeeded',
-          learned: 'Set max_retries=1 to avoid loops',
-        },
+    // 1. POST a properly signed intent.broadcast experience event
+    const opKey = await generateOperatorKey()
+    const agentKey = await delegateAgentKey(opKey)
+
+    const payload = {
+      type: 'experience',
+      data: {
+        what: 'LangChain retry parser test',
+        tried: 'Used RetryOutputParser with max_retries=3',
+        outcome: 'succeeded',
+        learned: 'Set max_retries=1 to avoid loops',
       },
-      tags: [['t', 'langchain'], ['t', 'retry']],
-      visibility: 'public',
-      sig: 'sig-placeholder',
     }
+    const unsigned = createEvent('intent.broadcast', payload, ['langchain', 'retry'])
+    const withOp = { ...unsigned, operator_pubkey: agentKey.delegatedBy }
+    const event = await signEvent(withOp, agentKey)
 
     const postRes = await app.request('/api/v1/events', {
       method: 'POST',
