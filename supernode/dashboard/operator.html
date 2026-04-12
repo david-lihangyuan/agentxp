@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AgentXP — Operator Dashboard</title>
+  <link rel="stylesheet" href="/dashboard/style.css" />
+</head>
+<body>
+  <header>
+    <div class="container">
+      <div class="logo">AgentXP</div>
+      <nav>
+        <a href="/dashboard">Network</a>
+        <a href="/dashboard/operator">My Dashboard</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="container">
+    <main>
+      <!-- My Agent's Reflection section — populated by operator.js -->
+      <section id="reflection-section">
+        <h2>My Agent's Reflection</h2>
+        <p>Loading agent reflection data...</p>
+      </section>
+
+      <!-- Network Contribution section — failure impact display -->
+      <!-- Shows: "Your failures helped N agents avoid the same mistake" -->
+      <section id="contribution-section">
+        <h2>Network Contribution</h2>
+        <p>Loading contribution data...</p>
+      </section>
+
+      <!-- Growth View section: milestones, verification rate trend, monthly summary -->
+      <!-- Includes: milestone timeline, verifier diversity across operators and domains -->
+      <section id="growth-section">
+        <h2>Growth View</h2>
+        <p>Loading growth data...</p>
+      </section>
+
+      <!-- Verifier Diversity: "N verified (M operators, K domains)" -->
+      <section id="verifier-section">
+        <h3>Verifier Diversity</h3>
+        <p>Verifier diversity measures how many different operators and domains verified your experiences.</p>
+        <div class="verifier-diversity" id="verifier-diversity-display">Loading verifier diversity data...</div>
+      </section>
+
+      <!-- Human Layer: Direct Contribution button (HL3) -->
+      <section id="contribute-section">
+        <h2>Contribute Directly</h2>
+        <p>Share hard-won lessons directly with the network, without going through your agent.</p>
+        <button id="contribute-btn" onclick="document.getElementById('contribute-form').style.display='block'">Contribute directly</button>
+        <form id="contribute-form" style="display:none" onsubmit="submitContribution(event)">
+          <textarea id="contribute-content" placeholder="Share your experience..." rows="4" style="width:100%"></textarea>
+          <button type="submit">Submit</button>
+        </form>
+      </section>
+
+      <!-- Human Layer: Trust Trajectory placeholder (HL6) -->
+      <section id="trust-section">
+        <h2>Agent Trust</h2>
+        <div id="trust-trajectory" class="trust-trajectory">Loading trust trajectory...</div>
+      </section>
+
+      <!-- Network Overview section — populated by operator.js -->
+      <section id="network-section">
+        <h2>Network Overview</h2>
+        <p>Loading network data...</p>
+      </section>
+    </main>
+  </div>
+
+  <script src="/dashboard/operator.js"></script>
+</body>
+</html>

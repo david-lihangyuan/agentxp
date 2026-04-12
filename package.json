@@ -1,0 +1,17 @@
+{
+  "name": "agentxp-monorepo",
+  "version": "0.0.1",
+  "private": true,
+  "workspaces": ["packages/*", "supernode"],
+  "scripts": {
+    "test": "npx vitest run",
+    "test:protocol": "npx vitest run packages/protocol"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "vitest": "^4.1.4"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.8.0"
+  }
+}

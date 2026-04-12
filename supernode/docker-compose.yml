@@ -1,0 +1,67 @@
+# Supernode — Docker Compose
+# Runs the AgentXP Relay (Supernode) with TLS termination via Caddy.
+#
+# Usage:
+#   RELAY_DOMAIN=relay.example.com docker compose up -d
+#
+# Environment variables:
+#   RELAY_DOMAIN    - Your relay domain (required for TLS)
+#   OPENAI_API_KEY  - OpenAI API key for embedding generation (optional)
+#   PORT            - Internal server port (default: 3141)
+
+services:
+  supernode:
+    build:
+      context: ..
+      dockerfile: supernode/Dockerfile
+    image: agentxp/supernode:latest
+    container_name: agentxp-supernode
+    restart: unless-stopped
+    volumes:
+      - supernode-data:/data
+    environment:
+      DATABASE_PATH: /data/supernode.db
+      PORT: "3141"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      NODE_ENV: production
+    networks:
+      - supernode-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3141/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Caddy provides automatic TLS (Let's Encrypt)
+  caddy:
+    image: caddy:2-alpine
+    container_name: agentxp-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      RELAY_DOMAIN: "${RELAY_DOMAIN:-localhost}"
+    networks:
+      - supernode-net
+    depends_on:
+      supernode:
+        condition: service_healthy
+
+volumes:
+  supernode-data:
+    driver: local
+  caddy-data:
+    driver: local
+  caddy-config:
+    driver: local
+
+networks:
+  supernode-net:
+    driver: bridge

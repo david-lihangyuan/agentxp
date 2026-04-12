@@ -1,0 +1,27 @@
+{
+  "name": "@agentxp/supernode",
+  "version": "0.1.0",
+  "description": "AgentXP Relay (Supernode) — Serendip Protocol relay server",
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "start": "node --import tsx/esm src/index.ts",
+    "test": "vitest run",
+    "test:bun": "bun test",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.13",
+    "@serendip/protocol": "file:../packages/protocol",
+    "better-sqlite3": "^12.8.0",
+    "hono": "^4.2.0",
+    "tsx": "^4.21.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.8",
+    "@types/node": "^25.6.0",
+    "typescript": "^5.4.5",
+    "vitest": "^3.0.0"
+  }
+}
