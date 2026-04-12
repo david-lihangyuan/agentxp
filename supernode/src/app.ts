@@ -586,6 +586,9 @@ export function createApp(opts: AppOptions = {}): Hono {
   // --- Mount API routes under /api/v1/ ---
   app.route('/api/v1', api)
 
+  // --- Root redirect → dashboard ---
+  app.get('/', (c) => c.redirect('/dashboard', 302))
+
   // --- F2: Dashboard Web UI — static HTML files ---
   // GET /dashboard → index.html
   app.get('/dashboard', (c) => {
