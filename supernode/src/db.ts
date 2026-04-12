@@ -80,7 +80,22 @@ export function runMigrations(db: Database.Database): void {
           .filter((s) => s.length > 0)
 
         for (const stmt of statements) {
-          db.exec(stmt)
+          try {
+            db.exec(stmt)
+          } catch (stmtErr: unknown) {
+            // Tolerate idempotent DDL errors (e.g. "duplicate column name")
+            // that happen when 001 already created a column and a later
+            // migration tries ALTER TABLE ADD COLUMN for the same column.
+            const msg = stmtErr instanceof Error ? stmtErr.message : String(stmtErr)
+            if (/duplicate column name/i.test(msg)) {
+              logger.warn('Migration statement skipped (column already exists)', {
+                migration: file,
+                statement: stmt.slice(0, 120),
+              })
+              continue
+            }
+            throw stmtErr
+          }
         }
 
         db.prepare('INSERT INTO _migrations (name, applied_at) VALUES (?, ?)').run(
