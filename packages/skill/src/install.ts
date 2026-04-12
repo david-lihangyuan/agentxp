@@ -3,6 +3,7 @@
 
 import { mkdirSync, writeFileSync, readFileSync, existsSync, chmodSync, symlinkSync, unlinkSync } from 'fs'
 import { join, resolve } from 'path'
+import { hostname } from 'os'
 import { generateOperatorKey } from '@serendip/protocol'
 import { bytesToHex } from './utils.js'
 
@@ -86,7 +87,7 @@ export async function runInstall(options: InstallOptions): Promise<void> {
 
   const configPath = join(skillDir, 'config.yaml')
   if (!existsSync(configPath)) {
-    const agentName = `agent-${require('os').hostname().toLowerCase()}`
+    const agentName = `agent-${hostname().toLowerCase()}`
     const config = toYaml({
       agent_name: agentName,
       relay_url: 'wss://relay.agentxp.io',

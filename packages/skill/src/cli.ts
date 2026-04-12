@@ -332,7 +332,7 @@ if (command === 'status') {
     console.log(result.message)
     // Try to open in browser on macOS/Linux
     try {
-      const { execSync } = require('child_process')
+      const { execSync } = await import('child_process')
       const opener = process.platform === 'darwin' ? 'open' : 'xdg-open'
       execSync(`${opener} ${result.url}`, { stdio: 'ignore' })
     } catch {
