@@ -1,0 +1,124 @@
+// Supernode AgentXP — Cold Start Event Store
+// Receives and routes cold-start protocol events:
+//   intent.question, experience.solution, verification.pass, verification.fail
+
+import type Database from 'better-sqlite3'
+import type { SerendipEvent } from '@serendip/protocol'
+
+const SUPPORTED_KINDS = new Set([
+  'intent.question',
+  'experience.solution',
+  'verification.pass',
+  'verification.fail',
+])
+
+export interface QuestionRow {
+  id: number
+  event_id: string
+  kind: string
+  pubkey: string
+  created_at: number
+  payload: string
+  tags: string
+  sig: string
+  status: string
+  received_at: number
+}
+
+export type SolutionRow = QuestionRow
+
+export class ColdStartStore {
+  constructor(private db: Database.Database) {
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS cold_start_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_id TEXT UNIQUE NOT NULL,
+        kind TEXT NOT NULL,
+        pubkey TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        payload TEXT NOT NULL,
+        tags TEXT NOT NULL,
+        sig TEXT NOT NULL,
+        status TEXT DEFAULT 'pending',
+        received_at INTEGER NOT NULL
+      )
+    `)
+  }
+
+  /** Store a cold-start event. Idempotent — duplicate event_id returns ok:true. */
+  store(event: SerendipEvent): { ok: boolean; error?: string } {
+    if (!SUPPORTED_KINDS.has(event.kind)) {
+      return { ok: false, error: 'unsupported kind' }
+    }
+
+    try {
+      this.db
+        .prepare(
+          `INSERT INTO cold_start_events
+            (event_id, kind, pubkey, created_at, payload, tags, sig, status, received_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)`
+        )
+        .run(
+          event.id,
+          event.kind,
+          event.pubkey,
+          event.created_at,
+          JSON.stringify(event.payload),
+          JSON.stringify(event.tags),
+          event.sig,
+          Math.floor(Date.now() / 1000)
+        )
+    } catch (err) {
+      // UNIQUE constraint on event_id — treat as idempotent success
+      const msg = err instanceof Error ? err.message : String(err)
+      if (msg.includes('UNIQUE constraint failed')) {
+        return { ok: true }
+      }
+      return { ok: false, error: msg }
+    }
+
+    return { ok: true }
+  }
+
+  /** List intent.question events, optionally filtered by status. */
+  listQuestions(opts: { status?: string; limit?: number } = {}): QuestionRow[] {
+    const limit = opts.limit ?? 50
+    if (opts.status) {
+      return this.db
+        .prepare(
+          `SELECT * FROM cold_start_events
+           WHERE kind = 'intent.question' AND status = ?
+           ORDER BY created_at DESC LIMIT ?`
+        )
+        .all(opts.status, limit) as QuestionRow[]
+    }
+    return this.db
+      .prepare(
+        `SELECT * FROM cold_start_events
+         WHERE kind = 'intent.question'
+         ORDER BY created_at DESC LIMIT ?`
+      )
+      .all(limit) as QuestionRow[]
+  }
+
+  /** List experience.solution events, optionally filtered by status. */
+  listSolutions(opts: { status?: string; limit?: number } = {}): SolutionRow[] {
+    const limit = opts.limit ?? 50
+    if (opts.status) {
+      return this.db
+        .prepare(
+          `SELECT * FROM cold_start_events
+           WHERE kind = 'experience.solution' AND status = ?
+           ORDER BY created_at DESC LIMIT ?`
+        )
+        .all(opts.status, limit) as SolutionRow[]
+    }
+    return this.db
+      .prepare(
+        `SELECT * FROM cold_start_events
+         WHERE kind = 'experience.solution'
+         ORDER BY created_at DESC LIMIT ?`
+      )
+      .all(limit) as SolutionRow[]
+  }
+}

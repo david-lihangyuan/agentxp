@@ -32,6 +32,7 @@ import { registerAgentVoiceRoutes } from './agentxp/human-layer/agent-voice'
 import { registerHumanContributionRoutes, buildContributorTypeFilter } from './agentxp/human-layer/human-contribution'
 import { registerLegacyRoutes } from './agentxp/human-layer/legacy'
 import { registerTrustRoutes } from './agentxp/human-layer/trust'
+import { ColdStartStore } from './agentxp/cold-start-store'
 import { createLogger } from './logger'
 import { validateQueryTags, validatePubkey } from './validate'
 
@@ -617,6 +618,41 @@ export function createApp(opts: AppOptions = {}): Hono {
 
   // --- Mount API routes under /api/v1/ ---
   app.route('/api/v1', api)
+
+  // --- Cold Start Routes (/api/cold-start/) ---
+  const coldStartStore = new ColdStartStore(db)
+
+  // POST /api/cold-start/events — receive a cold-start protocol event
+  app.post('/api/cold-start/events', async (c) => {
+    let body: unknown
+    try {
+      body = await c.req.json()
+    } catch {
+      return c.json({ error: 'invalid JSON' }, 400)
+    }
+
+    const result = coldStartStore.store(body as Parameters<typeof coldStartStore.store>[0])
+    if (!result.ok) {
+      return c.json({ error: result.error }, 400)
+    }
+    return c.json({ ok: true }, 201)
+  })
+
+  // GET /api/cold-start/questions — list intent.question events
+  app.get('/api/cold-start/questions', (c) => {
+    const status = c.req.query('status')
+    const limit = c.req.query('limit') ? Math.min(Number(c.req.query('limit')), 100) : undefined
+    const questions = coldStartStore.listQuestions({ status, limit })
+    return c.json({ questions })
+  })
+
+  // GET /api/cold-start/solutions — list experience.solution events
+  app.get('/api/cold-start/solutions', (c) => {
+    const status = c.req.query('status')
+    const limit = c.req.query('limit') ? Math.min(Number(c.req.query('limit')), 100) : undefined
+    const solutions = coldStartStore.listSolutions({ status, limit })
+    return c.json({ solutions })
+  })
 
   // --- Root redirect → dashboard ---
   app.get('/', (c) => c.redirect('/dashboard', 302))
