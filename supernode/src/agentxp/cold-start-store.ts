@@ -121,4 +121,56 @@ export class ColdStartStore {
       )
       .all(limit) as SolutionRow[]
   }
+
+  /** Update status of a cold-start event by event_id. */
+  updateStatus(eventId: string, status: string): { ok: boolean; error?: string } {
+    const validStatuses = ['pending', 'solving', 'solved', 'verified', 'verified_pass', 'verified_fail', 'failed']
+    if (!validStatuses.includes(status)) {
+      return { ok: false, error: `invalid status: ${status}` }
+    }
+    const result = this.db
+      .prepare('UPDATE cold_start_events SET status = ? WHERE event_id = ?')
+      .run(status, eventId)
+    if (result.changes === 0) {
+      return { ok: false, error: 'event not found' }
+    }
+    return { ok: true }
+  }
+
+  /** Find solutions for a specific question (by question event_id in payload). */
+  findSolutionsForQuestion(questionEventId: string): SolutionRow[] {
+    return this.db
+      .prepare(
+        `SELECT * FROM cold_start_events
+         WHERE kind = 'experience.solution'
+         AND payload LIKE ?
+         ORDER BY created_at DESC`
+      )
+      .all(`%"question_id":"${questionEventId}"%`) as SolutionRow[]
+  }
+
+  /** Find verifications for a specific solution (by solution event_id in payload). */
+  findVerificationsForSolution(solutionEventId: string): QuestionRow[] {
+    return this.db
+      .prepare(
+        `SELECT * FROM cold_start_events
+         WHERE kind IN ('verification.pass', 'verification.fail')
+         AND payload LIKE ?
+         ORDER BY created_at DESC`
+      )
+      .all(`%"solution_id":"${solutionEventId}"%`) as QuestionRow[]
+  }
+
+  /** Check if a Stack Overflow question ID has already been posted. */
+  isQuestionPosted(soQuestionId: string): boolean {
+    const row = this.db
+      .prepare(
+        `SELECT 1 FROM cold_start_events
+         WHERE kind = 'intent.question'
+         AND payload LIKE ?
+         LIMIT 1`
+      )
+      .get(`%${soQuestionId}%`)
+    return !!row
+  }
 }

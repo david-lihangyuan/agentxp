@@ -654,6 +654,45 @@ export function createApp(opts: AppOptions = {}): Hono {
     return c.json({ solutions })
   })
 
+  // POST /api/cold-start/events/status — update event status
+  app.post('/api/cold-start/events/status', async (c) => {
+    let body: { event_id?: string; status?: string }
+    try {
+      body = await c.req.json()
+    } catch {
+      return c.json({ error: 'invalid JSON' }, 400)
+    }
+    if (!body.event_id || !body.status) {
+      return c.json({ error: 'missing event_id or status' }, 400)
+    }
+    const result = coldStartStore.updateStatus(body.event_id, body.status)
+    if (!result.ok) {
+      return c.json({ error: result.error }, 400)
+    }
+    return c.json({ ok: true })
+  })
+
+  // GET /api/cold-start/questions/:id/solutions — find solutions for a question
+  app.get('/api/cold-start/questions/:id/solutions', (c) => {
+    const questionId = c.req.param('id')
+    const solutions = coldStartStore.findSolutionsForQuestion(questionId)
+    return c.json({ solutions })
+  })
+
+  // GET /api/cold-start/solutions/:id/verifications — find verifications for a solution
+  app.get('/api/cold-start/solutions/:id/verifications', (c) => {
+    const solutionId = c.req.param('id')
+    const verifications = coldStartStore.findVerificationsForSolution(solutionId)
+    return c.json({ verifications })
+  })
+
+  // GET /api/cold-start/check-so/:soId — check if SO question already posted
+  app.get('/api/cold-start/check-so/:soId', (c) => {
+    const soId = c.req.param('soId')
+    const exists = coldStartStore.isQuestionPosted(soId)
+    return c.json({ exists })
+  })
+
   // --- Root redirect → dashboard ---
   app.get('/', (c) => c.redirect('/dashboard', 302))
 
