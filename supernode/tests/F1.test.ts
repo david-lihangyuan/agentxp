@@ -151,6 +151,7 @@ describe('F1: Dashboard Data API', () => {
     expect(exp['scope']).toBeDefined()
     expect(exp['relations']).toBeDefined()
     expect(exp['pulse_state']).toBeDefined()
+    expect(exp['operator_pubkey']).toBeDefined()
   })
 
   // Test 7: Network overview endpoint
