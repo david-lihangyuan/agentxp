@@ -160,14 +160,22 @@ export class ExperienceSearch {
       }
     }
 
-    if (precisionResults.length === 0 && this.generateQueryEmbedding) {
-      // Semantic fallback
-      precisionResults = await this.semanticSearch(
+    if (this.generateQueryEmbedding) {
+      // Always try semantic search when embedding is available
+      const semanticResults = await this.semanticSearch(
         query,
         privacyConditions,
         outcomeParam,
         limit
       )
+      if (semanticResults.length > 0) {
+        // Merge: semantic results take priority over keyword results
+        const semanticIds = new Set(semanticResults.map(r => r.id))
+        // Keep keyword results not in semantic set, then append semantic
+        const keywordOnly = precisionResults.filter(r => !semanticIds.has(r.id))
+        precisionResults = [...semanticResults, ...keywordOnly].slice(0, limit)
+        degraded = false
+      }
     }
 
     if (precisionResults.length === 0) {
