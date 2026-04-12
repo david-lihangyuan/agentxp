@@ -28,7 +28,7 @@ describe('publishEvent', () => {
     const result = await publishEvent(mockEvent, RELAY_URL);
 
     expect(result).toEqual({ ok: true });
-    expect(fetch).toHaveBeenCalledWith(`${RELAY_URL}/api/events`, {
+    expect(fetch).toHaveBeenCalledWith(`${RELAY_URL}/api/cold-start/events`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(mockEvent),

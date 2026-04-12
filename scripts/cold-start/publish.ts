@@ -5,7 +5,7 @@ export async function publishEvent(
   relayUrl: string,
 ): Promise<{ ok: boolean; error?: string }> {
   try {
-    const response = await fetch(`${relayUrl}/api/events`, {
+    const response = await fetch(`${relayUrl}/api/cold-start/events`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(event),

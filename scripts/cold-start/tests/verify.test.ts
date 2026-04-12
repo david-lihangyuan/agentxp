@@ -81,7 +81,7 @@ describe('verifySolution', () => {
 
     // Mock fetch for publishEvent calls
     vi.stubGlobal('fetch', vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
-      if (typeof url === 'string' && url.includes('/api/events')) {
+      if (typeof url === 'string' && url.includes('/api/cold-start/events')) {
         const body = JSON.parse(init?.body as string);
         publishedEvents.push(body);
         return { ok: true, status: 200, statusText: 'OK' };

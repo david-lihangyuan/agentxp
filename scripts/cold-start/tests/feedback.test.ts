@@ -140,7 +140,7 @@ describe('processFailResult', () => {
       vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
         fetchCalls.push({ url, init })
         // Return ok:true for publishEvent calls (POST /api/events)
-        if (url.includes('/api/events')) {
+        if (url.includes('/api/cold-start/events') && !url.includes('/status')) {
           return { ok: true, status: 200, statusText: 'OK' }
         }
         return { ok: true, status: 200 }
@@ -176,7 +176,7 @@ describe('processFailResult', () => {
     expect(statusBody.status).toBe('failed')
 
     // Should publish a new intent.question event (retry)
-    const publishCall = fetchCalls.find((c) => c.url.includes('/api/events'))
+    const publishCall = fetchCalls.find((c) => c.url.includes('/api/cold-start/events') && !c.url.includes('/status'))
     expect(publishCall).toBeDefined()
     const eventBody = JSON.parse(publishCall!.init?.body as string)
     expect(eventBody.kind).toBe('intent.question')
@@ -210,7 +210,7 @@ describe('processFailResult', () => {
     expect(statusCall).toBeDefined()
 
     // Should NOT publish a new intent.question event
-    const publishCall = fetchCalls.find((c) => c.url.includes('/api/events'))
+    const publishCall = fetchCalls.find((c) => c.url.includes('/api/cold-start/events') && !c.url.includes('/status'))
     expect(publishCall).toBeUndefined()
   })
 
@@ -233,7 +233,7 @@ describe('processFailResult', () => {
     expect(retried).toBe(false)
 
     // Should NOT publish a retry event
-    const publishCall = fetchCalls.find((c) => c.url.includes('/api/events'))
+    const publishCall = fetchCalls.find((c) => c.url.includes('/api/cold-start/events') && !c.url.includes('/status'))
     expect(publishCall).toBeUndefined()
   })
 })
