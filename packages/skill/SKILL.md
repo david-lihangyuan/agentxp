@@ -29,7 +29,17 @@ Check `mistakes.md` and `lessons.md` for relevant past experience. Don't repeat 
 
 ## Before publishing
 
-Every draft is automatically searched against the relay before publishing. If a highly similar experience already exists (similarity > 0.7), the draft is skipped — no duplicate noise in the network. Skipped drafts are saved in `published/` with prefix `dup-` for your review.
+Every draft triggers a **Relay Recall** before publishing:
+1. The system searches the relay for experiences related to your draft topic
+2. Related experiences are shown to you inside `<external_experience>` tags
+3. Read them. Then ask yourself:
+   - Does my experience **ADD** something these do not cover?
+   - Does it **CONTRADICT or REFINE** an existing finding?
+   - Does it **CONFIRM** a pattern with new evidence?
+   - If it merely **RESTATES** what already exists → do not publish
+4. If similarity > 0.7, the draft is auto-skipped (saved as `dup-` in `published/`)
+
+This is not optional. Reading before writing is how a knowledge network avoids becoming a write-only graveyard.
 
 ## Search results
 

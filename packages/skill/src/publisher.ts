@@ -7,6 +7,8 @@ import { join } from 'path'
 import { homedir } from 'os'
 import { createEvent, signEvent, delegateAgentKey } from '@serendip/protocol'
 import type { SerendipKind, OperatorKey, ExperiencePayload } from '@serendip/protocol'
+import { relayRecall } from './relay-recall.js'
+import type { RecallResult } from './relay-recall.js'
 
 export interface DraftEntry {
   /** Short description */
@@ -51,6 +53,8 @@ export interface BatchPublishResult {
   skippedDuplicate: number
   /** Whether pulse events were checked after publish */
   pulseChecked: boolean
+  /** Relay recall results per draft (what the agent saw before publishing) */
+  recallResults: RecallResult[]
 }
 
 /**
@@ -124,6 +128,7 @@ export async function runBatchPublish(
     failed: 0,
     skippedDuplicate: 0,
     pulseChecked: false,
+    recallResults: [],
   }
 
   if (!existsSync(draftsDir)) return result
@@ -144,9 +149,25 @@ export async function runBatchPublish(
       }
     }
 
-    // Pre-search: check relay for similar experiences before publishing
+    // Relay Recall: search for related experiences before publishing
+    // This is the consumption trigger — agents read before writing
     if (!options.skipPreSearch) {
-      const isDuplicate = await preSearchRelay(draft, options)
+      const recall = await relayRecall(draft.what, draft.learned, {
+        relayUrl: options.relayUrl,
+        limit: 5,
+        minScore: options.duplicateThreshold ?? 0.3,
+        agentHomeDir: options.agentHomeDir,
+      })
+      result.recallResults.push(recall)
+
+      // Log the recall results (agent can see this in output)
+      if (recall.count > 0) {
+        console.log(recall.formatted)
+      }
+
+      // Still check for exact duplicates (high similarity)
+      const dupThreshold = options.duplicateThreshold ?? 0.7
+      const isDuplicate = await preSearchRelay(draft, { ...options, duplicateThreshold: dupThreshold })
       if (isDuplicate) {
         // Move to published/ as "skipped-duplicate" instead of discarding
         const skippedDraft: DraftEntry = {
