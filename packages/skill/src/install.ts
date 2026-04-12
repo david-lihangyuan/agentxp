@@ -64,7 +64,7 @@ export async function runInstall(options: InstallOptions): Promise<void> {
   if (existsSync(agentsPath)) {
     const existing = readFileSync(agentsPath, 'utf8')
     if (!existing.includes('AgentXP Skill')) {
-      writeFileSync(agentsPath, existing + AGENTS_BLOCK)
+      writeFileSync(agentsPath, existing.trimEnd() + '\n' + AGENTS_BLOCK)
     }
   } else {
     writeFileSync(agentsPath, '# Agent Configuration\n' + AGENTS_BLOCK)
