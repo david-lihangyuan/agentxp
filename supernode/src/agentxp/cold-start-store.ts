@@ -139,14 +139,18 @@ export class ColdStartStore {
 
   /** Find solutions for a specific question (by question event_id in payload). */
   findSolutionsForQuestion(questionEventId: string): SolutionRow[] {
+    // Search both exact JSON match and partial match for robustness
     return this.db
       .prepare(
         `SELECT * FROM cold_start_events
          WHERE kind = 'experience.solution'
-         AND payload LIKE ?
+         AND (
+           json_extract(payload, '$.data.question_id') = ?
+           OR payload LIKE ?
+         )
          ORDER BY created_at DESC`
       )
-      .all(`%"question_id":"${questionEventId}"%`) as SolutionRow[]
+      .all(questionEventId, `%${questionEventId}%`) as SolutionRow[]
   }
 
   /** Find verifications for a specific solution (by solution event_id in payload). */
@@ -167,10 +171,67 @@ export class ColdStartStore {
       .prepare(
         `SELECT 1 FROM cold_start_events
          WHERE kind = 'intent.question'
-         AND payload LIKE ?
+         AND (payload LIKE ? OR payload LIKE ?)
          LIMIT 1`
       )
-      .get(`%${soQuestionId}%`)
+      .get(`%"so_id":"${soQuestionId}"%`, `%"so_id":${soQuestionId}%`)
     return !!row
+  }
+
+  /** Claim a question for solving (prevents duplicate work). Returns true if claimed successfully. */
+  claimForSolving(questionEventId: string, solverPubkey: string): boolean {
+    const result = this.db
+      .prepare(
+        `UPDATE cold_start_events
+         SET status = 'solving'
+         WHERE event_id = ? AND kind = 'intent.question' AND status = 'pending'`
+      )
+      .run(questionEventId)
+    return result.changes > 0
+  }
+
+  /** Process verification results: update question status based on verification outcome. */
+  processVerification(solutionEventId: string, passed: boolean): { ok: boolean; error?: string } {
+    // Find the solution to get the question_id
+    const solution = this.db
+      .prepare('SELECT payload FROM cold_start_events WHERE event_id = ?')
+      .get(solutionEventId) as { payload: string } | undefined
+    if (!solution) return { ok: false, error: 'solution not found' }
+
+    let questionId: string | undefined
+    try {
+      const p = JSON.parse(solution.payload)
+      questionId = p?.data?.question_id
+    } catch { /* ignore */ }
+
+    if (passed) {
+      // Mark solution as verified
+      this.db.prepare("UPDATE cold_start_events SET status = 'verified' WHERE event_id = ?").run(solutionEventId)
+      // Mark question as verified too
+      if (questionId) {
+        this.db.prepare("UPDATE cold_start_events SET status = 'verified' WHERE event_id = ?").run(questionId)
+      }
+    } else {
+      // Mark solution as failed
+      this.db.prepare("UPDATE cold_start_events SET status = 'failed' WHERE event_id = ?").run(solutionEventId)
+      // Reopen question for retry
+      if (questionId) {
+        this.db.prepare("UPDATE cold_start_events SET status = 'pending' WHERE event_id = ?").run(questionId)
+      }
+    }
+    return { ok: true }
+  }
+
+  /** Get pipeline stats. */
+  getStats(): { questions: number; solutions: number; verified: number; failed: number; pending_questions: number } {
+    const row = this.db.prepare(`
+      SELECT
+        (SELECT COUNT(*) FROM cold_start_events WHERE kind = 'intent.question') as questions,
+        (SELECT COUNT(*) FROM cold_start_events WHERE kind = 'experience.solution') as solutions,
+        (SELECT COUNT(*) FROM cold_start_events WHERE status = 'verified') as verified,
+        (SELECT COUNT(*) FROM cold_start_events WHERE kind = 'experience.solution' AND status = 'failed') as failed,
+        (SELECT COUNT(*) FROM cold_start_events WHERE kind = 'intent.question' AND status = 'pending') as pending_questions
+    `).get() as any
+    return row
   }
 }

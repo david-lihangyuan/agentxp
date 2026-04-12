@@ -693,6 +693,38 @@ export function createApp(opts: AppOptions = {}): Hono {
     return c.json({ exists })
   })
 
+  // POST /api/cold-start/claim — claim a question for solving (prevents duplicate work)
+  app.post('/api/cold-start/claim', async (c) => {
+    let body: { event_id?: string; solver_pubkey?: string }
+    try { body = await c.req.json() } catch { return c.json({ error: 'invalid JSON' }, 400) }
+    if (!body.event_id || !body.solver_pubkey) {
+      return c.json({ error: 'missing event_id or solver_pubkey' }, 400)
+    }
+    const claimed = coldStartStore.claimForSolving(body.event_id, body.solver_pubkey)
+    if (!claimed) {
+      return c.json({ error: 'question not available (already claimed or not pending)' }, 409)
+    }
+    return c.json({ ok: true, claimed: true })
+  })
+
+  // POST /api/cold-start/verify — process verification result (updates question + solution status)
+  app.post('/api/cold-start/verify', async (c) => {
+    let body: { solution_event_id?: string; passed?: boolean }
+    try { body = await c.req.json() } catch { return c.json({ error: 'invalid JSON' }, 400) }
+    if (!body.solution_event_id || body.passed === undefined) {
+      return c.json({ error: 'missing solution_event_id or passed' }, 400)
+    }
+    const result = coldStartStore.processVerification(body.solution_event_id, body.passed)
+    if (!result.ok) return c.json({ error: result.error }, 400)
+    return c.json({ ok: true })
+  })
+
+  // GET /api/cold-start/stats — pipeline statistics
+  app.get('/api/cold-start/stats', (c) => {
+    const stats = coldStartStore.getStats()
+    return c.json(stats)
+  })
+
   // --- Root redirect → dashboard ---
   app.get('/', (c) => c.redirect('/dashboard', 302))
 
