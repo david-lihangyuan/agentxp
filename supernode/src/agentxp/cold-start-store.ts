@@ -124,7 +124,7 @@ export class ColdStartStore {
 
   /** Update status of a cold-start event by event_id. */
   updateStatus(eventId: string, status: string): { ok: boolean; error?: string } {
-    const validStatuses = ['pending', 'solving', 'solved', 'verified', 'verified_pass', 'verified_fail', 'failed']
+    const validStatuses = ['pending', 'solving', 'solved', 'verified', 'verified_pass', 'verified_fail', 'failed', 'published']
     if (!validStatuses.includes(status)) {
       return { ok: false, error: `invalid status: ${status}` }
     }

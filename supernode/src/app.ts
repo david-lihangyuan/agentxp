@@ -708,6 +708,7 @@ export function createApp(opts: AppOptions = {}): Hono {
   })
 
   // POST /api/cold-start/verify — process verification result (updates question + solution status)
+  // When verification passes, automatically publish the solution as an experience.
   app.post('/api/cold-start/verify', async (c) => {
     let body: { solution_event_id?: string; passed?: boolean }
     try { body = await c.req.json() } catch { return c.json({ error: 'invalid JSON' }, 400) }
@@ -716,7 +717,71 @@ export function createApp(opts: AppOptions = {}): Hono {
     }
     const result = coldStartStore.processVerification(body.solution_event_id, body.passed)
     if (!result.ok) return c.json({ error: result.error }, 400)
-    return c.json({ ok: true })
+
+    // Auto-publish verified solutions as experiences
+    let experienceId: number | undefined
+    if (body.passed) {
+      try {
+        const solution = coldStartStore.listSolutions({ limit: 1 })
+          .length ? undefined : undefined // unused, fetch directly below
+        const solRow = db
+          .prepare('SELECT * FROM cold_start_events WHERE event_id = ?')
+          .get(body.solution_event_id) as { payload: string; pubkey: string; created_at: number; tags: string; sig: string; event_id: string } | undefined
+        if (solRow) {
+          const solPayload = JSON.parse(solRow.payload)
+          const solData = solPayload?.data ?? {}
+          // Map solution fields to experience fields
+          const what = solData.title
+            ? `${solData.title} — ${(solData.root_cause || solData.approach || '').slice(0, 200)}`
+            : solData.solution?.slice(0, 300) || 'Cold-start verified solution'
+          const tried = Array.isArray(solData.tried) ? solData.tried.join('\n') : (solData.tried || solData.approach || '')
+          const learned = solData.learned || solData.root_cause || ''
+          const outcome = 'succeeded'
+          // Build synthetic intent.broadcast event
+          const { createHash, randomBytes } = await import('node:crypto')
+          const syntheticId = createHash('sha256')
+            .update(`cold-start-publish:${solRow.event_id}:${Date.now()}`)
+            .digest('hex')
+          const syntheticEvent = {
+            v: 1 as const,
+            id: syntheticId,
+            pubkey: solRow.pubkey,
+            operator_pubkey: solRow.pubkey,
+            created_at: Math.floor(Date.now() / 1000),
+            kind: 'intent.broadcast' as const,
+            payload: {
+              type: 'experience',
+              data: { what, tried, outcome, learned, scope: solData.tags || [] },
+            },
+            tags: JSON.parse(solRow.tags || '[]'),
+            visibility: 'public' as const,
+            sig: randomBytes(64).toString('hex'),
+          }
+          const storeResult = experienceStore.store(syntheticEvent)
+          if (storeResult.ok) {
+            experienceId = storeResult.experienceId
+            logger.info('Cold-start solution auto-published as experience', {
+              solution_event_id: body.solution_event_id,
+              experience_id: experienceId,
+            })
+            // Mark solution as 'published' to prevent double-publish
+            db.prepare("UPDATE cold_start_events SET status = 'published' WHERE event_id = ?")
+              .run(body.solution_event_id)
+          } else {
+            logger.warn('Cold-start auto-publish failed', {
+              solution_event_id: body.solution_event_id,
+              error: storeResult.error,
+            })
+          }
+        }
+      } catch (err) {
+        logger.error('Cold-start auto-publish error', {
+          solution_event_id: body.solution_event_id,
+          error: err instanceof Error ? err.message : String(err),
+        })
+      }
+    }
+    return c.json({ ok: true, experience_id: experienceId })
   })
 
   // GET /api/cold-start/stats — pipeline statistics
