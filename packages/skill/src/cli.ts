@@ -3,8 +3,12 @@
 // Commands: status, dashboard, config, update, install
 
 import { existsSync, readFileSync, writeFileSync } from 'fs'
-import { join } from 'path'
+import { join, dirname } from 'path'
 import { homedir } from 'os'
+import { fileURLToPath } from 'url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
 export interface StatusResult {
   agent_name: string
@@ -209,6 +213,7 @@ export async function runUpdate(workspaceDir?: string): Promise<{
   // Read current version from package.json (resolved relative to this file at runtime)
   let currentVersion = 'unknown'
   try {
+    // __dirname is defined via fileURLToPath at top of file
     const pkgPath = join(__dirname, '..', 'package.json')
     if (existsSync(pkgPath)) {
       const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))

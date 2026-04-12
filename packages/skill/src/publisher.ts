@@ -4,6 +4,9 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync } from 'fs'
 import { join } from 'path'
+import { homedir } from 'os'
+import { createEvent, signEvent, delegateAgentKey } from '@serendip/protocol'
+import type { SerendipKind, OperatorKey, ExperiencePayload } from '@serendip/protocol'
 
 export interface DraftEntry {
   /** Short description */
@@ -29,6 +32,10 @@ export interface BatchPublishOptions {
   dryRun?: boolean
   /** Simulate failure (for testing) */
   simulateFailure?: boolean
+  /** Agent home directory for key loading (default: os.homedir()) */
+  agentHomeDir?: string
+  /** Experience kind to use when publishing (default: experience.coding) */
+  kind?: string
 }
 
 export interface BatchPublishResult {
@@ -161,9 +168,38 @@ export async function runBatchPublish(
 }
 
 /**
- * Attempt to publish a single draft to the relay.
- * In production this would establish a WebSocket connection.
- * For testing, dryRun simulates success and simulateFailure simulates failure.
+ * Load operator private key as hex string from ~/.agentxp/identity/operator.key.
+ * Returns null if not found (safe fallback).
+ */
+function loadPrivateKey(agentHomeDir?: string): string | null {
+  try {
+    const home = agentHomeDir || homedir()
+    const keyPath = join(home, '.agentxp', 'identity', 'operator.key')
+    if (!existsSync(keyPath)) return null
+    return readFileSync(keyPath, 'utf8').trim()
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Load operator public key from ~/.agentxp/identity/operator.pub.
+ */
+function loadPublicKey(agentHomeDir?: string): string | null {
+  try {
+    const home = agentHomeDir || homedir()
+    const pubPath = join(home, '.agentxp', 'identity', 'operator.pub')
+    if (!existsSync(pubPath)) return null
+    return readFileSync(pubPath, 'utf8').trim()
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Attempt to publish a single draft to the relay via HTTP POST.
+ * Reads identity keys from agentHomeDir (or homedir() if not set).
+ * Falls back to false if keys are missing or network fails.
  */
 async function attemptPublish(
   draft: DraftEntry,
@@ -177,7 +213,55 @@ async function attemptPublish(
     return false
   }
 
-  // In production: connect to relay, sign event, send, wait for confirmation
-  // For now, return false for unknown relay URLs (acts as failure)
-  return false
+  // Load identity keys
+  const privateKeyHex = loadPrivateKey(options.agentHomeDir)
+  const publicKey = loadPublicKey(options.agentHomeDir)
+  if (!privateKeyHex || !publicKey) {
+    // No keys — cannot sign; safe failure
+    return false
+  }
+
+  // Build OperatorKey
+  const privateKeyBytes = new Uint8Array(privateKeyHex.length / 2)
+  for (let i = 0; i < privateKeyBytes.length; i++) {
+    privateKeyBytes[i] = parseInt(privateKeyHex.slice(i * 2, i * 2 + 2), 16)
+  }
+  const operatorKey: OperatorKey = { publicKey, privateKey: privateKeyBytes }
+
+  // Delegate a short-lived agent key (1 day TTL)
+  const agentKey = await delegateAgentKey(operatorKey, 'publish-session', 1)
+
+  // Build and sign the event
+  // Always use intent.broadcast so the relay's experience-store picks it up.
+  // The experience type is encoded in payload.type = 'experience'.
+  const kind: SerendipKind = 'intent.broadcast'
+  const payload: ExperiencePayload = {
+    type: 'experience',
+    data: {
+      what: draft.what,
+      tried: draft.tried,
+      outcome: draft.outcome,
+      learned: draft.learned,
+    },
+  }
+  const event = createEvent(kind, payload, [])
+  const signed = await signEvent(event, agentKey)
+
+  // HTTP POST to relay
+  const relayHttpUrl = options.relayUrl
+    .replace(/^wss:\/\//, 'https://')
+    .replace(/^ws:\/\//, 'http://')
+  const postUrl = `${relayHttpUrl.replace(/\/$/, '')}/api/v1/events`
+
+  try {
+    const res = await fetch(postUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(signed),
+      signal: AbortSignal.timeout(10_000),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
 }

@@ -2,8 +2,12 @@
 // Creates reflection directories, generates identity keys, configures workspace.
 
 import { mkdirSync, writeFileSync, readFileSync, existsSync, chmodSync, symlinkSync, unlinkSync } from 'fs'
-import { join, resolve } from 'path'
+import { join, resolve, dirname } from 'path'
 import { hostname } from 'os'
+import { fileURLToPath } from 'url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 import { generateOperatorKey } from '@serendip/protocol'
 import { bytesToHex } from './utils.js'
 
@@ -140,7 +144,7 @@ export async function generateIdentityKeys(homeDir: string): Promise<void> {
 function createCliSymlink(): void {
   const binDir = '/usr/local/bin'
   const symlinkPath = join(binDir, 'agentxp')
-  const cliScript = resolve(__dirname, 'cli.ts')
+  const cliScript = resolve(__dirname, 'cli.js')
 
   try {
     if (existsSync(symlinkPath)) {
