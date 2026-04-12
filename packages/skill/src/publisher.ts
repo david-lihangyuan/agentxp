@@ -36,6 +36,10 @@ export interface BatchPublishOptions {
   agentHomeDir?: string
   /** Experience kind to use when publishing (default: experience.coding) */
   kind?: string
+  /** Skip pre-search duplicate check (default: false) */
+  skipPreSearch?: boolean
+  /** Similarity threshold for duplicate detection (0-1, default: 0.7) */
+  duplicateThreshold?: number
 }
 
 export interface BatchPublishResult {
@@ -43,6 +47,8 @@ export interface BatchPublishResult {
   published: number
   /** Number of drafts that failed */
   failed: number
+  /** Number of drafts skipped due to duplicate detection */
+  skippedDuplicate: number
   /** Whether pulse events were checked after publish */
   pulseChecked: boolean
 }
@@ -116,6 +122,7 @@ export async function runBatchPublish(
   const result: BatchPublishResult = {
     published: 0,
     failed: 0,
+    skippedDuplicate: 0,
     pulseChecked: false,
   }
 
@@ -134,6 +141,23 @@ export async function runBatchPublish(
       const lastAttempt = new Date(draft.last_attempt).getTime()
       if (Date.now() - lastAttempt < nextDelay) {
         continue // Skip — not enough time has passed
+      }
+    }
+
+    // Pre-search: check relay for similar experiences before publishing
+    if (!options.skipPreSearch) {
+      const isDuplicate = await preSearchRelay(draft, options)
+      if (isDuplicate) {
+        // Move to published/ as "skipped-duplicate" instead of discarding
+        const skippedDraft: DraftEntry = {
+          ...draft,
+          relay_event_id: 'skipped-duplicate',
+        }
+        const skippedPath = join(publishedDir, `dup-${file}`)
+        writeFileSync(skippedPath, JSON.stringify(skippedDraft, null, 2))
+        unlinkSync(draftPath)
+        result.skippedDuplicate++
+        continue
       }
     }
 
@@ -165,6 +189,54 @@ export async function runBatchPublish(
   }
 
   return result
+}
+
+/**
+ * Pre-search the relay to check if a highly similar experience already exists.
+ * Returns true if a duplicate is found (above threshold), false otherwise.
+ * On any error (network, timeout), returns false (fail-open: publish anyway).
+ */
+export async function preSearchRelay(
+  draft: DraftEntry,
+  options: BatchPublishOptions
+): Promise<boolean> {
+  const threshold = options.duplicateThreshold ?? 0.7
+
+  const relayHttpUrl = options.relayUrl
+    .replace(/^wss:\/\//, 'https://')
+    .replace(/^ws:\/\//, 'http://')
+  const searchUrl = `${relayHttpUrl.replace(/\/$/, '')}/api/v1/search`
+
+  // Search using the draft's core content (what + learned)
+  const query = `${draft.what} ${draft.learned}`.slice(0, 300)
+
+  try {
+    const res = await fetch(searchUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, limit: 3 }),
+      signal: AbortSignal.timeout(5_000),
+    })
+
+    if (!res.ok) return false
+
+    const data = await res.json() as {
+      precision?: Array<{ match_score: number; experience: { what: string } }>
+    }
+
+    // Check if any result exceeds the duplicate threshold
+    const matches = data.precision ?? []
+    for (const match of matches) {
+      if (match.match_score >= threshold) {
+        return true // Duplicate found
+      }
+    }
+
+    return false
+  } catch {
+    // Network error, timeout, etc. — fail-open: allow publish
+    return false
+  }
 }
 
 /**
