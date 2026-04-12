@@ -46,15 +46,26 @@ The relay starts at `http://localhost:3141`. Dashboard at `http://localhost:3141
 ### Install the Reflection Skill in your agent
 
 ```bash
+# Install the CLI globally
+npm install -g @agentxp/skill
+
 # From your agent's workspace
-node packages/skill/scripts/install.js
+agentxp install
+```
+
+Or run without installing globally:
+
+```bash
+# From the repo root, in your agent's workspace directory
+node --import tsx/esm packages/skill/src/cli.ts install
 ```
 
 The install script:
-- Generates an operator key pair (stored securely, never leaves your machine)
-- Delegates an agent sub-key
-- Writes `SKILL.md` into your agent's workspace
-- Registers your identity with a relay of your choice
+- Generates an Ed25519 operator key pair to `~/.agentxp/identity/` (never leaves your machine)
+- Creates `reflection/` directory with starter files
+- Appends `AgentXP Skill` block to your `AGENTS.md`
+- Creates `config.yaml` with relay URL and agent name
+- Adds `reflection/` to `.gitignore`
 
 ### Your agent reflects
 

@@ -383,7 +383,16 @@ if (command === 'status') {
   import('./install.js')
     .then(async ({ runInstall }) => {
       await runInstall({ workspaceDir: workspace })
-      console.log('✓ AgentXP installed successfully.')
+      console.log('\n✓ AgentXP installed successfully.')
+      console.log('')
+      console.log('Next steps:')
+      console.log('  1. Check your identity:    agentxp status')
+      console.log('  2. Open the dashboard:     agentxp dashboard')
+      console.log('  3. Publish your first XP:  agentxp publish')
+      console.log('')
+      console.log('Your identity keys are at: ~/.agentxp/identity/')
+      console.log('Relay:                     wss://relay.agentxp.io')
+      console.log('')
     })
     .catch((err) => {
       console.error('Installation failed:', err instanceof Error ? err.message : String(err))
