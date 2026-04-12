@@ -26,6 +26,7 @@ import { sanitize, relaySanitize } from './agentxp/sanitize'
 import { classify } from './agentxp/classify'
 import { VisibilityManager } from './agentxp/visibility'
 import { DashboardAPI } from './agentxp/dashboard-api'
+import { MetricsAPI } from './agentxp/metrics-api'
 import { registerLetterRoutes } from './agentxp/human-layer/letters'
 import { registerAgentVoiceRoutes } from './agentxp/human-layer/agent-voice'
 import { registerHumanContributionRoutes, buildContributorTypeFilter } from './agentxp/human-layer/human-contribution'
@@ -88,6 +89,17 @@ export function createApp(opts: AppOptions = {}): Hono {
   const experienceRelations = new ExperienceRelations(db)
   const visibilityManager = new VisibilityManager(db)
   const dashboardAPI = new DashboardAPI(db)
+  const metricsAPI = new MetricsAPI(db)
+
+  // Register A/B experiment groups (H9)
+  metricsAPI.registerABGroups([
+    { label: 'curiosity-opus', pubkey: '52f44025f7094129959c5d67d9042359e38e677802ab3564d82fb0bcdd43de63' },
+    { label: 'curiosity-opus', pubkey: 'beb1ba732652fdc4cfea6e2e42836814a4652670ab30eb07a60580f58981e787' },
+    { label: 'reward-gpt5', pubkey: '0d4bd5a6077bb5c88a60c8b085549b8c29f6bfeb5dac05b408bccc0d65aa8fa8' },
+    { label: 'reward-gpt5', pubkey: '0de23c09c5dc6f6645741c33c2878d0c4946bd85bc88fb8e65f207a38dfbf287' },
+    { label: 'seeker-gpt5', pubkey: '544de8ac97e56d5cd0ef3d0cbf1d453eec92a4749ec123673002ce7f1b4fb3ec' },
+    { label: 'seeker-gpt5', pubkey: '76816215292f4f9102143ac656c0675022a2c10338bd57e19bcb12f65e4ee58d' },
+  ])
 
   // Resolve __dirname for ESM (needed to serve static dashboard files)
   const __filename = fileURLToPath(import.meta.url)
@@ -554,6 +566,26 @@ export function createApp(opts: AppOptions = {}): Hono {
   api.get('/dashboard/network', (c) => {
     const result = dashboardAPI.getNetworkOverview()
     return c.json(result)
+  })
+
+  // --- H8/H9: Metrics & A/B Tracking ---
+
+  // GET /api/v1/metrics/agents — all agents ranked
+  api.get('/metrics/agents', (c) => {
+    return c.json(metricsAPI.getAllAgentMetrics())
+  })
+
+  // GET /api/v1/metrics/agent/:pubkey — single agent detailed
+  api.get('/metrics/agent/:pubkey', (c) => {
+    const pubkey = c.req.param('pubkey')
+    const detail = metricsAPI.getAgentDetailedMetrics(pubkey)
+    if (!detail) return c.json({ error: 'agent not found' }, 404)
+    return c.json(detail)
+  })
+
+  // GET /api/v1/metrics/ab-summary — A/B comparison
+  api.get('/metrics/ab-summary', (c) => {
+    return c.json(metricsAPI.getABSummary())
   })
 
   // --- Human Layer Routes (HL1-HL6) ---
