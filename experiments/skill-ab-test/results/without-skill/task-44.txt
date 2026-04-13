@@ -1,0 +1,7 @@
+import pickle
+
+try:
+    with open("model_weights.pkl", "rb") as f:
+        data = pickle.load(f)
+except FileNotFoundError:
+    data = None

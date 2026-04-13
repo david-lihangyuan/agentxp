@@ -1,35 +1,25 @@
-#!/usr/bin/env node
+import os
+import sys
 
-const pattern = process.argv[2];
+try:
+    import yaml
+except ImportError:
+    sys.stderr.write("Error: PyYAML is not installed. Install it with: pip install pyyaml\n")
+    sys.exit(1)
 
-if (pattern == null) {
-  process.exit(1);
-}
+path = "settings.yaml"
 
-let re;
-try {
-  re = new RegExp(pattern);
-} catch {
-  process.exit(1);
-}
+if not os.path.exists(path):
+    sys.stderr.write(f"Error: File not found: {path}\n")
+    sys.exit(1)
 
-let input = '';
-process.stdin.setEncoding('utf8');
-
-process.stdin.on('data', chunk => {
-  input += chunk;
-});
-
-process.stdin.on('end', () => {
-  const endsWithNewline = input.endsWith('\n');
-  const lines = input.split(/\r?\n/);
-  if (endsWithNewline) lines.pop();
-
-  for (const line of lines) {
-    if (re.test(line)) {
-      process.stdout.write(line + '\n');
-    }
-  }
-});
-
-process.stdin.resume();
+try:
+    with open(path, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+    print(data)
+except yaml.YAMLError as e:
+    sys.stderr.write(f"YAML parse error: {e}\n")
+    sys.exit(1)
+except Exception as e:
+    sys.stderr.write(f"Error: {e}\n")
+    sys.exit(1)

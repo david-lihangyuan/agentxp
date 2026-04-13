@@ -1,15 +1,2 @@
-const fetch = require('node-fetch');
-
-(async () => {
-  const url = process.argv[2];
-  if (!url) process.exit(1);
-
-  try {
-    const res = await fetch(url);
-    const body = await res.text();
-    console.log(body);
-  } catch (err) {
-    console.error(err);
-    process.exit(1);
-  }
-})();
+if [ -z "$API_KEY" ]; then echo "Error: API_KEY is not set" >&2; exit 1; fi
+node -e "fetch('https://api.example.com', { headers: { Authorization: process.env.API_KEY } }).then(r => r.text()).then(console.log).catch(err => { console.error(err); process.exit(1); })"

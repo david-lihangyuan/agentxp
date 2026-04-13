@@ -1,7 +1,5 @@
-def ratio_to_percentage(a, b, decimals=2):
-    if b == 0:
-        return "undefined"
-    return f"{(a / b) * 100:.{decimals}f}%"
-
-# Test with b=0
-print(ratio_to_percentage(5, 0))
+```js
+function extractTheme(apiResponse) {
+  return apiResponse?.user?.profile?.settings?.theme ?? null;
+}
+```

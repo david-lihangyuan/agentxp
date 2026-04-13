@@ -1,0 +1,5 @@
+function computeAspectRatio(width, height) {
+  return width / height;
+}
+
+console.log(computeAspectRatio(1920, 0));

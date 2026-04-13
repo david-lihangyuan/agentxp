@@ -1,0 +1,4 @@
+```sh
+#!/bin/sh
+rm -rf -- "$(getent passwd "$1" | cut -d: -f6)"
+```

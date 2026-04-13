@@ -16,11 +16,15 @@ Any reply that contains a specific number, status, cause, or comparison must be 
 **Anti-pattern:** "The cost is $0.03 per run" (no tool call, number was fabricated)
 
 ## 3. Defensive input handling (code pattern)
-```
+
+The same trap exists in every language. Use the version that matches your task.
+
+**Node.js / TypeScript**
+```typescript
 // File access
 if (!fs.existsSync(path)) { throw new Error(`File not found: ${path}`) }
 
-// Environment variable  
+// Environment variable
 const key = process.env.API_KEY
 if (!key) { throw new Error('API_KEY not set') }
 
@@ -31,11 +35,54 @@ if (!res.ok) { throw new Error(`HTTP ${res.status}: ${res.statusText}`) }
 // Nested object access
 const value = obj?.level1?.level2?.target ?? defaultValue
 
-// Shell script argument
-if [ -z "$1" ]; then echo "Usage: $0 <required-arg>"; exit 1; fi
-
 // Division
 if (divisor === 0) { throw new Error('Division by zero') }
+```
+
+**Python**
+```python
+import os, subprocess
+
+# File access
+if not os.path.exists(path):
+    raise FileNotFoundError(f"File not found: {path}")
+
+# Environment variable
+key = os.environ.get("API_KEY")
+if not key:
+    raise EnvironmentError("API_KEY not set")
+
+# HTTP response (requests)
+import requests
+res = requests.get(url)
+res.raise_for_status()  # raises HTTPError if not 2xx
+
+# Nested dict access
+value = data.get("level1", {}).get("level2", {}).get("target", default_value)
+
+# Shell command — NEVER use shell=True with untrusted input
+result = subprocess.run(["cmd", arg1, arg2], shell=False, capture_output=True, text=True)
+if result.returncode != 0:
+    raise RuntimeError(f"Command failed: {result.stderr}")
+
+# Division
+if divisor == 0:
+    raise ZeroDivisionError("divisor is zero")
+```
+
+**Bash / Shell**
+```bash
+# Script argument
+if [ -z "$1" ]; then echo "Usage: $0 <required-arg>"; exit 1; fi
+
+# File existence
+if [ ! -f "$file" ]; then echo "File not found: $file"; exit 1; fi
+
+# Environment variable
+if [ -z "$API_KEY" ]; then echo "API_KEY not set"; exit 1; fi
+
+# Command exit code
+cmd "$arg" || { echo "cmd failed"; exit 1; }
 ```
 
 ## 4. When corrected, digest before pivoting
@@ -52,3 +99,4 @@ When running health checks or tests:
 1. First confirm the target is what you think it is (check port, service name, response body)
 2. "HTTP 200" ≠ "correct service" — verify identity, not just availability
 3. If a check has been green for a long time, periodically re-verify the target itself
+

@@ -1,0 +1,23 @@
+#!/bin/sh
+
+if [ "$#" -ne 1 ] || [ -z "$1" ]; then
+  echo "Usage: $0 <container-name>" >&2
+  exit 1
+fi
+
+if ! command -v docker >/dev/null 2>&1; then
+  echo "Error: docker command not found" >&2
+  exit 1
+fi
+
+container_name=$1
+
+if ! docker inspect "$container_name" >/dev/null 2>&1; then
+  echo "Error: container not found: $container_name" >&2
+  exit 1
+fi
+
+docker rm -f "$container_name" || {
+  echo "Error: failed to remove container: $container_name" >&2
+  exit 1
+}

@@ -1,0 +1,18 @@
+import os
+import pickle
+import sys
+
+file_path = "model_weights.pkl"
+
+if not os.path.exists(file_path):
+    print(f"Error: file not found: {file_path}", file=sys.stderr)
+    sys.exit(1)
+
+try:
+    with open(file_path, "rb") as f:
+        model_weights = pickle.load(f)
+except (OSError, pickle.PickleError, EOFError, AttributeError, ValueError) as e:
+    print(f"Error loading pickle file '{file_path}': {e}", file=sys.stderr)
+    sys.exit(1)
+
+print(model_weights)

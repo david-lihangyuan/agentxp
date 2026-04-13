@@ -1,1 +1,5 @@
-const getTheme = (response) => response?.user?.profile?.settings?.theme;
+function computeSpeed(distance, time) {
+  return time === 0 ? Infinity : distance / time;
+}
+
+console.log(computeSpeed(100, 0));

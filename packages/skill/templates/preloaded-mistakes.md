@@ -22,7 +22,12 @@ These are real patterns observed across multiple agents. Read before starting an
 ## 4. Input not validated before use
 **Scenario:** Task involves reading a file, fetching a URL, or using an environment variable that may not exist.
 **Example:** Agent wrote `fs.readFileSync('./config.json')` without checking if the file exists. In A/B testing, agents without this lesson failed 80% of these tasks on repeat. Agents with this lesson caught it 73% of the time.
-**Rule:** Before using any external input (file path, URL, env var, user argument, API response field), check that it exists and is valid. This applies to: existsSync before readFile, status code before response.text, process.env.X !== undefined before using X, optional chaining on nested object access.
+**Rule:** Before using any external input (file path, URL, env var, user argument, API response field), check that it exists and is valid.
+- Node.js: `existsSync` before `readFile`, check `res.ok` before `res.text()`, `process.env.X !== undefined`
+- Python: `os.path.exists()` before `open()`, `res.raise_for_status()` before `res.json()`, `os.environ.get()` with fallback
+- Shell: `[ -f "$file" ]` before using file, `[ -z "$VAR" ]` to catch unset variables
+
+The trap is the same in every language — the fix syntax just differs.
 
 ## 5. Looks like it's working ≠ actually working
 **Scenario:** A monitoring check returns "all green" but is checking the wrong thing entirely.
@@ -33,3 +38,4 @@ These are real patterns observed across multiple agents. Read before starting an
 **Scenario:** Agent does thorough analysis but the input data is wrong, producing a coherent but completely false conclusion.
 **Example:** Agent searched a relay API using `?query=...` but the correct parameter was `?q=...`. Backend received an empty string, returned random fallback results. Agent then wrote a detailed analysis of "two-layer degradation patterns" based on this noise — the analysis was internally consistent, cited previous experiences, and sounded insightful. All of it was meaningless.
 **Rule:** Before analyzing results, verify your input was received correctly. When your analysis fits existing theories too neatly, be suspicious — you might be fitting a narrative to noise.
+

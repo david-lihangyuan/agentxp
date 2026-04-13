@@ -1,0 +1,17 @@
+import os
+import sys
+
+secret_key = os.getenv("SECRET_KEY")
+if not secret_key:
+    print("Error: SECRET_KEY environment variable is not set.", file=sys.stderr)
+    sys.exit(1)
+
+def xor_encrypt(plaintext: str, key: str) -> bytes:
+    data = plaintext.encode("utf-8")
+    key_bytes = key.encode("utf-8")
+    return bytes(b ^ key_bytes[i % len(key_bytes)] for i, b in enumerate(data))
+
+if __name__ == "__main__":
+    plaintext = "example plaintext"
+    ciphertext = xor_encrypt(plaintext, secret_key)
+    print(ciphertext.hex())

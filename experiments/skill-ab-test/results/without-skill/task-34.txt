@@ -1,0 +1,9 @@
+import os
+import sys
+from cryptography.fernet import Fernet
+
+secret_key = os.environ["SECRET_KEY"]
+cipher = Fernet(secret_key.encode() if isinstance(secret_key, str) else secret_key)
+
+data = sys.stdin.buffer.read()
+sys.stdout.buffer.write(cipher.encrypt(data))

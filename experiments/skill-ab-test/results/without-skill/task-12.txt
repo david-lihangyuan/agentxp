@@ -1,20 +1,32 @@
-const fs = require('fs');
-const path = require('path');
+#!/usr/bin/env node
 
-module.exports = (req, res) => {
-  const file = req.query.file;
-  if (!file) {
-    res.statusCode = 400;
-    return res.end('Missing file query parameter');
+const pattern = process.argv[2];
+
+if (pattern == null) process.exit(1);
+
+let regex;
+try {
+  regex = new RegExp(pattern);
+} catch {
+  process.exit(1);
+}
+
+process.stdin.setEncoding('utf8');
+
+let buffer = '';
+process.stdin.on('data', chunk => {
+  buffer += chunk;
+  const lines = buffer.split(/\r?\n/);
+  buffer = lines.pop();
+  for (const line of lines) {
+    regex.lastIndex = 0;
+    if (regex.test(line)) process.stdout.write(line + '\n');
   }
+});
 
-  const filePath = path.resolve(file);
-  fs.readFile(filePath, (err, data) => {
-    if (err) {
-      res.statusCode = 404;
-      return res.end('File not found');
-    }
-    res.statusCode = 200;
-    res.end(data);
-  });
-};
+process.stdin.on('end', () => {
+  if (buffer.length) {
+    regex.lastIndex = 0;
+    if (regex.test(buffer)) process.stdout.write(buffer + '\n');
+  }
+});

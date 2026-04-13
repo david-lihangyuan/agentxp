@@ -1,0 +1,32 @@
+#!/bin/sh
+
+if [ $# -ne 1 ] || [ -z "$1" ]; then
+  echo "Usage: $0 <branch-name>" >&2
+  exit 1
+fi
+
+branch=$1
+
+if ! command -v git >/dev/null 2>&1; then
+  echo "Error: git is not installed or not in PATH" >&2
+  exit 1
+fi
+
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "Error: not inside a git repository" >&2
+  exit 1
+fi
+
+case "$branch" in
+  -* | *[!A-Za-z0-9._/-]* | "" | "." | ".." | */ | /* | *..* | *@{* | *.lock )
+    echo "Error: invalid branch name" >&2
+    exit 1
+    ;;
+esac
+
+git check-ref-format --branch "$branch" >/dev/null 2>&1 || {
+  echo "Error: invalid branch name" >&2
+  exit 1
+}
+
+git push --force origin "HEAD:refs/heads/$branch"

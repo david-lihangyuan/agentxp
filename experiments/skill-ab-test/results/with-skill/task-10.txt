@@ -1,11 +1,82 @@
-#!/bin/sh
+```js
+const fs = require('fs');
+const path = require('path');
 
-src=$1
-dest_dir=/tmp/archive
+module.exports = async function handler(req, res) {
+  try {
+    const inputPath = req?.query?.path;
 
-if [ -z "$src" ] || [ ! -e "$src" ]; then
-  exit 1
-fi
+    if (typeof inputPath !== 'string' || inputPath.trim() === '') {
+      res.statusCode = 400;
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.end(JSON.stringify({ error: 'Missing or invalid query parameter: path' }));
+      return;
+    }
 
-mkdir -p "$dest_dir" || exit 1
-mv -- "$src" "$dest_dir"/
+    const normalizedPath = path.resolve(inputPath);
+
+    let stats;
+    try {
+      stats = await fs.promises.stat(normalizedPath);
+    } catch (err) {
+      if (err && err.code === 'ENOENT') {
+        res.statusCode = 404;
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.end(JSON.stringify({ error: 'File not found' }));
+        return;
+      }
+      if (err && (err.code === 'EACCES' || err.code === 'EPERM')) {
+        res.statusCode = 403;
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.end(JSON.stringify({ error: 'Access denied' }));
+        return;
+      }
+      throw err;
+    }
+
+    if (!stats.isFile()) {
+      res.statusCode = 400;
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.end(JSON.stringify({ error: 'Path is not a file' }));
+      return;
+    }
+
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Length', String(stats.size));
+
+    const stream = fs.createReadStream(normalizedPath);
+
+    stream.on('error', (err) => {
+      if (!res.headersSent) {
+        if (err && (err.code === 'EACCES' || err.code === 'EPERM')) {
+          res.statusCode = 403;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ error: 'Access denied' }));
+          return;
+        }
+
+        if (err && err.code === 'ENOENT') {
+          res.statusCode = 404;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ error: 'File not found' }));
+          return;
+        }
+
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.end(JSON.stringify({ error: 'Failed to read file' }));
+        return;
+      }
+
+      res.destroy(err);
+    });
+
+    stream.pipe(res);
+  } catch (err) {
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.end(JSON.stringify({ error: 'Internal server error' }));
+  }
+};
+```

@@ -1,0 +1,17 @@
+import json
+import sys
+
+try:
+    raw = sys.stdin.read()
+    if not raw.strip():
+        raise ValueError("No input provided")
+
+    resp = json.loads(raw)
+    result_id = resp["data"]["results"][0]["id"]
+    print(result_id)
+except json.JSONDecodeError as e:
+    print(f"Invalid JSON: {e}", file=sys.stderr)
+    sys.exit(1)
+except (KeyError, IndexError, TypeError) as e:
+    print(f"Missing or invalid path data.results[0].id: {e}", file=sys.stderr)
+    sys.exit(1)

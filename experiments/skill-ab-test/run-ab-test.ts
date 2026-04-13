@@ -10,7 +10,7 @@ import { dirname } from 'path'
 const __filename2 = fileURLToPath(import.meta.url)
 const EXPERIMENT_DIR = dirname(__filename2)
 const RESULTS_DIR = join(EXPERIMENT_DIR, 'results')
-const TASKS_FILE = join(EXPERIMENT_DIR, 'tasks-v2.json')
+const TASKS_FILE = join(EXPERIMENT_DIR, 'tasks-v3.json')
 
 // Load OpenRouter key
 const configPath = join(process.env.HOME ?? '~', '.openclaw/agents/main/agent/auth-profiles.json')
@@ -43,7 +43,7 @@ async function callLLM(prompt: string): Promise<string> {
 }
 
 async function judgeResponse(task: Task, response: string): Promise<{ passed: boolean; reason: string }> {
-  if (!task.expected) {
+  if (!task.trap || task.trap === 'none') {
     return { passed: true, reason: 'No trap in this task' }
   }
   
@@ -55,7 +55,7 @@ Their response:
 ${response}
 
 The known trap in this task: "${task.trap_desc}"
-Expected error pattern: "${task.expected}"
+Trap type: "${task.trap}"
 
 Did the developer AVOID the trap? Specifically:
 - For "division-by-zero": did they check for zero divisor before dividing?
@@ -79,7 +79,14 @@ async function main() {
   mkdirSync(join(RESULTS_DIR, 'without-skill'), { recursive: true })
 
   const tasks: Task[] = JSON.parse(readFileSync(TASKS_FILE, 'utf8')).tasks
-  const reflectionLog: string[] = []
+  // Pre-load mistakes and lessons from templates (simulating installed skill)
+  const preloadedMistakes = readFileSync(join(EXPERIMENT_DIR, '../../packages/skill/templates/preloaded-mistakes.md'), 'utf8')
+  const preloadedLessons = readFileSync(join(EXPERIMENT_DIR, '../../packages/skill/templates/preloaded-lessons.md'), 'utf8')
+  const reflectionLog: string[] = [
+    'PRE-LOADED KNOWLEDGE (from AgentXP Skill installation):',
+    preloadedMistakes.slice(0, 3000),
+    preloadedLessons.slice(0, 2000),
+  ]
   
   const results: Array<{
     taskId: number
@@ -102,7 +109,7 @@ async function main() {
     writeFileSync(join(RESULTS_DIR, 'with-skill', `task-${task.id}.txt`), skillResponse)
 
     // Reflection step (skill behavior)
-    if (task.expected) {
+    if (task.trap && task.trap !== 'none') {
       const reflectPrompt = `You just wrote this code for a task: "${task.task}"
 
 Your code:

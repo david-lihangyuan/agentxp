@@ -1,0 +1,4 @@
+```sh
+#!/bin/sh
+docker rm -f "$1"
+```

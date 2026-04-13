@@ -1,0 +1,35 @@
+```javascript
+const fs = require('fs');
+
+const path = './manifest.json';
+
+if (!fs.existsSync(path)) {
+  console.error(`File not found: ${path}`);
+  process.exit(1);
+}
+
+let data;
+try {
+  data = fs.readFileSync(path, 'utf8');
+} catch (err) {
+  console.error(`Failed to read ${path}: ${err.message}`);
+  process.exit(1);
+}
+
+let manifest;
+try {
+  manifest = JSON.parse(data);
+} catch (err) {
+  console.error(`Invalid JSON in ${path}: ${err.message}`);
+  process.exit(1);
+}
+
+const scope = manifest?.permissions?.[0]?.scope;
+
+if (scope === undefined) {
+  console.error('manifest.permissions[0].scope not found');
+  process.exit(1);
+}
+
+console.log(scope);
+```

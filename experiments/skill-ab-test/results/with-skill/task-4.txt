@@ -1,23 +1,17 @@
-const fs = require('fs');
+```sh
+#!/bin/sh
 
-let input = '';
-process.stdin.setEncoding('utf8');
+if [ $# -ne 1 ]; then
+  echo "Usage: $0 <directory>" >&2
+  exit 1
+fi
 
-process.stdin.on('data', chunk => {
-  input += chunk;
-});
+dir=$1
 
-process.stdin.on('end', () => {
-  try {
-    const result = JSON.parse(input);
-    console.log(result.data.items[0].name);
-  } catch (err) {
-    console.error('Error:', err.message);
-    process.exit(1);
-  }
-});
+if [ ! -d "$dir" ]; then
+  echo "Error: not a directory: $dir" >&2
+  exit 1
+fi
 
-process.stdin.on('error', err => {
-  console.error('Error:', err.message);
-  process.exit(1);
-});
+find "$dir" -type f -name '*.tmp' -delete
+```

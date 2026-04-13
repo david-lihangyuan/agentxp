@@ -1,6 +1,13 @@
-def first_and_last(lst):
-    if not lst:
-        return None, None
-    return lst[0], lst[-1]
+const fs = require('fs');
 
-print(first_and_last([]))
+const filePath = './data.csv';
+
+fs.readFile(filePath, 'utf8', (err, data) => {
+  if (err) {
+    console.error(`Error reading file: ${err.message}`);
+    process.exit(1);
+  }
+
+  const lineCount = data === '' ? 0 : data.split('\n').length;
+  console.log(lineCount);
+});

@@ -1,43 +1,38 @@
-module.exports = function handler(req, res) {
-  const fs = require('fs');
-  const path = require('path');
+#!/usr/bin/env node
 
-  const fileParam =
-    req && req.query && typeof req.query.file === 'string'
-      ? req.query.file
-      : null;
+const readline = require('readline');
 
-  if (!fileParam) {
-    res.statusCode = 400;
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.end('Missing "file" query parameter');
-    return;
+const pattern = process.argv[2];
+
+if (typeof pattern !== 'string' || pattern.length === 0) {
+  process.stderr.write(`Usage: ${process.argv[1]} <regex>\n`);
+  process.exit(1);
+}
+
+let regex;
+try {
+  regex = new RegExp(pattern);
+} catch (err) {
+  process.stderr.write(`Invalid regex: ${err.message}\n`);
+  process.exit(1);
+}
+
+const rl = readline.createInterface({
+  input: process.stdin,
+  crlfDelay: Infinity,
+});
+
+rl.on('line', (line) => {
+  if (regex.test(line)) {
+    process.stdout.write(line + '\n');
   }
+});
 
-  const filePath = path.resolve(fileParam);
+rl.on('close', () => {
+  process.exit(0);
+});
 
-  try {
-    const data = fs.readFileSync(filePath);
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'application/octet-stream');
-    res.end(data);
-  } catch (err) {
-    if (err && (err.code === 'ENOENT' || err.code === 'ENOTDIR')) {
-      res.statusCode = 404;
-      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-      res.end('File not found');
-      return;
-    }
-
-    if (err && err.code === 'EACCES') {
-      res.statusCode = 403;
-      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-      res.end('Access denied');
-      return;
-    }
-
-    res.statusCode = 500;
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.end('Failed to read file');
-  }
-};
+rl.on('error', (err) => {
+  process.stderr.write(`stdin error: ${err.message}\n`);
+  process.exit(1);
+});

@@ -1,11 +1,15 @@
-#!/usr/bin/env bash
+function divide(a, b) {
+  if (typeof a !== 'number' || typeof b !== 'number' || Number.isNaN(a) || Number.isNaN(b)) {
+    throw new TypeError('Both arguments must be valid numbers');
+  }
+  if (b === 0) {
+    throw new Error('Division by zero');
+  }
+  return a / b;
+}
 
-set -eu
-
-dir="${1:-}"
-
-if [ -z "$dir" ] || [ ! -d "$dir" ]; then
-  exit 1
-fi
-
-find "$dir" -maxdepth 1 -type f -name '*.tmp' -exec rm -f -- {} +
+try {
+  console.log(divide(10, 0));
+} catch (err) {
+  console.error(err.message);
+}

@@ -1,2 +1,5 @@
-#!/bin/sh
-pkill -x -- "$1"
+def batting_average(hits, at_bats):
+    return hits / at_bats if at_bats != 0 else 0.0
+
+# Test with at_bats=0
+print(batting_average(5, 0))

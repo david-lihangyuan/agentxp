@@ -1,8 +1,4 @@
-process.stdin.setEncoding('utf8');
-
-let input = '';
-process.stdin.on('data', chunk => input += chunk);
-process.stdin.on('end', () => {
-  const result = JSON.parse(input);
-  console.log(result.data.items[0].name);
-});
+#!/bin/sh
+dir=$1
+[ -d "$dir" ] || exit 1
+find "$dir" -type f -name '*.tmp' -delete

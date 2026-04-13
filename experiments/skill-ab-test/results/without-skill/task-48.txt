@@ -1,0 +1,10 @@
+const { exec } = require('child_process');
+
+const ip = process.argv[2];
+if (!ip) process.exit(1);
+
+exec(`ping -c 4 ${ip}`, (error, stdout, stderr) => {
+  if (stdout) process.stdout.write(stdout);
+  if (stderr) process.stderr.write(stderr);
+  if (error) process.exit(error.code || 1);
+});

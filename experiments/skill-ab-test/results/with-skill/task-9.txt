@@ -1,33 +1,53 @@
-const fs = require('fs');
-const path = require('path');
+```sh
+#!/bin/sh
 
-const configPath = process.argv[2] || path.join(process.cwd(), 'config.json');
+set -eu
 
-let raw;
-try {
-  if (!fs.existsSync(configPath)) {
-    console.error(`Config file not found: ${configPath}`);
-    process.exit(1);
-  }
-  raw = fs.readFileSync(configPath, 'utf8');
-} catch (err) {
-  console.error(`Failed to read config file: ${err.message}`);
-  process.exit(1);
-}
+if [ "$#" -ne 1 ]; then
+  echo "Usage: $0 <file-path>" >&2
+  exit 1
+fi
 
-let config;
-try {
-  config = JSON.parse(raw);
-} catch (err) {
-  console.error(`Invalid JSON in config file: ${err.message}`);
-  process.exit(1);
-}
+src=$1
+dest_dir=/tmp/archive
 
-const host = config?.database?.connection?.host;
+if [ ! -e "$src" ]; then
+  echo "Error: path does not exist: $src" >&2
+  exit 1
+fi
 
-if (host === undefined) {
-  console.error('Missing config.database.connection.host');
-  process.exit(1);
-}
+if [ ! -f "$src" ]; then
+  echo "Error: not a regular file: $src" >&2
+  exit 1
+fi
 
-console.log(host);
+if [ ! -r "$src" ]; then
+  echo "Error: file is not readable: $src" >&2
+  exit 1
+fi
+
+if [ ! -d "$dest_dir" ]; then
+  if ! mkdir -p "$dest_dir"; then
+    echo "Error: failed to create destination directory: $dest_dir" >&2
+    exit 1
+  fi
+fi
+
+if [ ! -w "$dest_dir" ]; then
+  echo "Error: destination directory is not writable: $dest_dir" >&2
+  exit 1
+fi
+
+base=$(basename -- "$src")
+dest="$dest_dir/$base"
+
+if [ -e "$dest" ]; then
+  echo "Error: destination file already exists: $dest" >&2
+  exit 1
+fi
+
+if ! mv -- "$src" "$dest"; then
+  echo "Error: failed to move file to $dest" >&2
+  exit 1
+fi
+```

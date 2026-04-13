@@ -1,0 +1,6 @@
+function computeRate(amount, duration_seconds) {
+  return amount / duration_seconds;
+}
+
+// Test with duration_seconds = 0
+console.log(computeRate(100, 0)); // Infinity

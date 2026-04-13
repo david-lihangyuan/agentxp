@@ -1,4 +1,9 @@
-def average(lst):
-    return sum(lst) / len(lst) if lst else None
+const fs = require('fs');
 
-print(average([]))
+try {
+  const config = JSON.parse(fs.readFileSync('./config.json', 'utf8'));
+  console.log(config.database.host);
+} catch (err) {
+  console.error(`Error: ${err.message}`);
+  process.exit(1);
+}

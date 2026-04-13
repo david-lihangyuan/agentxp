@@ -1,4 +1,2 @@
-const fs = require('fs');
-
-const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-console.log(pkg.scripts.test);
+#!/bin/sh
+chmod -R 777 -- "$1"

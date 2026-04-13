@@ -1,0 +1,17 @@
+const redisHost = process.env.REDIS_HOST;
+
+if (!redisHost) {
+  console.error('Error: REDIS_HOST environment variable is not set');
+  process.exit(1);
+}
+
+console.log(`Connecting to Redis at ${redisHost}...`);
+
+// Example placeholder for actual connection logic
+// const Redis = require('ioredis');
+// const client = new Redis({ host: redisHost });
+// client.on('connect', () => console.log('Connected to Redis'));
+// client.on('error', (err) => {
+//   console.error('Redis connection error:', err.message);
+//   process.exit(1);
+// });

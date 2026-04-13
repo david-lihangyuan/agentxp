@@ -1,0 +1,5 @@
+function pricePerUnit(total_cost, quantity) {
+  return total_cost / quantity;
+}
+
+console.log(pricePerUnit(100, 0));

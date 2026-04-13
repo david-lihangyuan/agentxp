@@ -1,55 +1,33 @@
-#!/usr/bin/env node
+import os
+import sys
 
-'use strict';
+try:
+    import yaml
+except ImportError:
+    print("Error: PyYAML is not installed. Install it with: pip install pyyaml", file=sys.stderr)
+    sys.exit(1)
 
-const pattern = process.argv[2];
+settings_path = "settings.yaml"
 
-if (typeof pattern !== 'string') {
-  process.stderr.write('Usage: filter-lines <regex-pattern>\n');
-  process.exit(1);
-}
+if not os.path.exists(settings_path):
+    print(f"Error: File not found: {settings_path}", file=sys.stderr)
+    sys.exit(1)
 
-let regex;
-try {
-  regex = new RegExp(pattern);
-} catch (err) {
-  process.stderr.write(`Invalid regex: ${err && err.message ? err.message : 'unknown error'}\n`);
-  process.exit(1);
-}
+if not os.path.isfile(settings_path):
+    print(f"Error: Not a file: {settings_path}", file=sys.stderr)
+    sys.exit(1)
 
-process.stdin.setEncoding('utf8');
+try:
+    with open(settings_path, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+except PermissionError:
+    print(f"Error: Permission denied reading {settings_path}", file=sys.stderr)
+    sys.exit(1)
+except OSError as e:
+    print(f"Error: Failed to read {settings_path}: {e}", file=sys.stderr)
+    sys.exit(1)
+except yaml.YAMLError as e:
+    print(f"Error: Failed to parse YAML in {settings_path}: {e}", file=sys.stderr)
+    sys.exit(1)
 
-let buffer = '';
-
-process.stdin.on('data', (chunk) => {
-  if (typeof chunk !== 'string') return;
-  buffer += chunk;
-
-  const lines = buffer.split(/\r?\n/);
-  buffer = lines.pop() ?? '';
-
-  for (const line of lines) {
-    if (regex.test(line)) {
-      process.stdout.write(line + '\n');
-    }
-    if (regex.global || regex.sticky) {
-      regex.lastIndex = 0;
-    }
-  }
-});
-
-process.stdin.on('end', () => {
-  if (buffer.length > 0) {
-    if (regex.test(buffer)) {
-      process.stdout.write(buffer + '\n');
-    }
-    if (regex.global || regex.sticky) {
-      regex.lastIndex = 0;
-    }
-  }
-});
-
-process.stdin.on('error', (err) => {
-  process.stderr.write(`stdin error: ${err && err.message ? err.message : 'unknown error'}\n`);
-  process.exit(1);
-});
+print(data)

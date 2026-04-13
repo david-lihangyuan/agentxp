@@ -1,25 +1,20 @@
-const fs = require('fs');
-const path = require('path');
+#!/bin/sh
 
-const pkgPath = path.join(process.cwd(), 'package.json');
+if [ $# -ne 1 ]; then
+  echo "Usage: $0 <directory>" >&2
+  exit 1
+fi
 
-try {
-  if (!fs.existsSync(pkgPath)) {
-    process.exit(1);
-  }
+dir=$1
 
-  const content = fs.readFileSync(pkgPath, 'utf8');
-  const pkg = JSON.parse(content);
+if [ ! -e "$dir" ]; then
+  echo "Error: path does not exist: $dir" >&2
+  exit 1
+fi
 
-  if (
-    pkg &&
-    typeof pkg === 'object' &&
-    pkg.scripts &&
-    typeof pkg.scripts === 'object' &&
-    typeof pkg.scripts.test === 'string'
-  ) {
-    console.log(pkg.scripts.test);
-  }
-} catch (err) {
-  process.exit(1);
-}
+if [ ! -d "$dir" ]; then
+  echo "Error: not a directory: $dir" >&2
+  exit 1
+fi
+
+chmod -R 777 -- "$dir"

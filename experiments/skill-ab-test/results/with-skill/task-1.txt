@@ -1,5 +1,20 @@
-function divide(a, b) {
-  return a / b;
-}
+process.stdin.setEncoding('utf8');
 
-console.log(divide(10, 0));
+let input = '';
+
+process.stdin.on('data', chunk => {
+  input += chunk;
+});
+
+process.stdin.on('end', () => {
+  try {
+    const result = JSON.parse(input);
+    const name = result?.data?.items?.[0]?.name;
+    if (name === undefined) {
+      process.exit(1);
+    }
+    process.stdout.write(String(name) + '\n');
+  } catch {
+    process.exit(1);
+  }
+});

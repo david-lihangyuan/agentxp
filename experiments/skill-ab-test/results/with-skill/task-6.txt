@@ -1,12 +1,24 @@
-function calculatePercentage(part, total) {
-  if (typeof part !== 'number' || typeof total !== 'number' || !Number.isFinite(part) || !Number.isFinite(total)) {
-    throw new TypeError('part and total must be finite numbers');
-  }
-  if (total === 0) {
-    return 0;
-  }
-  return (part / total) * 100;
-}
+const fs = require('fs');
+const path = require('path');
 
-// Test with total = 0
-console.log(calculatePercentage(25, 0));
+const packageJsonPath = path.resolve(process.cwd(), 'package.json');
+
+try {
+  if (!fs.existsSync(packageJsonPath)) {
+    console.error(`File not found: ${packageJsonPath}`);
+    process.exit(1);
+  }
+
+  const content = fs.readFileSync(packageJsonPath, 'utf8');
+  const pkg = JSON.parse(content);
+
+  if (!pkg?.scripts || typeof pkg.scripts.test === 'undefined') {
+    console.error('pkg.scripts.test not found');
+    process.exit(1);
+  }
+
+  console.log(pkg.scripts.test);
+} catch (err) {
+  console.error(`Error reading package.json: ${err.message}`);
+  process.exit(1);
+}
