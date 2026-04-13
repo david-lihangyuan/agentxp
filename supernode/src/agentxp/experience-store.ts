@@ -151,9 +151,32 @@ export class ExperienceStore {
     return this.embeddingQueue.length
   }
 
+  /** Recover pending experiences from DB into memory queue on startup. */
+  private recoverPendingFromDb(): void {
+    try {
+      const pending = this.db
+        .prepare(
+          `SELECT id, what, tried, learned FROM experiences WHERE embedding_status = 'pending'`
+        )
+        .all() as Array<{ id: number; what: string; tried: string; learned: string }>
+      if (pending.length > 0) {
+        for (const row of pending) {
+          const text = `${row.what} ${row.tried} ${row.learned}`
+          this.embeddingQueue.push({ experienceId: row.id, text })
+        }
+        logger.info('Recovered pending experiences into embedding queue', { count: pending.length })
+      }
+    } catch (err) {
+      logger.error('Failed to recover pending experiences', {
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
+  }
+
   /** Start the background embedding worker. */
   startEmbeddingWorker(intervalMs: number = 5000): void {
     if (this.workerInterval) return
+    this.recoverPendingFromDb()
     this.workerInterval = setInterval(() => {
       void this.processEmbeddingQueue()
     }, intervalMs)
