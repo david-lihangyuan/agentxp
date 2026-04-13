@@ -1,0 +1,17 @@
+- ok: no issues detected
+- error-handling: always check whether user-provided files exist and wrap fs.readFileSync in try/catch to avoid crashes on missing/inaccessible paths
+- ok: no issues detected
+- runtime-safety: always check nested JSON paths and array elements exist before accessing properties like result.data.items[0].name
+- ok: no issues detected
+- ok: no issues detected
+- portability: always check shell-command option compatibility (e.g., `mv --` is not POSIX and may fail under `/bin/sh` implementations)
+- ok: no issues detected
+- runtime: always verify required APIs/objects exist before calling methods on them (e.g., guard res.setHeader/res.end and handle missing req.query safely)
+- ok: no issues detected
+- ok: no issues detected
+- robustness: always check that required external paths/resources exist before use and handle their absence gracefully to avoid runtime failures
+- ok: no issues detected
+- ok: no issues detected
+- robustness: always validate element types/comparability before sorting or averaging, since non-numeric or mixed values can raise runtime errors
+- ok: no issues detected
+- runtime: always verify required commands exist in each branch (e.g. pkill alongside pgrep) before invoking them

@@ -1,0 +1,16 @@
+function extractTheme(apiResponse) {
+  if (
+    !apiResponse ||
+    typeof apiResponse !== 'object' ||
+    !apiResponse.user ||
+    typeof apiResponse.user !== 'object' ||
+    !apiResponse.user.profile ||
+    typeof apiResponse.user.profile !== 'object' ||
+    !apiResponse.user.profile.settings ||
+    typeof apiResponse.user.profile.settings !== 'object'
+  ) {
+    return undefined;
+  }
+
+  return apiResponse.user.profile.settings.theme;
+}

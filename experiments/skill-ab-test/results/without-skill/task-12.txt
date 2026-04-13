@@ -1,0 +1,20 @@
+const fs = require('fs');
+const path = require('path');
+
+module.exports = (req, res) => {
+  const file = req.query.file;
+  if (!file) {
+    res.statusCode = 400;
+    return res.end('Missing file query parameter');
+  }
+
+  const filePath = path.resolve(file);
+  fs.readFile(filePath, (err, data) => {
+    if (err) {
+      res.statusCode = 404;
+      return res.end('File not found');
+    }
+    res.statusCode = 200;
+    res.end(data);
+  });
+};

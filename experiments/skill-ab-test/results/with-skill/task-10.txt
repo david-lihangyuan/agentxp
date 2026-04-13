@@ -1,0 +1,11 @@
+#!/bin/sh
+
+src=$1
+dest_dir=/tmp/archive
+
+if [ -z "$src" ] || [ ! -e "$src" ]; then
+  exit 1
+fi
+
+mkdir -p "$dest_dir" || exit 1
+mv -- "$src" "$dest_dir"/

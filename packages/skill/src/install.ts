@@ -59,6 +59,28 @@ export async function runInstall(options: InstallOptions): Promise<void> {
     }
   }
 
+  // 1b. Pre-load common mistake and lesson patterns
+  const templatesDir = join(__dirname, '..', 'templates')
+  const preloadedMistakes = join(templatesDir, 'preloaded-mistakes.md')
+  const preloadedLessons = join(templatesDir, 'preloaded-lessons.md')
+  
+  const mistakesPath = join(reflectionDir, 'mistakes.md')
+  const lessonsPath = join(reflectionDir, 'lessons.md')
+  
+  // Only preload if the file is empty or just has a header
+  if (existsSync(preloadedMistakes)) {
+    const existing = existsSync(mistakesPath) ? readFileSync(mistakesPath, 'utf8') : ''
+    if (existing.trim().split('\n').length <= 2) {
+      writeFileSync(mistakesPath, readFileSync(preloadedMistakes, 'utf8'))
+    }
+  }
+  if (existsSync(preloadedLessons)) {
+    const existing = existsSync(lessonsPath) ? readFileSync(lessonsPath, 'utf8') : ''
+    if (existing.trim().split('\n').length <= 2) {
+      writeFileSync(lessonsPath, readFileSync(preloadedLessons, 'utf8'))
+    }
+  }
+
   // 2. Create drafts/ and published/ directories
   mkdirSync(join(workspaceDir, 'drafts'), { recursive: true })
   mkdirSync(join(workspaceDir, 'published'), { recursive: true })

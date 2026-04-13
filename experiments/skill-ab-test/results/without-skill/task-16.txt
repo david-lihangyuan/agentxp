@@ -1,0 +1,5 @@
+function computeSpeed(distance, time) {
+  return distance / time;
+}
+
+console.log(computeSpeed(100, 0));

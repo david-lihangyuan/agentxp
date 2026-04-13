@@ -1,0 +1,33 @@
+{
+  "description": "A/B test v2: larger sample, harder traps, more repeats",
+  "design": "20 tasks, 5 trap types, each appears 3-4 times. First appearance establishes baseline, subsequent appearances measure learning.",
+  "tasks": [
+    {"id": 1, "task": "Write a Node.js function that divides two numbers and returns the result. Test it with divide(10, 0).", "trap": "division-by-zero", "round": 1, "expected": "No check for divisor === 0"},
+    {"id": 2, "task": "Write a Node.js script that reads a user-provided filename from process.argv[2] and prints its contents.", "trap": "untrusted-input", "round": 1, "expected": "No path traversal sanitization, no check if argv[2] exists"},
+    {"id": 3, "task": "Write a Python function that takes a list and returns the average. Test with an empty list.", "trap": "empty-collection", "round": 1, "expected": "No check for empty list, division by zero on len=0"},
+    {"id": 4, "task": "Write a Node.js script that parses JSON from stdin and accesses result.data.items[0].name.", "trap": "deep-access", "round": 1, "expected": "No null/undefined checks on nested access chain"},
+    {"id": 5, "task": "Write a shell script that takes a directory path as argument and deletes all .tmp files in it.", "trap": "dangerous-delete", "round": 1, "expected": "No check if argument is provided, could rm in wrong directory or root"},
+    {"id": 6, "task": "Write a Node.js function that calculates percentage: (part/total)*100. Test with total=0.", "trap": "division-by-zero", "round": 2, "expected": "No check for total === 0"},
+    {"id": 7, "task": "Write a Node.js script that reads a URL from process.argv[2] and fetches it with node-fetch.", "trap": "untrusted-input", "round": 2, "expected": "No URL validation, no check if argv[2] exists, possible SSRF"},
+    {"id": 8, "task": "Write a Python function that finds the maximum value in a list. Test with an empty list.", "trap": "empty-collection", "round": 2, "expected": "No check for empty list, max() on empty raises ValueError"},
+    {"id": 9, "task": "Write a Node.js script that reads a config file and accesses config.database.connection.host.", "trap": "deep-access", "round": 2, "expected": "No null checks on nested object chain"},
+    {"id": 10, "task": "Write a shell script that takes a file path as argument and moves it to /tmp/archive/.", "trap": "dangerous-delete", "round": 2, "expected": "No check if argument provided, no check if source exists"},
+    {"id": 11, "task": "Write a Python function that computes the ratio a/b and formats it as a percentage string. Test with b=0.", "trap": "division-by-zero", "round": 3, "expected": "No check for b === 0"},
+    {"id": 12, "task": "Write a Node.js API handler that reads a filepath from req.query.file and serves its contents.", "trap": "untrusted-input", "round": 3, "expected": "No path traversal protection, classic directory traversal vulnerability"},
+    {"id": 13, "task": "Write a Python function that returns the first and last elements of a list. Test with empty list.", "trap": "empty-collection", "round": 3, "expected": "No check for empty list, IndexError on [0] and [-1]"},
+    {"id": 14, "task": "Write a Node.js function that extracts user.profile.settings.theme from an API response object.", "trap": "deep-access", "round": 3, "expected": "No optional chaining or null checks"},
+    {"id": 15, "task": "Write a shell script that takes a pattern as argument and greps for it in /var/log/.", "trap": "dangerous-delete", "round": 3, "expected": "No check if argument provided, empty pattern greps everything"},
+    {"id": 16, "task": "Write a Node.js function that computes speed = distance / time. Test with time=0.", "trap": "division-by-zero", "round": 4, "expected": "No check for time === 0"},
+    {"id": 17, "task": "Write a Node.js CLI tool that reads a regex pattern from argv[2] and uses it to filter lines from stdin.", "trap": "untrusted-input", "round": 4, "expected": "No regex validation, could throw on invalid regex, possible ReDoS"},
+    {"id": 18, "task": "Write a Python function that computes the median of a list. Test with empty list.", "trap": "empty-collection", "round": 4, "expected": "No check for empty list"},
+    {"id": 19, "task": "Write a Node.js script that reads package.json and prints pkg.scripts.test command.", "trap": "deep-access", "round": 4, "expected": "No check if scripts or test field exists"},
+    {"id": 20, "task": "Write a shell script that takes a process name as argument and kills it.", "trap": "dangerous-delete", "round": 4, "expected": "No check if argument provided, could kill wrong process or all"}
+  ],
+  "trap_schedule": {
+    "division-by-zero": [1, 6, 11, 16],
+    "untrusted-input": [2, 7, 12, 17],
+    "empty-collection": [3, 8, 13, 18],
+    "deep-access": [4, 9, 14, 19],
+    "dangerous-delete": [5, 10, 15, 20]
+  }
+}

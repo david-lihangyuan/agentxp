@@ -1,0 +1,22 @@
+def median(values):
+    if values is None:
+        return None
+    try:
+        nums = list(values)
+    except TypeError:
+        return None
+
+    if len(nums) == 0:
+        return None
+
+    nums = sorted(nums)
+    n = len(nums)
+    mid = n // 2
+
+    if n % 2 == 1:
+        return nums[mid]
+    return (nums[mid - 1] + nums[mid]) / 2
+
+
+# Test with empty list
+print(median([]))

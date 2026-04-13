@@ -1,0 +1,15 @@
+const fetch = require('node-fetch');
+
+(async () => {
+  const url = process.argv[2];
+  if (!url) process.exit(1);
+
+  try {
+    const res = await fetch(url);
+    const body = await res.text();
+    console.log(body);
+  } catch (err) {
+    console.error(err);
+    process.exit(1);
+  }
+})();

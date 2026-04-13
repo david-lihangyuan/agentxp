@@ -1,0 +1,10 @@
+def find_max(values):
+    if not values:
+        return None
+    maximum = values[0]
+    for value in values[1:]:
+        if value > maximum:
+            maximum = value
+    return maximum
+
+print(find_max([]))

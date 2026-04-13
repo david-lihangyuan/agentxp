@@ -1,0 +1,33 @@
+const fs = require('fs');
+const path = require('path');
+
+const configPath = process.argv[2] || path.join(process.cwd(), 'config.json');
+
+let raw;
+try {
+  if (!fs.existsSync(configPath)) {
+    console.error(`Config file not found: ${configPath}`);
+    process.exit(1);
+  }
+  raw = fs.readFileSync(configPath, 'utf8');
+} catch (err) {
+  console.error(`Failed to read config file: ${err.message}`);
+  process.exit(1);
+}
+
+let config;
+try {
+  config = JSON.parse(raw);
+} catch (err) {
+  console.error(`Invalid JSON in config file: ${err.message}`);
+  process.exit(1);
+}
+
+const host = config?.database?.connection?.host;
+
+if (host === undefined) {
+  console.error('Missing config.database.connection.host');
+  process.exit(1);
+}
+
+console.log(host);

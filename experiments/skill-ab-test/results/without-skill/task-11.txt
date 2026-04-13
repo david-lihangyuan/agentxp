@@ -1,0 +1,7 @@
+def ratio_percent(a, b):
+    try:
+        return f"{(a / b) * 100:.2f}%"
+    except ZeroDivisionError:
+        return "undefined"
+
+print(ratio_percent(5, 0))

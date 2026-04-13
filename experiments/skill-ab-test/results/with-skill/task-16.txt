@@ -1,0 +1,15 @@
+function computeSpeed(distance, time) {
+  if (typeof distance !== 'number' || typeof time !== 'number' || !Number.isFinite(distance) || !Number.isFinite(time)) {
+    throw new TypeError('distance and time must be finite numbers');
+  }
+  if (time === 0) {
+    throw new RangeError('time must not be 0');
+  }
+  return distance / time;
+}
+
+try {
+  console.log(computeSpeed(100, 0));
+} catch (err) {
+  console.error(err.message);
+}

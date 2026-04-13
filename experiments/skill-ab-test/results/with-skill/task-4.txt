@@ -1,0 +1,23 @@
+const fs = require('fs');
+
+let input = '';
+process.stdin.setEncoding('utf8');
+
+process.stdin.on('data', chunk => {
+  input += chunk;
+});
+
+process.stdin.on('end', () => {
+  try {
+    const result = JSON.parse(input);
+    console.log(result.data.items[0].name);
+  } catch (err) {
+    console.error('Error:', err.message);
+    process.exit(1);
+  }
+});
+
+process.stdin.on('error', err => {
+  console.error('Error:', err.message);
+  process.exit(1);
+});

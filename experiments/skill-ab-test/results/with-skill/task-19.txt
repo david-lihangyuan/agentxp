@@ -1,0 +1,25 @@
+const fs = require('fs');
+const path = require('path');
+
+const pkgPath = path.join(process.cwd(), 'package.json');
+
+try {
+  if (!fs.existsSync(pkgPath)) {
+    process.exit(1);
+  }
+
+  const content = fs.readFileSync(pkgPath, 'utf8');
+  const pkg = JSON.parse(content);
+
+  if (
+    pkg &&
+    typeof pkg === 'object' &&
+    pkg.scripts &&
+    typeof pkg.scripts === 'object' &&
+    typeof pkg.scripts.test === 'string'
+  ) {
+    console.log(pkg.scripts.test);
+  }
+} catch (err) {
+  process.exit(1);
+}

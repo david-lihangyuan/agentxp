@@ -1,0 +1,13 @@
+#!/bin/sh
+
+pattern=$1
+
+if [ -z "$pattern" ]; then
+  exit 1
+fi
+
+if [ ! -d /var/log ]; then
+  exit 1
+fi
+
+grep -R -- "$pattern" /var/log 2>/dev/null

@@ -1,0 +1,43 @@
+module.exports = function handler(req, res) {
+  const fs = require('fs');
+  const path = require('path');
+
+  const fileParam =
+    req && req.query && typeof req.query.file === 'string'
+      ? req.query.file
+      : null;
+
+  if (!fileParam) {
+    res.statusCode = 400;
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.end('Missing "file" query parameter');
+    return;
+  }
+
+  const filePath = path.resolve(fileParam);
+
+  try {
+    const data = fs.readFileSync(filePath);
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.end(data);
+  } catch (err) {
+    if (err && (err.code === 'ENOENT' || err.code === 'ENOTDIR')) {
+      res.statusCode = 404;
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.end('File not found');
+      return;
+    }
+
+    if (err && err.code === 'EACCES') {
+      res.statusCode = 403;
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.end('Access denied');
+      return;
+    }
+
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.end('Failed to read file');
+  }
+};

@@ -1,0 +1,12 @@
+function calculatePercentage(part, total) {
+  if (typeof part !== 'number' || typeof total !== 'number' || !Number.isFinite(part) || !Number.isFinite(total)) {
+    throw new TypeError('part and total must be finite numbers');
+  }
+  if (total === 0) {
+    return 0;
+  }
+  return (part / total) * 100;
+}
+
+// Test with total = 0
+console.log(calculatePercentage(25, 0));
