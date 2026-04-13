@@ -1,8 +1,11 @@
 // Proactive Recall — Pattern-match current task against local reflection files
 // Runs at task-start hook, surfaces relevant past mistakes/lessons before execution.
+// Optionally searches the relay for external experiences from the network.
 
 import { readFileSync, existsSync } from 'fs'
 import { join } from 'path'
+import { relayRecall } from './relay-recall.js'
+import type { RecallResult } from './relay-recall.js'
 
 export interface RecallMatch {
   file: string
@@ -77,22 +80,50 @@ function scoreEntry(entry: { title: string; content: string }, keywords: string[
   return score
 }
 
+export interface ProactiveRecallOptions {
+  /** Path to the reflection/ directory */
+  reflectionDir?: string
+  /** Relay URL — if provided, also searches the relay for external experiences */
+  relayUrl?: string
+  /** Agent home directory for loading operator pubkey (to exclude own experiences) */
+  agentHomeDir?: string
+}
+
+export interface ProactiveRecallResult {
+  /** Local matches from reflection files */
+  local: RecallMatch[]
+  /** Formatted relay results (wrapped in <external_experience> tags), or null if relay not used */
+  relay: string | null
+}
+
 /**
  * Proactive recall: search local reflection files for entries matching a task description.
  * Returns matching entries sorted by relevance score (highest first).
+ * Optionally also searches the relay for external experiences.
  *
  * @param taskDescription - What the agent is about to do
- * @param reflectionDir - Path to the reflection/ directory
+ * @param options - Reflection dir, relay URL, etc. (string for backward compat = reflectionDir)
  */
 export async function proactiveRecall(
   taskDescription: string,
-  reflectionDir?: string
-): Promise<RecallMatch[]> {
-  const dir = reflectionDir || join(process.cwd(), 'reflection')
+  options?: string | ProactiveRecallOptions
+): Promise<RecallMatch[]>
+export async function proactiveRecall(
+  taskDescription: string,
+  options?: string | ProactiveRecallOptions
+): Promise<RecallMatch[] | ProactiveRecallResult> {
+  // Support both old (string) and new (options object) signatures
+  const opts: ProactiveRecallOptions = typeof options === 'string'
+    ? { reflectionDir: options }
+    : options ?? {}
+
+  const dir = opts.reflectionDir || join(process.cwd(), 'reflection')
   const keywords = extractKeywords(taskDescription)
 
   if (keywords.length === 0) {
-    return []
+    return typeof options === 'object' && options?.relayUrl
+      ? { local: [], relay: null } as any
+      : []
   }
 
   const files = ['mistakes.md', 'lessons.md']
@@ -120,6 +151,30 @@ export async function proactiveRecall(
 
   // Sort by score descending
   allMatches.sort((a, b) => b.score - a.score)
+
+  // If relay URL provided, also search the relay
+  if (opts.relayUrl) {
+    let relayFormatted: string | null = null
+    try {
+      const recall: RecallResult = await relayRecall(
+        taskDescription,
+        taskDescription, // use task description as both what and learned for search
+        {
+          relayUrl: opts.relayUrl,
+          agentHomeDir: opts.agentHomeDir,
+          limit: 5,
+          minScore: 0.3,
+        }
+      )
+      if (recall.success && recall.count > 0) {
+        relayFormatted = recall.formatted
+      }
+    } catch {
+      // Relay search failure does not affect local results
+    }
+
+    return { local: allMatches, relay: relayFormatted } as any
+  }
 
   return allMatches
 }

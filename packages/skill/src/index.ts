@@ -39,3 +39,8 @@ export { getStatus } from './cli.js'
 export type { StatusResult } from './cli.js'
 
 export { estimateTokens, bytesToHex } from './utils.js'
+
+export { fetchFeedback, submitFeedback, getFeedbackSummary } from './feedback-client.js'
+export type { FeedbackEvent, FeedbackSubmission, FeedbackSummary } from './feedback-client.js'
+
+export type { ProactiveRecallOptions, ProactiveRecallResult } from './proactive-recall.js'
