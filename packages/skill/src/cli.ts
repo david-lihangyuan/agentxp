@@ -291,6 +291,7 @@ function printHelp(): void {
   console.log('')
   console.log('Commands:')
   console.log('  status              Show installation status')
+  console.log('  publish             Scan reflections, create drafts, publish to relay')
   console.log('  dashboard           Open or print the dashboard URL')
   console.log('  config [key] [val]  Get or set config values')
   console.log('  update              Check for and apply updates')
@@ -300,9 +301,12 @@ function printHelp(): void {
   console.log('Options:')
   console.log('  --json              Output as JSON (status command)')
   console.log('  --workspace <dir>   Use a specific workspace directory')
+  console.log('  --dry-run           Simulate publish without network (publish command)')
   console.log('')
   console.log('Examples:')
   console.log('  agentxp status')
+  console.log('  agentxp publish')
+  console.log('  agentxp publish --dry-run')
   console.log('  agentxp dashboard')
   console.log('  agentxp config relay_url https://relay.example.com')
   console.log('  agentxp update')
@@ -384,6 +388,95 @@ if (command === 'status') {
       }
     }
   })
+} else if (command === 'publish') {
+  // Publish command: scan reflections → parse → create drafts → publish to relay
+  const isDryRun = args.includes('--dry-run')
+
+  import('./reflection-parser.js')
+    .then(async ({ processReflectionFile }) => {
+      const { createDraft, runBatchPublish } = await import('./publisher.js')
+
+      const reflectionDir = join(workspace, 'reflection')
+      if (!existsSync(reflectionDir)) {
+        console.error('No reflection/ directory found. Run `agentxp install` first.')
+        process.exit(1)
+      }
+
+      // Read config for relay URL
+      const config = readConfig(workspace)
+      const relayUrl = config.relay_url || 'wss://relay.agentxp.io'
+
+      // Step 1: Scan reflection files for new entries
+      console.log('Scanning reflections...')
+      const reflectionFiles = ['mistakes.md', 'lessons.md']
+      let newDrafts = 0
+
+      for (const file of reflectionFiles) {
+        const filePath = join(reflectionDir, file)
+        if (!existsSync(filePath)) continue
+
+        const entries = await processReflectionFile(filePath, workspace)
+        const publishable = entries.filter(e => e.publishable)
+
+        for (const entry of publishable) {
+          // Map outcome string to valid type
+          let outcome: 'succeeded' | 'failed' | 'partial' | 'inconclusive' = 'succeeded'
+          if (entry.outcome) {
+            const lower = entry.outcome.toLowerCase()
+            if (lower.includes('fail')) outcome = 'failed'
+            else if (lower.includes('partial')) outcome = 'partial'
+            else if (lower.includes('inconclusive')) outcome = 'inconclusive'
+          }
+
+          await createDraft({
+            what: entry.title || 'Untitled reflection',
+            tried: entry.tried || '',
+            outcome,
+            learned: entry.learned || '',
+          }, workspace)
+          newDrafts++
+        }
+
+        if (publishable.length > 0) {
+          console.log(`  ${file}: ${publishable.length} publishable, ${entries.length - publishable.length} skipped`)
+        }
+      }
+
+      if (newDrafts === 0) {
+        // Still try to publish existing drafts
+        const draftsDir = join(workspace, 'drafts')
+        const existingDrafts = existsSync(draftsDir)
+          ? (await import('fs')).readdirSync(draftsDir).filter((f: string) => f.endsWith('.json')).length
+          : 0
+        if (existingDrafts === 0) {
+          console.log('No new reflections to publish.')
+          return
+        }
+        console.log(`No new reflections, but ${existingDrafts} pending drafts found.`)
+      } else {
+        console.log(`Created ${newDrafts} new drafts.`)
+      }
+
+      // Step 2: Batch publish all drafts
+      console.log('\nPublishing to relay...')
+      const result = await runBatchPublish(workspace, {
+        relayUrl,
+        dryRun: isDryRun,
+      })
+
+      console.log('')
+      console.log(`Published: ${result.published}`)
+      console.log(`Failed:    ${result.failed}`)
+      console.log(`Skipped:   ${result.skippedDuplicate} (duplicates)`)
+
+      if (isDryRun) {
+        console.log('\n(dry run — nothing was actually sent to the relay)')
+      }
+    })
+    .catch((err) => {
+      console.error('Publish failed:', err instanceof Error ? err.message : String(err))
+      process.exit(1)
+    })
 } else if (command === 'install') {
   import('./install.js')
     .then(async ({ runInstall }) => {
