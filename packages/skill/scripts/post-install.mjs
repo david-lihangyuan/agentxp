@@ -16,22 +16,41 @@ const __dirname = dirname(__filename)
 // ---------------------------------------------------------------------------
 
 function findWorkspace() {
-  // Walk up from skill directory looking for AGENTS.md or .openclaw marker
-  let dir = join(__dirname, '..')
+  // Priority 1: explicit env var
+  if (process.env.OPENCLAW_WORKSPACE && existsSync(process.env.OPENCLAW_WORKSPACE)) {
+    return process.env.OPENCLAW_WORKSPACE
+  }
+
+  // Priority 2: walk up from cwd looking for AGENTS.md or .openclaw marker
+  let dir = process.cwd()
   for (let i = 0; i < 10; i++) {
     if (existsSync(join(dir, 'AGENTS.md')) || existsSync(join(dir, '.openclaw'))) {
       return dir
     }
-    // Check if parent has skills/ directory (we're inside skills/agentxp/)
-    const parent = join(dir, '..')
-    const grandparent = join(parent, '..')
-    if (existsSync(join(grandparent, 'AGENTS.md'))) {
-      return grandparent
-    }
+    const parent = dirname(dir)
+    if (parent === dir) break
     dir = parent
   }
-  // Fallback: use OpenClaw workspace from env
-  return process.env.OPENCLAW_WORKSPACE || process.env.HOME || homedir()
+
+  // Priority 3: walk up from script location (for ClawHub installs into skills/)
+  dir = join(__dirname, '..')
+  for (let i = 0; i < 10; i++) {
+    if (existsSync(join(dir, 'AGENTS.md')) || existsSync(join(dir, '.openclaw'))) {
+      return dir
+    }
+    const parent = dirname(dir)
+    if (parent === dir) break
+    dir = parent
+  }
+
+  // Priority 4: OpenClaw default workspace
+  const openclawDefault = join(homedir(), '.openclaw', 'workspace')
+  if (existsSync(openclawDefault)) {
+    return openclawDefault
+  }
+
+  // Fallback: cwd
+  return process.cwd()
 }
 
 const workspace = findWorkspace()
@@ -145,17 +164,28 @@ if (existsSync(keyPath) && existsSync(pubPath)) {
   console.log(`  ✓ identity keys exist (pubkey: ${pub.slice(0, 16)}...)`)
 } else {
   try {
-    // Try to import protocol for key generation
-    const protocol = await import('@serendip/protocol')
+    // Use Node.js built-in crypto — no external dependency needed
+    const { generateKeyPairSync } = await import('crypto')
     mkdirSync(identityDir, { recursive: true })
-    const key = await protocol.generateOperatorKey()
-    const hexKey = Array.from(key.privateKey).map(b => b.toString(16).padStart(2, '0')).join('')
-    writeFileSync(keyPath, hexKey + '\n')
-    writeFileSync(pubPath, key.publicKey + '\n')
+
+    const { publicKey, privateKey } = generateKeyPairSync('ed25519', {
+      publicKeyEncoding: { type: 'spki', format: 'der' },
+      privateKeyEncoding: { type: 'pkcs8', format: 'der' },
+    })
+
+    // Ed25519 DER: public key raw bytes are last 32 bytes of SPKI
+    const pubRaw = publicKey.subarray(publicKey.length - 32)
+    // Ed25519 DER: private key seed is last 32 bytes of PKCS8
+    const privRaw = privateKey.subarray(privateKey.length - 32)
+
+    const toHex = (buf) => Array.from(buf).map(b => b.toString(16).padStart(2, '0')).join('')
+    writeFileSync(keyPath, toHex(privRaw) + '\n')
+    writeFileSync(pubPath, toHex(pubRaw) + '\n')
     try { chmodSync(keyPath, 0o600); chmodSync(pubPath, 0o600) } catch {}
-    console.log(`  ✓ identity keys generated (pubkey: ${key.publicKey.slice(0, 16)}...)`)
+    console.log(`  ✓ identity keys generated (pubkey: ${toHex(pubRaw).slice(0, 16)}...)`)
   } catch (err) {
-    console.log(`  ⚠ could not generate identity keys (${err.message}). Run 'agentxp install' manually.`)
+    console.log(`  ✗ could not generate identity keys: ${err.message}`)
+    console.log(`    Fix: run 'node scripts/post-install.mjs' from the agentxp directory`)
   }
 }
 
