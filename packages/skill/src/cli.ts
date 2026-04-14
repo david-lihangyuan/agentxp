@@ -332,6 +332,19 @@ if (command === 'status') {
     console.log(`Reflection: ${status.reflection_dir_exists ? '✓' : '✗'}`)
     console.log(`Relay:      ${status.relay_connected ? 'connected' : 'disconnected'}`)
   }
+  // Check for updates
+  const config = readConfig(workspace)
+  const relayUrl = config.relay_url || 'wss://relay.agentxp.io'
+  const updateMode = (config.update_mode || 'notify') as 'notify' | 'auto' | 'off'
+  import('./update-checker.js').then(async ({ checkForUpdate }) => {
+    const result = await checkForUpdate(relayUrl, updateMode)
+    if (result.updateAvailable) {
+      console.log(`\n⬆ ${result.message}`)
+    } else if (!result.skipped && result.latestVersion) {
+      console.log(`\n✓ ${result.message}`)
+    }
+  }).catch(() => { /* silent */ })
+
 } else if (command === 'dashboard') {
   const result = getDashboard(workspace)
   if (result.error || !result.url) {

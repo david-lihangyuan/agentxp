@@ -38,6 +38,9 @@ export type { RenewalResult } from './key-renewer.js'
 export { getStatus } from './cli.js'
 export type { StatusResult } from './cli.js'
 
+export { checkForUpdate } from './update-checker.js'
+export type { UpdateCheckResult, UpdateMode } from './update-checker.js'
+
 export { estimateTokens, bytesToHex } from './utils.js'
 
 export { fetchFeedback, submitFeedback, getFeedbackSummary } from './feedback-client.js'
