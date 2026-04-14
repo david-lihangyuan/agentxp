@@ -25,7 +25,7 @@ export interface UpdateCheckResult {
   skipped: boolean
 }
 
-const CHECK_COOLDOWN_MS = 24 * 60 * 60 * 1000 // 24 hours
+const CHECK_COOLDOWN_MS = 72 * 60 * 60 * 1000 // 72 hours (3 days)
 const CURRENT_VERSION = '4.1.0'
 
 /**
