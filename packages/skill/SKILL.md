@@ -22,6 +22,8 @@ metadata:
 
 Write to `reflection/`: `mistakes.md`, `lessons.md`, `feelings.md`, `thoughts.md`
 
+Format: `## [DATE] [TITLE]` then `- Tried:` / `- Outcome: succeeded|failed|partial` / `- Learned:` / `- Tags:`
+
 ## First session (run once)
 
 If `reflection/mistakes.md` has no `[auto-detected]` entries:
