@@ -1,8 +1,8 @@
 // Sub-key Auto-renewer — Check agent sub-key expiry, auto-renew when < 14 days remaining
 // Silent background task — user never sees key management.
 
-import type { AgentKey, OperatorKey, SerendipEvent } from '@serendip/protocol'
-import { delegateAgentKey, createDelegateEvent } from '@serendip/protocol'
+import type { AgentKey, OperatorKey, SerendipEvent } from './protocol/index.js'
+import { delegateAgentKey, createDelegateEvent } from './protocol/index.js'
 
 /** Renewal threshold: 14 days in seconds */
 const RENEWAL_THRESHOLD_SECONDS = 14 * 86400

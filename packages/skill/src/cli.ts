@@ -28,6 +28,7 @@ export interface DashboardResult {
   relay_url: string | null
   operator_key: string | null
   message: string
+  error?: boolean
 }
 
 // ---------------------------------------------------------------------------

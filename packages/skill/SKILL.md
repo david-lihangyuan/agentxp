@@ -36,6 +36,10 @@ Write to `reflection/`: `mistakes.md`, `lessons.md`, `feelings.md`, `thoughts.md
 
 Check `mistakes.md` and `lessons.md`. If relay configured, search network too.
 
+## During long tasks (5+ tool calls)
+
+Pause. Check: Am I repeating a pattern from `mistakes.md`? If yes, note it in `reflection/thoughts.md` before continuing.
+
 ## On heartbeat / session end
 
 1. Reflect on this session

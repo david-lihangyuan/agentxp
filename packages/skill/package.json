@@ -1,26 +1,38 @@
 {
   "name": "@agentxp/skill",
-  "version": "0.1.0",
+  "version": "4.2.0",
   "description": "AgentXP Reflection Skill — teach your AI Agent to learn from mistakes",
   "type": "module",
-  "main": "./src/index.ts",
+  "main": "./dist/index.js",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./dist/index.js"
   },
   "bin": {
-    "agentxp": "./src/cli.ts"
+    "agentxp": "./dist/cli.js"
   },
+  "files": [
+    "dist/",
+    "SKILL.md",
+    "SKILL-GUIDE.md",
+    "templates/",
+    "scripts/"
+  ],
   "scripts": {
+    "build": "tsc",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@serendip/protocol": "file:../protocol"
+    "@noble/curves": "^1.4.0",
+    "@noble/hashes": "^1.4.0"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
     "typescript": "^5.4.5",
     "vitest": "^3.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

@@ -27,7 +27,7 @@ export { createDraft, runBatchPublish, getNextRetryDelay, readDraftFile } from '
 export type { DraftEntry, BatchPublishOptions, BatchPublishResult } from './publisher.js'
 
 export { localSearch } from './local-search.js'
-export type { SearchResultSummary, SearchResultFull, SearchOptions } from './local-search.js'
+export type { SearchResultSummary, SearchOptions } from './local-search.js'
 
 export { startLocalServer, validateRelayUrl } from './local-server.js'
 export type { LocalServer, RelayUrlValidation } from './local-server.js'

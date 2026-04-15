@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
-import { generateOperatorKey } from '@serendip/protocol'
+import { generateOperatorKey } from './protocol/index.js'
 import { bytesToHex } from './utils.js'
 
 export interface InstallOptions {

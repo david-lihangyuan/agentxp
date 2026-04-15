@@ -1,8 +1,8 @@
 // E9 Test Suite: Agent Sub-Key Auto-Renewer
 // TDD: check expiry, renew when < 14 days, 90-day TTL, silent renewal.
 import { describe, it, expect } from 'vitest'
-import { generateOperatorKey, delegateAgentKey } from '@serendip/protocol'
-import type { AgentKey, OperatorKey } from '@serendip/protocol'
+import { generateOperatorKey, delegateAgentKey } from '../src/protocol/index.js'
+import type { AgentKey, OperatorKey } from '../src/protocol/index.js'
 import { checkAndRenew, renewKey } from '../src/key-renewer.js'
 
 describe('E9: Agent Sub-Key Auto-Renewer', () => {

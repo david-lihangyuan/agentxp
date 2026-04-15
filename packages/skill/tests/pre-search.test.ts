@@ -25,7 +25,7 @@ describe('Pre-Search Duplicate Check', () => {
     what: 'Docker DNS resolution fails in containers',
     tried: 'modified /etc/resolv.conf and restarted container',
     outcome: 'succeeded',
-    learned: 'docker container DNS cache cleared on restart, not on config reload',
+    learned: 'docker container DNS cache clears on restart; edit /etc/resolv.conf then restart to apply changes',
   }
 
   it('preSearchRelay returns true when relay has a high-similarity match', async () => {

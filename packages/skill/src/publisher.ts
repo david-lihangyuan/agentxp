@@ -5,8 +5,8 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
-import { createEvent, signEvent, delegateAgentKey } from '@serendip/protocol'
-import type { SerendipKind, OperatorKey, ExperiencePayload } from '@serendip/protocol'
+import { createEvent, signEvent, delegateAgentKey } from './protocol/index.js'
+import type { SerendipKind, OperatorKey, ExperiencePayload } from './protocol/index.js'
 import { relayRecall } from './relay-recall.js'
 import type { RecallResult } from './relay-recall.js'
 
@@ -19,6 +19,8 @@ export interface DraftEntry {
   outcome: 'succeeded' | 'failed' | 'partial' | 'inconclusive'
   /** Lesson learned */
   learned: string
+  /** Why this was attempted (optional context) */
+  context?: string
   /** Number of publish retry attempts */
   retry_count: number
   /** ISO timestamp of last publish attempt */
@@ -115,6 +117,35 @@ export function readDraftFile(draftPath: string): DraftEntry {
  * @param workspaceDir - Workspace root directory
  * @param options - Publish options (relay URL, dry run, etc.)
  */
+/**
+ * Quality gate for draft entries before publishing.
+ * Ensures experiences are substantive and contain concrete information.
+ *
+ * @param draft - The draft entry to check
+ * @returns { pass: true } if quality is acceptable, { pass: false, reason } otherwise
+ */
+export function qualityGate(draft: DraftEntry): { pass: boolean; reason?: string } {
+  if (draft.what.length <= 10) {
+    return { pass: false, reason: '"what" must be longer than 10 characters' }
+  }
+  if (draft.learned.length <= 20) {
+    return { pass: false, reason: '"learned" must be longer than 20 characters' }
+  }
+  if (draft.tried.length <= 20) {
+    return { pass: false, reason: '"tried" must be longer than 20 characters' }
+  }
+  // At least one concrete information marker:
+  // - file path (/ or \)
+  // - backtick command
+  // - error code (standalone number 2-5 digits)
+  // - dotted config key (word.word)
+  const CONCRETE_RE = /[\/\\]|`[^`]+`|\b\d{2,5}\b|\b\w+\.\w+/
+  if (!CONCRETE_RE.test(draft.learned)) {
+    return { pass: false, reason: '"learned" must contain at least one concrete detail (path, command, error code, or config key)' }
+  }
+  return { pass: true }
+}
+
 export async function runBatchPublish(
   workspaceDir: string,
   options: BatchPublishOptions
@@ -180,6 +211,20 @@ export async function runBatchPublish(
         result.skippedDuplicate++
         continue
       }
+    }
+
+    // Quality gate: ensure experience is substantive before publishing
+    const qg = qualityGate(draft)
+    if (!qg.pass) {
+      // Move to published/ as "local-only" — not sent to relay
+      const localOnlyDraft: DraftEntry = {
+        ...draft,
+        relay_event_id: 'local-only',
+      }
+      const localOnlyPath = join(publishedDir, `local-${file}`)
+      writeFileSync(localOnlyPath, JSON.stringify(localOnlyDraft, null, 2))
+      unlinkSync(draftPath)
+      continue
     }
 
     // Attempt publish

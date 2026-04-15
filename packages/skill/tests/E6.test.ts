@@ -70,10 +70,10 @@ describe('E6: Heartbeat Batch Publish', () => {
   it('Failed publish stays in drafts with retry metadata', async () => {
     const draftPath = await createDraft(
       {
-        what: 'Test entry',
-        tried: 'testing the publish retry mechanism with invalid relay',
+        what: 'Test entry for retry',
+        tried: 'testing the publish retry mechanism with invalid relay endpoint',
         outcome: 'failed' as const,
-        learned: 'retry mechanism preserves draft files on network failure',
+        learned: 'retry mechanism preserves draft files on network failure; draft stays in drafts/ with retry_count incremented',
       },
       testDir
     )
@@ -117,10 +117,10 @@ describe('E6: Heartbeat Batch Publish', () => {
   it('Batch publish returns pulse events indicator', async () => {
     await createDraft(
       {
-        what: 'Pulse test',
-        tried: 'testing that publish returns pulse event info',
+        what: 'Pulse event check test',
+        tried: 'testing that runBatchPublish returns pulse event info after publish',
         outcome: 'succeeded' as const,
-        learned: 'batch publish pulls pulse events back after successful publish',
+        learned: 'runBatchPublish() sets pulseChecked=true after successful publish; call /api/v1/pulse to fetch feedback',
       },
       testDir
     )
