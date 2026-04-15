@@ -21,23 +21,32 @@ function findWorkspace() {
     return process.env.OPENCLAW_WORKSPACE
   }
 
-  // Priority 2: walk up from cwd looking for AGENTS.md or .openclaw marker
+  // Workspace must have marker + at least one workspace-specific item
+  function looksLikeWorkspace(d) {
+    const hasMarker = existsSync(join(d, 'AGENTS.md')) || existsSync(join(d, '.openclaw'))
+    if (!hasMarker) return false
+    return existsSync(join(d, 'SOUL.md')) || existsSync(join(d, 'memory')) ||
+      existsSync(join(d, 'reflection')) || existsSync(join(d, 'MEMORY.md')) ||
+      existsSync(join(d, 'HEARTBEAT.md'))
+  }
+
+  const home = homedir()
+
+  // Priority 2: walk up from cwd (stop at home dir — never treat ~ as workspace)
   let dir = process.cwd()
   for (let i = 0; i < 10; i++) {
-    if (existsSync(join(dir, 'AGENTS.md')) || existsSync(join(dir, '.openclaw'))) {
-      return dir
-    }
+    if (dir === home) break
+    if (looksLikeWorkspace(dir)) return dir
     const parent = dirname(dir)
     if (parent === dir) break
     dir = parent
   }
 
-  // Priority 3: walk up from script location (for ClawHub installs into skills/)
+  // Priority 3: walk up from script location
   dir = join(__dirname, '..')
   for (let i = 0; i < 10; i++) {
-    if (existsSync(join(dir, 'AGENTS.md')) || existsSync(join(dir, '.openclaw'))) {
-      return dir
-    }
+    if (dir === home) break
+    if (looksLikeWorkspace(dir)) return dir
     const parent = dirname(dir)
     if (parent === dir) break
     dir = parent
@@ -47,6 +56,19 @@ function findWorkspace() {
   const openclawDefault = join(homedir(), '.openclaw', 'workspace')
   if (existsSync(openclawDefault)) {
     return openclawDefault
+  }
+
+  // Priority 5: multi-agent workspaces (workspace-*)
+  const openclawDir = join(homedir(), '.openclaw')
+  if (existsSync(openclawDir)) {
+    try {
+      for (const entry of readdirSync(openclawDir)) {
+        if (entry.startsWith('workspace')) {
+          const candidate = join(openclawDir, entry)
+          if (looksLikeWorkspace(candidate)) return candidate
+        }
+      }
+    } catch {}
   }
 
   // Fallback: cwd

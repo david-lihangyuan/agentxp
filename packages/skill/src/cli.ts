@@ -68,9 +68,12 @@ export function findWorkspace(startDir?: string): string | null {
     return process.env.OPENCLAW_WORKSPACE
   }
 
-  // Strategy 1: Walk up looking for a real workspace
+  // Strategy 1: Walk up looking for a real workspace (stop at home dir — never treat ~ as workspace)
+  const home = homedir()
   let dir = start
   for (let i = 0; i < 10; i++) {
+    // Stop: never treat home directory as a workspace
+    if (dir === home) break
     if (looksLikeWorkspace(dir)) {
       return dir
     }
@@ -93,6 +96,7 @@ export function findWorkspace(startDir?: string): string | null {
   // Strategy 3: Walk up from script location (npm global installs)
   dir = dirname(fileURLToPath(import.meta.url))
   for (let i = 0; i < 10; i++) {
+    if (dir === home) break
     if (looksLikeWorkspace(dir)) {
       return dir
     }
