@@ -23,6 +23,9 @@ export type { ParsedReflection } from './reflection-parser.js'
 export { distill, checkLLMTrigger } from './distiller.js'
 export type { DistillResult } from './distiller.js'
 
+export { distillExperiences } from './distill.js'
+export type { ExperienceDistillResult, StrategyRule } from './distill.js'
+
 export { createDraft, runBatchPublish, getNextRetryDelay, readDraftFile } from './publisher.js'
 export type { DraftEntry, BatchPublishOptions, BatchPublishResult } from './publisher.js'
 
@@ -46,4 +49,5 @@ export { estimateTokens, bytesToHex } from './utils.js'
 export { fetchFeedback, submitFeedback, getFeedbackSummary } from './feedback-client.js'
 export type { FeedbackEvent, FeedbackSubmission, FeedbackSummary } from './feedback-client.js'
 
-export type { ProactiveRecallOptions, ProactiveRecallResult } from './proactive-recall.js'
+export type { ProactiveRecallOptions, ProactiveRecallResult, TaskPhase } from './proactive-recall.js'
+export { inferPhase, phaseWeight } from './proactive-recall.js'

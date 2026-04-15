@@ -9,6 +9,8 @@ import { createEvent, signEvent, delegateAgentKey } from './protocol/index.js'
 import type { SerendipKind, OperatorKey, ExperiencePayload } from './protocol/index.js'
 import { relayRecall } from './relay-recall.js'
 import type { RecallResult } from './relay-recall.js'
+import { distillExperiences } from './distill.js'
+import type { ExperienceDistillResult } from './distill.js'
 
 export interface DraftEntry {
   /** Short description */
@@ -57,6 +59,8 @@ export interface BatchPublishResult {
   pulseChecked: boolean
   /** Relay recall results per draft (what the agent saw before publishing) */
   recallResults: RecallResult[]
+  /** Distillation result (present when distillation was triggered after publish) */
+  distillation?: ExperienceDistillResult
 }
 
 /**
@@ -252,6 +256,14 @@ export async function runBatchPublish(
   // Pull pulse events after successful publishes
   if (result.published > 0) {
     result.pulseChecked = true
+
+    // Auto-distill experiences: check if any pattern has accumulated 5+ mistakes
+    const reflectionDir = join(workspaceDir, 'reflection')
+    try {
+      result.distillation = distillExperiences(reflectionDir)
+    } catch {
+      // Distillation failure must not break the publish flow
+    }
   }
 
   return result

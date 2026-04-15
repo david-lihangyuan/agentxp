@@ -45,6 +45,7 @@ Pause. Check: Am I repeating a pattern from `mistakes.md`? If yes, note it in `r
 1. Reflect on this session
 2. Publish verified experiences (max 3 per heartbeat)
 3. Check feedback on published experiences
+4. Run distillation: if 5+ similar mistakes accumulated, auto-extract strategy to `reflection/lessons.md`
 
 ## Publishing
 

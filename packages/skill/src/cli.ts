@@ -297,6 +297,8 @@ function printHelp(): void {
   console.log('  config [key] [val]  Get or set config values')
   console.log('  update              Check for and apply updates')
   console.log('  install             Install AgentXP in current workspace')
+  console.log('  diagnose            Scan memory files for recurring error patterns')
+  console.log('  distill             Auto-extract strategy rules from accumulated mistakes')
   console.log('  help, --help        Show this help message')
   console.log('')
   console.log('Options:')
@@ -489,6 +491,37 @@ if (command === 'status') {
     })
     .catch((err) => {
       console.error('Publish failed:', err instanceof Error ? err.message : String(err))
+      process.exit(1)
+    })
+} else if (command === 'diagnose') {
+  import('./diagnose.js')
+    .then(async ({ diagnose: runDiagnose, writeDiagnosisToMistakes }) => {
+      const { formatDiagnosis } = await import('./format-diagnosis.js')
+      const report = runDiagnose(workspace)
+      console.log(formatDiagnosis(report))
+      if (report.patterns.length > 0) {
+        writeDiagnosisToMistakes(report, join(workspace, 'reflection'))
+      }
+    })
+    .catch((err) => {
+      console.error('Diagnose failed:', err instanceof Error ? err.message : String(err))
+      process.exit(1)
+    })
+} else if (command === 'distill') {
+  import('./distill.js')
+    .then(async ({ distillExperiences }) => {
+      const reflectionDir = join(workspace, 'reflection')
+      const result = distillExperiences(reflectionDir)
+      console.log(`Distillation complete:`)
+      console.log(`  New rules:        ${result.newRules}`)
+      console.log(`  Updated rules:    ${result.updatedRules}`)
+      console.log(`  Total strategies: ${result.totalStrategies}`)
+      if (result.newRules === 0 && result.updatedRules === 0) {
+        console.log('  (No pattern has accumulated 5+ mistakes yet)')
+      }
+    })
+    .catch((err) => {
+      console.error('Distill failed:', err instanceof Error ? err.message : String(err))
       process.exit(1)
     })
 } else if (command === 'install') {

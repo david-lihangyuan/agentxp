@@ -1,8 +1,9 @@
 // Proactive Recall — Pattern-match current task against local reflection files
 // Runs at task-start hook, surfaces relevant past mistakes/lessons before execution.
 // Optionally searches the relay for external experiences from the network.
+// Supports phase-aware retrieval: adjusts result priority based on task phase.
 
-import { readFileSync, existsSync } from 'fs'
+import { readFileSync, writeFileSync, existsSync } from 'fs'
 import { join } from 'path'
 import { relayRecall } from './relay-recall.js'
 import type { RecallResult } from './relay-recall.js'
@@ -13,6 +14,143 @@ export interface RecallMatch {
   title: string
   score: number
 }
+
+// ---------------------------------------------------------------------------
+// Phase inference
+// ---------------------------------------------------------------------------
+
+export type TaskPhase = 'planning' | 'stuck' | 'evaluating' | 'executing'
+
+/**
+ * Infer the current task phase from a task description string.
+ * - planning:   plan, design, architect, how to
+ * - stuck:      fix, debug, error, broken, failing
+ * - evaluating: review, check, verify, test
+ * - executing:  (default)
+ */
+export function inferPhase(taskDescription: string): TaskPhase {
+  const lower = taskDescription.toLowerCase()
+
+  if (/\bplan\b|\bdesign\b|\barchitect\b|\bhow to\b/.test(lower)) return 'planning'
+  if (/\bfix\b|\bdebug\b|\berror\b|\bbroken\b|\bfailing\b/.test(lower)) return 'stuck'
+  if (/\breview\b|\bcheck\b|\bverify\b|\btest\b/.test(lower)) return 'evaluating'
+  return 'executing'
+}
+
+/**
+ * Return a phase weight multiplier for a recall match.
+ * Weights are used to bias sorting toward the most useful source for the phase.
+ *
+ * File weights:
+ * - lessons.md with [auto-distilled] marker → "distilled strategy"
+ * - lessons.md without marker               → "manual lesson"
+ * - mistakes.md                             → "concrete case"
+ *
+ * Phase priorities:
+ * - planning:   distilled strategy > manual lesson > concrete case
+ * - executing:  distilled strategy ≈ manual lesson > concrete case (same weight as planning)
+ * - stuck:      concrete case > distilled strategy > manual lesson
+ * - evaluating: distilled strategy only (concrete cases deprioritized heavily)
+ */
+export function phaseWeight(match: RecallMatch, phase: TaskPhase): number {
+  const isDistilled = match.content.includes('[auto-distilled]') ||
+    match.title.includes('[auto-distilled]')
+  const isLessons = match.file === 'lessons.md'
+  const isMistakes = match.file === 'mistakes.md'
+
+  switch (phase) {
+    case 'planning':
+      if (isLessons && isDistilled) return 2.0
+      if (isLessons) return 1.5
+      if (isMistakes) return 1.0
+      return 1.0
+
+    case 'executing':
+      if (isLessons && isDistilled) return 2.0
+      if (isLessons) return 1.5
+      if (isMistakes) return 1.0
+      return 1.0
+
+    case 'stuck':
+      if (isMistakes) return 2.0
+      if (isLessons && isDistilled) return 1.5
+      if (isLessons) return 1.2
+      return 1.0
+
+    case 'evaluating':
+      // Only surface auto-distilled strategies
+      if (isLessons && isDistilled) return 2.0
+      if (isLessons) return 0.5
+      if (isMistakes) return 0.1
+      return 0.1
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Confidence reinforcement
+// ---------------------------------------------------------------------------
+
+/**
+ * Update TimesApplied and LastReinforced for auto-distilled entries that were
+ * returned in a recall result.
+ *
+ * Reads lessons.md → finds matching [auto-distilled] sections → updates counters → writes back.
+ */
+function reinforceDistilledStrategies(matches: RecallMatch[], lessonsPath: string): void {
+  if (!existsSync(lessonsPath)) return
+
+  // Collect pattern ids from returned distilled matches
+  const toReinforce = new Set<string>()
+  for (const match of matches) {
+    const isDistilled = match.content.includes('[auto-distilled]') ||
+      match.title.includes('[auto-distilled]')
+    if (!isDistilled || match.file !== 'lessons.md') continue
+
+    // Extract pattern id from content
+    const patternMatch = match.content.match(/^[-\s]*Pattern:\s*(.+)$/im)
+    if (patternMatch) {
+      toReinforce.add(patternMatch[1].trim())
+    }
+  }
+
+  if (toReinforce.size === 0) return
+
+  const content = readFileSync(lessonsPath, 'utf8')
+  const today = new Date().toISOString().slice(0, 10)
+
+  // Section-aware update: split on '## ' boundaries
+  const parts = content.split(/(?=^## )/m)
+  const updatedParts = parts.map(part => {
+    if (!part.includes('[auto-distilled]')) return part
+
+    // Find which pattern this section belongs to
+    const patternMatch = part.match(/^[-\s]*Pattern:\s*(.+)$/im)
+    if (!patternMatch) return part
+    const sectionPattern = patternMatch[1].trim()
+
+    if (!toReinforce.has(sectionPattern)) return part
+
+    // Increment TimesApplied
+    let updated = part.replace(
+      /^([-\s]*TimesApplied:\s*)(\d+)/im,
+      (_, label, num) => `${label}${parseInt(num, 10) + 1}`
+    )
+
+    // Update LastReinforced
+    updated = updated.replace(
+      /^([-\s]*LastReinforced:\s*)[^\n]+/im,
+      `$1${today}`
+    )
+
+    return updated
+  })
+
+  writeFileSync(lessonsPath, updatedParts.join(''), 'utf8')
+}
+
+// ---------------------------------------------------------------------------
+// Keyword extraction
+// ---------------------------------------------------------------------------
 
 /**
  * Extract keywords from a task description.
@@ -40,6 +178,10 @@ function extractKeywords(text: string): string[] {
     .split(/\s+/)
     .filter(w => w.length > 2 && !stopWords.has(w))
 }
+
+// ---------------------------------------------------------------------------
+// Entry parsing and scoring
+// ---------------------------------------------------------------------------
 
 /**
  * Parse a reflection file into individual entries.
@@ -80,6 +222,10 @@ function scoreEntry(entry: { title: string; content: string }, keywords: string[
   return score
 }
 
+// ---------------------------------------------------------------------------
+// Options / result types
+// ---------------------------------------------------------------------------
+
 export interface ProactiveRecallOptions {
   /** Path to the reflection/ directory */
   reflectionDir?: string
@@ -87,6 +233,11 @@ export interface ProactiveRecallOptions {
   relayUrl?: string
   /** Agent home directory for loading operator pubkey (to exclude own experiences) */
   agentHomeDir?: string
+  /**
+   * Override the task phase used for result weighting.
+   * If omitted, phase is inferred from taskDescription.
+   */
+  phase?: TaskPhase
 }
 
 export interface ProactiveRecallResult {
@@ -96,13 +247,26 @@ export interface ProactiveRecallResult {
   relay: string | null
 }
 
+// ---------------------------------------------------------------------------
+// Main entry point
+// ---------------------------------------------------------------------------
+
 /**
  * Proactive recall: search local reflection files for entries matching a task description.
- * Returns matching entries sorted by relevance score (highest first).
+ * Returns matching entries sorted by relevance score × phase weight (highest first).
  * Optionally also searches the relay for external experiences.
  *
+ * When phase-aware mode is active:
+ * - planning / executing: prefer lessons.md auto-distilled strategies
+ * - stuck: prefer mistakes.md concrete cases
+ * - evaluating: only return auto-distilled strategies
+ *
+ * Distilled strategies that are returned have their TimesApplied and LastReinforced
+ * fields updated in lessons.md automatically.
+ *
  * @param taskDescription - What the agent is about to do
- * @param options - Reflection dir, relay URL, etc. (string for backward compat = reflectionDir)
+ * @param options - Reflection dir, relay URL, phase override, etc.
+ *                  (string for backward compat = reflectionDir)
  */
 export async function proactiveRecall(
   taskDescription: string,
@@ -125,6 +289,9 @@ export async function proactiveRecall(
       ? { local: [], relay: null } as any
       : []
   }
+
+  // Infer or use provided phase
+  const phase: TaskPhase = opts.phase ?? inferPhase(taskDescription)
 
   const files = ['mistakes.md', 'lessons.md']
   const allMatches: RecallMatch[] = []
@@ -149,8 +316,27 @@ export async function proactiveRecall(
     }
   }
 
-  // Sort by score descending
-  allMatches.sort((a, b) => b.score - a.score)
+  // Apply phase-aware weighting and sort by weighted score descending
+  const weighted = allMatches.map(m => ({
+    match: m,
+    weightedScore: m.score * phaseWeight(m, phase),
+  }))
+  weighted.sort((a, b) => b.weightedScore - a.weightedScore)
+
+  // For 'evaluating' phase, filter out non-distilled entries entirely
+  const filtered = phase === 'evaluating'
+    ? weighted.filter(w => {
+        const isDistilled = w.match.content.includes('[auto-distilled]') ||
+          w.match.title.includes('[auto-distilled]')
+        return isDistilled && w.match.file === 'lessons.md'
+      })
+    : weighted
+
+  const sortedMatches = filtered.map(w => w.match)
+
+  // Reinforce distilled strategies that are being returned
+  const lessonsPath = join(dir, 'lessons.md')
+  reinforceDistilledStrategies(sortedMatches, lessonsPath)
 
   // If relay URL provided, also search the relay
   if (opts.relayUrl) {
@@ -173,8 +359,8 @@ export async function proactiveRecall(
       // Relay search failure does not affect local results
     }
 
-    return { local: allMatches, relay: relayFormatted } as any
+    return { local: sortedMatches, relay: relayFormatted } as any
   }
 
-  return allMatches
+  return sortedMatches
 }
