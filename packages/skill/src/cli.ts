@@ -2,7 +2,7 @@
 // AgentXP CLI — lightweight command interface
 // Commands: status, dashboard, config, update, install
 
-import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, readFileSync, writeFileSync, readdirSync } from 'fs'
 import { join, dirname } from 'path'
 import { homedir } from 'os'
 import { fileURLToPath } from 'url'
@@ -42,16 +42,36 @@ export interface DashboardResult {
  * skills/agentxp/config.yaml. Falls back to startDir itself.
  * Returns null if startDir does not exist.
  */
+/**
+ * Check if a directory looks like an actual workspace (not just any dir with AGENTS.md).
+ * Requires AGENTS.md or .openclaw marker PLUS at least one workspace-specific item.
+ */
+function looksLikeWorkspace(dir: string): boolean {
+  const hasMarker = existsSync(join(dir, 'AGENTS.md')) || existsSync(join(dir, '.openclaw'))
+  if (!hasMarker) return false
+  // Must also have at least one workspace-specific file/dir
+  return existsSync(join(dir, 'SOUL.md')) ||
+    existsSync(join(dir, 'memory')) ||
+    existsSync(join(dir, 'reflection')) ||
+    existsSync(join(dir, 'MEMORY.md')) ||
+    existsSync(join(dir, 'HEARTBEAT.md'))
+}
+
 export function findWorkspace(startDir?: string): string | null {
   const start = startDir || process.cwd()
   if (!existsSync(start)) {
     return null
   }
 
-  // Strategy 1: Walk up looking for AGENTS.md or .openclaw marker (most reliable)
+  // Strategy 0: explicit env var (most reliable, no guessing)
+  if (process.env.OPENCLAW_WORKSPACE && existsSync(process.env.OPENCLAW_WORKSPACE)) {
+    return process.env.OPENCLAW_WORKSPACE
+  }
+
+  // Strategy 1: Walk up looking for a real workspace
   let dir = start
   for (let i = 0; i < 10; i++) {
-    if (existsSync(join(dir, 'AGENTS.md')) || existsSync(join(dir, '.openclaw'))) {
+    if (looksLikeWorkspace(dir)) {
       return dir
     }
     const parent = dirname(dir)
@@ -73,7 +93,7 @@ export function findWorkspace(startDir?: string): string | null {
   // Strategy 3: Walk up from script location (npm global installs)
   dir = dirname(fileURLToPath(import.meta.url))
   for (let i = 0; i < 10; i++) {
-    if (existsSync(join(dir, 'AGENTS.md')) || existsSync(join(dir, '.openclaw'))) {
+    if (looksLikeWorkspace(dir)) {
       return dir
     }
     const parent = dirname(dir)
@@ -81,10 +101,26 @@ export function findWorkspace(startDir?: string): string | null {
     dir = parent
   }
 
-  // Strategy 4: OpenClaw default workspace
+  // Strategy 4: OpenClaw default workspace (single agent)
   const openclawDefault = join(homedir(), '.openclaw', 'workspace')
   if (existsSync(openclawDefault)) {
     return openclawDefault
+  }
+
+  // Strategy 5: OpenClaw multi-agent workspaces (workspace-*)
+  const openclawDir = join(homedir(), '.openclaw')
+  if (existsSync(openclawDir)) {
+    try {
+      const entries = readdirSync(openclawDir)
+      for (const entry of entries) {
+        if (entry.startsWith('workspace-') || entry === 'workspace') {
+          const candidate = join(openclawDir, entry)
+          if (looksLikeWorkspace(candidate)) {
+            return candidate
+          }
+        }
+      }
+    } catch {}
   }
 
   // Fallback: cwd
