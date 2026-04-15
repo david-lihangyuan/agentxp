@@ -51,9 +51,16 @@ function computeDaysRemaining(expiresAt: number): number {
 }
 
 export async function checkAndRenew(
-  agentKey: AgentKey,
+  agentKey: AgentKey | null | undefined,
   operatorKey: OperatorKey
 ): Promise<RenewalResult> {
+  // No agent key yet — generate a fresh one instead of crashing
+  if (!agentKey) {
+    const newKey = await delegateAgentKey(operatorKey, 'agent', NEW_KEY_TTL_DAYS)
+    const delegateEvent = await createDelegateEvent(operatorKey, newKey)
+    return { renewed: true, newKey, delegateEvent, daysRemaining: NEW_KEY_TTL_DAYS }
+  }
+
   const daysRemaining = computeDaysRemaining(agentKey.expiresAt)
 
   if (!shouldRenew(agentKey.expiresAt)) {

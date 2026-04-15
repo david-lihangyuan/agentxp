@@ -26,11 +26,15 @@ export function parseHeartbeatChain(raw: string): HeartbeatEntry[] {
     const lines = section.split('\n')
     const dateLine = lines[0]?.trim() || ''
 
-    // Skip the file header (e.g., "# Heartbeat Chain" appears before first ##)
-    if (!dateLine.match(/^\d{4}-\d{2}-\d{2}/)) continue
-
     const content = lines.slice(1).join('\n').trim()
-    const dateMatch = dateLine.match(/^(\d{4}-\d{2}-\d{2})/)
+    const fullText = dateLine + '\n' + content
+
+    // Skip file header fragments ("# Heartbeat Chain" leaks into first section)
+    if (/^#\s|^heartbeat chain$/i.test(dateLine.trim())) continue
+
+    // Try to extract a date from the heading or from content lines
+    const dateMatch = dateLine.match(/(\d{4}-\d{2}-\d{2})/) ||
+      content.match(/(\d{4}-\d{2}-\d{2})/)
     const date = dateMatch ? dateMatch[1] : dateLine
     entries.push({
       date,
