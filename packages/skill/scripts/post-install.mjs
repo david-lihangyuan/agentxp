@@ -12,67 +12,82 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
 // ---------------------------------------------------------------------------
-// Detect workspace
+// Detect workspace — import from compiled CLI module (single source of truth)
+// Falls back to inline implementation if dist/ not available.
 // ---------------------------------------------------------------------------
 
-function findWorkspace() {
-  // Priority 1: explicit env var
-  if (process.env.OPENCLAW_WORKSPACE && existsSync(process.env.OPENCLAW_WORKSPACE)) {
-    return process.env.OPENCLAW_WORKSPACE
-  }
+let findWorkspace
+try {
+  const cliModule = await import(join(__dirname, '..', 'dist', 'cli.js'))
+  findWorkspace = cliModule.findWorkspace
+} catch {
+  // dist/ not available (e.g. running from source before build)
+  // Inline fallback with all guards
+  findWorkspace = function findWorkspaceInline() {
+    if (process.env.OPENCLAW_WORKSPACE && existsSync(process.env.OPENCLAW_WORKSPACE)) {
+      return process.env.OPENCLAW_WORKSPACE
+    }
 
-  // Workspace must have marker + at least one workspace-specific item
-  function looksLikeWorkspace(d) {
-    const hasMarker = existsSync(join(d, 'AGENTS.md')) || existsSync(join(d, '.openclaw'))
-    if (!hasMarker) return false
-    return existsSync(join(d, 'SOUL.md')) || existsSync(join(d, 'memory')) ||
-      existsSync(join(d, 'reflection')) || existsSync(join(d, 'MEMORY.md')) ||
-      existsSync(join(d, 'HEARTBEAT.md'))
-  }
+    function looksLikeWorkspace(d) {
+      const hasMarker = existsSync(join(d, 'AGENTS.md')) || existsSync(join(d, '.openclaw'))
+      if (!hasMarker) return false
+      return existsSync(join(d, 'SOUL.md')) || existsSync(join(d, 'memory')) ||
+        existsSync(join(d, 'reflection')) || existsSync(join(d, 'MEMORY.md')) ||
+        existsSync(join(d, 'HEARTBEAT.md'))
+    }
 
-  const home = homedir()
+    const home = homedir()
 
-  // Priority 2: walk up from cwd (stop at home dir — never treat ~ as workspace)
-  let dir = process.cwd()
-  for (let i = 0; i < 10; i++) {
-    if (dir === home) break
-    if (looksLikeWorkspace(dir)) return dir
-    const parent = dirname(dir)
-    if (parent === dir) break
-    dir = parent
-  }
+    // Walk up from cwd (stop at home)
+    let dir = process.cwd()
+    for (let i = 0; i < 10; i++) {
+      if (dir === home) break
+      if (looksLikeWorkspace(dir)) return dir
+      const parent = dirname(dir)
+      if (parent === dir) break
+      dir = parent
+    }
 
-  // Priority 3: walk up from script location
-  dir = join(__dirname, '..')
-  for (let i = 0; i < 10; i++) {
-    if (dir === home) break
-    if (looksLikeWorkspace(dir)) return dir
-    const parent = dirname(dir)
-    if (parent === dir) break
-    dir = parent
-  }
+    // Walk up from script location (stop at home)
+    dir = join(__dirname, '..')
+    for (let i = 0; i < 10; i++) {
+      if (dir === home) break
+      if (looksLikeWorkspace(dir)) return dir
+      const parent = dirname(dir)
+      if (parent === dir) break
+      dir = parent
+    }
 
-  // Priority 4: OpenClaw default workspace
-  const openclawDefault = join(homedir(), '.openclaw', 'workspace')
-  if (existsSync(openclawDefault)) {
-    return openclawDefault
-  }
+    // Walk up looking for skills/agentxp/config.yaml (stop at home)
+    dir = process.cwd()
+    for (let i = 0; i < 10; i++) {
+      if (dir === home) break
+      if (existsSync(join(dir, 'skills', 'agentxp', 'config.yaml'))) return dir
+      const parent = dirname(dir)
+      if (parent === dir) break
+      dir = parent
+    }
 
-  // Priority 5: multi-agent workspaces (workspace-*)
-  const openclawDir = join(homedir(), '.openclaw')
-  if (existsSync(openclawDir)) {
-    try {
-      for (const entry of readdirSync(openclawDir)) {
-        if (entry.startsWith('workspace')) {
-          const candidate = join(openclawDir, entry)
-          if (looksLikeWorkspace(candidate)) return candidate
+    // OpenClaw default workspace
+    const openclawDefault = join(home, '.openclaw', 'workspace')
+    if (existsSync(openclawDefault)) return openclawDefault
+
+    // Multi-agent workspaces
+    const openclawDir = join(home, '.openclaw')
+    if (existsSync(openclawDir)) {
+      try {
+        for (const entry of readdirSync(openclawDir)) {
+          if (entry.startsWith('workspace')) {
+            const candidate = join(openclawDir, entry)
+            if (looksLikeWorkspace(candidate)) return candidate
+          }
         }
-      }
-    } catch {}
-  }
+      } catch {}
+    }
 
-  // Fallback: cwd
-  return process.cwd()
+    // Fallback: cwd
+    return process.cwd()
+  }
 }
 
 const workspace = findWorkspace()
