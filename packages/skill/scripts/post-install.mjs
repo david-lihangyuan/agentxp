@@ -209,46 +209,136 @@ if (existsSync(gitignorePath)) {
   // ---------------------------------------------------------------------------
   // Pattern definitions (mirrored from src/diagnose.ts)
   // ---------------------------------------------------------------------------
+
+  // Files to skip during scanning
+  const EXCLUDE_FILENAME_PATTERNS = [
+    /PHILOSOPHY/i, /RULES/i, /SPEC/i, /\bspec\b/i, /design/i, /plan/i, /^insight-/i,
+  ]
+
+  function shouldExcludeFile(filename) {
+    return EXCLUDE_FILENAME_PATTERNS.some(p => p.test(filename))
+  }
+
   const PATTERN_DEFS = [
     {
       id: 'unverified',
       title: 'Acting on Unverified Assumptions',
-      reflection: 'Always verify before acting. Check the actual file, port, URL, or endpoint instead of assuming.',
-      keywords: [
-        /\bassumed\b/i, /\bassumption\b/i, /thought it was/i, /turned out/i,
-        /\bactually\b/i, /without checking/i, /without verifying/i,
-        /didn[\u2019']t verify/i, /didn[\u2019']t check/i,
-        /\bfabricat/i, /\bmade up\b/i, /\bhallucinate/i,
-        /wrong port/i, /wrong path/i, /wrong endpoint/i, /wrong url/i, /wrong file/i,
-        /没验证/, /不验证/, /没确认/, /想当然/, /以为/, /虚构/, /编造/, /假设.*错/,
+      reflection: 'verify before acting',
+      subPatterns: [
+        {
+          id: '1a',
+          description: 'answered without checking data ({count} times)',
+          keywords: [
+            /without checking/i, /without verifying/i,
+            /didn[\u2019']t verify/i, /didn[\u2019']t check/i,
+            /没验证/, /不验证/, /没确认/,
+          ],
+          requiresErrorContext: true,
+        },
+        {
+          id: '1b',
+          description: 'fabricated outputs instead of running tools ({count} times)',
+          keywords: [
+            /\bfabricat/i, /\bmade up\b/i,
+            /虚构/, /编造/, /叙述替代/, /没有工具调用/,
+          ],
+          requiresErrorContext: false,
+        },
+        {
+          id: '1c',
+          description: 'assumed infrastructure details that turned out wrong ({count} times)',
+          keywords: [
+            /wrong port/i, /wrong path/i, /wrong endpoint/i,
+            /wrong file/i, /wrong url/i, /wrong schema/i,
+            /以为.*端口/, /以为.*路径/, /假设.*错/, /错误端口/, /端口错配/,
+          ],
+          requiresErrorContext: false,
+        },
       ],
     },
     {
       id: 'incomplete',
-      title: 'Marking Work Done Before It Is Complete',
-      reflection: 'Do not mark a task complete until all parts are verified: code, tests, docs, and synced state.',
-      keywords: [
-        /only half/i, /half done/i, /\bpartially\b/i, /\bincomplete\b/i,
-        /forgot to/i, /\bmissed\b/i, /\boverlooked\b/i, /left out/i,
-        /not synced/i, /out of sync/i, /didn[\u2019']t update/i, /wasn[\u2019']t updated/i,
-        /wrote code but/i, /tests pass but/i, /implemented but/i,
-        /只做了一半/, /只移了/, /\b遗漏/, /没更新/, /没同步/, /不同步/, /脱节/, /接了一半/, /写了但没/,
+      title: 'Marking Work Done Before Complete',
+      reflection: 'end-to-end verify before marking done',
+      subPatterns: [
+        {
+          id: '2a',
+          description: 'only completed partial changes ({count} times)',
+          keywords: [
+            /only half/i, /half done/i,
+            /只移了/, /只做了一半/, /只改了/,
+          ],
+          requiresErrorContext: true,
+        },
+        {
+          id: '2b',
+          description: 'wrote code but never wired it up ({count} times)',
+          keywords: [
+            /wrote code but/i, /tests pass but/i, /implemented but/i,
+            /写了但没/, /接了一半/, /代码.*但.*没挂/, /写了.*但.*没接/,
+          ],
+          requiresErrorContext: false,
+        },
+        {
+          id: '2c',
+          description: 'forgot to sync or update related files ({count} times)',
+          keywords: [
+            /not synced/i, /out of sync/i, /didn[\u2019']t update/i,
+            /没同步/, /不同步/, /遗漏/, /没更新/, /忘了更新/,
+          ],
+          requiresErrorContext: true,
+        },
+        {
+          id: '2d',
+          description: 'overlooked items during review ({count} times)',
+          keywords: [
+            /\boverlooked\b/i, /\bleft out\b/i, /\bmissed\b/i, /脱节/,
+          ],
+          requiresErrorContext: true,
+        },
       ],
     },
     {
       id: 'symptom-fix',
       title: 'Fixing Symptoms Instead of Root Causes',
-      reflection: 'When the same error recurs, stop and identify the root cause before patching the symptom again.',
-      keywords: [
-        /same bug/i, /same error/i, /same issue/i, /\bagain\b/i,
-        /third time/i, /second time/i, /same type/i, /similar error/i,
-        /\brecurring\b/i, /\brepeated\b/i, /root cause/i, /\bunderlying\b/i, /\bsystematic\b/i,
-        /同类/, /同样的/, /又一次/, /第.{0,3}次修/, /同一天.{0,5}次/, /\b重复/,
+      reflection: 'after fixing a bug, search all similar locations',
+      subPatterns: [
+        {
+          id: '3a',
+          description: 'fixed the same type of bug multiple times ({count} times)',
+          keywords: [
+            /same bug/i, /same error/i, /same issue/i,
+            /同类.*bug/i, /同一天.*次/, /第.{0,3}次修/, /又一次/,
+          ],
+          requiresErrorContext: false,
+        },
+        {
+          id: '3b',
+          description: 'encountered recurring issues without root cause analysis ({count} times)',
+          keywords: [
+            /\brecurring\b/i, /\brepeated\b/i, /重复/, /\bagain\b/i,
+          ],
+          requiresErrorContext: true,
+          excludeKeywords: [
+            /root cause/i, /underlying/i, /systematic/i,
+          ],
+        },
       ],
     },
   ]
 
   const RULE = '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+  const ERROR_MARKERS = /\[!\]|错|error|fail|bug|fix|wrong|修复|问题|broke|crash/i
+
+  // Check if a line has error context within ±2 lines
+  function hasErrorContext(lines, lineIndex) {
+    const start = Math.max(0, lineIndex - 2)
+    const end = Math.min(lines.length - 1, lineIndex + 2)
+    for (let i = start; i <= end; i++) {
+      if (ERROR_MARKERS.test(lines[i])) return true
+    }
+    return false
+  }
 
   // Collect candidate files
   function collectFiles(workspaceDir) {
@@ -257,7 +347,9 @@ if (existsSync(gitignorePath)) {
     if (existsSync(memoryDir)) {
       try {
         for (const entry of readdirSync(memoryDir)) {
-          if (entry.endsWith('.md')) candidates.push(join(memoryDir, entry))
+          if (entry.endsWith('.md') && !shouldExcludeFile(entry)) {
+            candidates.push(join(memoryDir, entry))
+          }
         }
       } catch {}
     }
@@ -288,25 +380,28 @@ if (existsSync(gitignorePath)) {
     return Math.round((max - min) / (1000 * 60 * 60 * 24)) + 1
   }
 
-  // Match a single pattern against lines
-  function matchPattern(def, lines) {
+  // Match a single sub-pattern against lines
+  function matchSubPattern(subDef, lines) {
     let count = 0
-    const examples = []
-    for (const line of lines) {
-      const trimmed = line.trim()
+    for (let i = 0; i < lines.length; i++) {
+      const trimmed = lines[i].trim()
       if (!trimmed) continue
       let matched = false
-      for (const kw of def.keywords) {
+      for (const kw of subDef.keywords) {
         if (kw.test(trimmed)) { matched = true; break }
       }
-      if (matched) {
-        count++
-        if (examples.length < 3) {
-          examples.push(trimmed.length > 80 ? trimmed.slice(0, 77) + '...' : trimmed)
+      if (!matched) continue
+      if (subDef.excludeKeywords) {
+        let excluded = false
+        for (const exkw of subDef.excludeKeywords) {
+          if (exkw.test(trimmed)) { excluded = true; break }
         }
+        if (excluded) continue
       }
+      if (subDef.requiresErrorContext && !hasErrorContext(lines, i)) continue
+      count++
     }
-    return { count, examples }
+    return count
   }
 
   // Run the full scan
@@ -324,14 +419,32 @@ if (existsSync(gitignorePath)) {
     let totalErrorEvents = 0
 
     for (const def of PATTERN_DEFS) {
-      const { count, examples } = matchPattern(def, allLines)
-      totalErrorEvents += count
-      if (count >= 2) {
-        patterns.push({ id: def.id, title: def.title, count, examples, reflection: def.reflection })
+      const subPatterns = []
+      let patternTotal = 0
+      for (const subDef of def.subPatterns) {
+        const count = matchSubPattern(subDef, allLines)
+        subPatterns.push({ id: subDef.id, description: subDef.description, count })
+        patternTotal += count
+      }
+      totalErrorEvents += patternTotal
+      if (patternTotal >= 2) {
+        patterns.push({ id: def.id, title: def.title, count: patternTotal, subPatterns, reflection: def.reflection })
       }
     }
     patterns.sort((a, b) => b.count - a.count)
     return { filesScanned: filePaths.length, daysSpan, totalErrorEvents, patterns }
+  }
+
+  // Build narrative sentence from active sub-patterns
+  function buildNarrative(subPatterns) {
+    const active = subPatterns
+      .filter(sp => sp.count > 0)
+      .map(sp => sp.description.replace('{count}', String(sp.count)))
+    if (active.length === 0) return ''
+    if (active.length === 1) return `  Your agent ${active[0]}.`
+    const allButLast = active.slice(0, -1)
+    const last = active[active.length - 1]
+    return `  Your agent ${allButLast.join(',\n  ')},\n  and ${last}.`
   }
 
   // Format the report for the terminal
@@ -352,7 +465,8 @@ if (existsSync(gitignorePath)) {
     }
 
     lines.push(`  Scanned: ${report.filesScanned} files across ${report.daysSpan} days`)
-    lines.push(`  Found: ${report.totalErrorEvents} error events, ${report.patterns.length} recurring pattern(s)`)
+    const pl = report.patterns.length !== 1 ? 'patterns' : 'pattern'
+    lines.push(`  Found: ${report.patterns.length} recurring ${pl}`)
     lines.push('')
     lines.push(RULE)
 
@@ -361,10 +475,10 @@ if (existsSync(gitignorePath)) {
       lines.push('')
       lines.push(`  #${i + 1} ${p.title} (${p.count} times)`)
       lines.push('')
-      for (const ex of p.examples) lines.push(`  ${ex}`)
+      const narrative = buildNarrative(p.subPatterns)
+      if (narrative) lines.push(narrative)
       lines.push('')
-      const shortRule = p.reflection.split('.')[0]
-      lines.push(`  ✅ Added reflection rule: ${shortRule}.`)
+      lines.push(`  ✅ Added rule: ${p.reflection}`)
       lines.push('')
       lines.push(RULE)
     }

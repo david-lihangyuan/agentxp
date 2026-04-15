@@ -8,18 +8,24 @@ import { join, basename } from 'path'
 // Types
 // ---------------------------------------------------------------------------
 
+export interface SubPatternMatch {
+  id: string
+  description: string  // Narrative description template with {count} placeholder
+  count: number
+}
+
 export interface PatternMatch {
   id: string        // 'unverified' | 'incomplete' | 'symptom-fix'
   title: string     // Short human-readable label
-  count: number     // Number of keyword matches
-  examples: string[] // Up to 3 matching lines, truncated to 80 chars
+  count: number     // Sum of all sub-pattern counts
+  subPatterns: SubPatternMatch[]  // Sub-pattern breakdown
   reflection: string // Rule to write into mistakes.md
 }
 
 export interface DiagnosisReport {
   filesScanned: number
   daysSpan: number           // Days inferred from file-name dates
-  totalErrorEvents: number   // All error-keyword matches across all patterns
+  totalErrorEvents: number   // Sum of all pattern counts
   patterns: PatternMatch[]   // Only patterns with count >= 2, sorted desc
 }
 
@@ -27,101 +33,179 @@ export interface DiagnosisReport {
 // Pattern definitions
 // ---------------------------------------------------------------------------
 
+interface SubPatternDef {
+  id: string
+  description: string                  // Template with {count}
+  keywords: (string | RegExp)[]
+  requiresErrorContext: boolean        // If true, line must also pass hasErrorContext
+  excludeKeywords?: (string | RegExp)[] // Lines matching any of these are skipped
+}
+
 interface PatternDef {
   id: string
   title: string
   reflection: string
-  keywords: (string | RegExp)[]
+  subPatterns: SubPatternDef[]
 }
+
+// Files to skip during scanning (philosophy docs, spec files, design docs, etc.)
+const EXCLUDE_FILENAME_PATTERNS = [
+  /PHILOSOPHY/i,
+  /RULES/i,
+  /SPEC/i,
+  /\bspec\b/i,
+  /design/i,
+  /plan/i,
+  /^insight-/i,
+]
 
 const PATTERN_DEFS: PatternDef[] = [
   {
     id: 'unverified',
     title: 'Acting on Unverified Assumptions',
-    reflection: 'Always verify before acting. Check the actual file, port, URL, or endpoint instead of assuming.',
-    keywords: [
-      /\bassumed\b/i,
-      /\bassumption\b/i,
-      /thought it was/i,
-      /turned out/i,
-      /\bactually\b/i,
-      /without checking/i,
-      /without verifying/i,
-      /didn['']t verify/i,
-      /didn['']t check/i,
-      /\bfabricat/i,
-      /\bmade up\b/i,
-      /\bhallucinate/i,
-      /wrong port/i,
-      /wrong path/i,
-      /wrong endpoint/i,
-      /wrong url/i,
-      /wrong file/i,
-      /没验证/,
-      /不验证/,
-      /没确认/,
-      /想当然/,
-      /以为/,
-      /虚构/,
-      /编造/,
-      /假设.*错/,
+    reflection: 'verify before acting',
+    subPatterns: [
+      {
+        id: '1a',
+        description: 'answered without checking data ({count} times)',
+        keywords: [
+          /without checking/i,
+          /without verifying/i,
+          /didn[\u2019']t verify/i,
+          /didn[\u2019']t check/i,
+          /没验证/,
+          /不验证/,
+          /没确认/,
+        ],
+        requiresErrorContext: true,
+      },
+      {
+        id: '1b',
+        description: 'fabricated outputs instead of running tools ({count} times)',
+        keywords: [
+          /\bfabricat/i,
+          /\bmade up\b/i,
+          /虚构/,
+          /编造/,
+          /叙述替代/,
+          /没有工具调用/,
+        ],
+        requiresErrorContext: false,
+      },
+      {
+        id: '1c',
+        description: 'assumed infrastructure details that turned out wrong ({count} times)',
+        keywords: [
+          /wrong port/i,
+          /wrong path/i,
+          /wrong endpoint/i,
+          /wrong file/i,
+          /wrong url/i,
+          /wrong schema/i,
+          /以为.*端口/,
+          /以为.*路径/,
+          /假设.*错/,
+          /错误端口/,
+          /端口错配/,
+        ],
+        requiresErrorContext: false,
+      },
     ],
   },
   {
     id: 'incomplete',
-    title: 'Marking Work Done Before It Is Complete',
-    reflection: 'Do not mark a task complete until all parts are verified: code, tests, docs, and synced state.',
-    keywords: [
-      /only half/i,
-      /half done/i,
-      /\bpartially\b/i,
-      /\bincomplete\b/i,
-      /forgot to/i,
-      /\bmissed\b/i,
-      /\boverlooked\b/i,
-      /left out/i,
-      /not synced/i,
-      /out of sync/i,
-      /didn['']t update/i,
-      /wasn['']t updated/i,
-      /wrote code but/i,
-      /tests pass but/i,
-      /implemented but/i,
-      /只做了一半/,
-      /只移了/,
-      /\b遗漏/,
-      /没更新/,
-      /没同步/,
-      /不同步/,
-      /脱节/,
-      /接了一半/,
-      /写了但没/,
+    title: 'Marking Work Done Before Complete',
+    reflection: 'end-to-end verify before marking done',
+    subPatterns: [
+      {
+        id: '2a',
+        description: 'only completed partial changes ({count} times)',
+        keywords: [
+          /only half/i,
+          /half done/i,
+          /只移了/,
+          /只做了一半/,
+          /只改了/,
+        ],
+        requiresErrorContext: true,
+      },
+      {
+        id: '2b',
+        description: 'wrote code but never wired it up ({count} times)',
+        keywords: [
+          /wrote code but/i,
+          /tests pass but/i,
+          /implemented but/i,
+          /写了但没/,
+          /接了一半/,
+          /代码.*但.*没挂/,
+          /写了.*但.*没接/,
+        ],
+        requiresErrorContext: false,
+      },
+      {
+        id: '2c',
+        description: 'forgot to sync or update related files ({count} times)',
+        keywords: [
+          /not synced/i,
+          /out of sync/i,
+          /didn[\u2019']t update/i,
+          /没同步/,
+          /不同步/,
+          /遗漏/,
+          /没更新/,
+          /忘了更新/,
+        ],
+        requiresErrorContext: true,
+      },
+      {
+        id: '2d',
+        description: 'overlooked items during review ({count} times)',
+        keywords: [
+          /\boverlooked\b/i,
+          /\bleft out\b/i,
+          /\bmissed\b/i,
+          /脱节/,
+        ],
+        requiresErrorContext: true,
+      },
     ],
   },
   {
     id: 'symptom-fix',
     title: 'Fixing Symptoms Instead of Root Causes',
-    reflection: 'When the same error recurs, stop and identify the root cause before patching the symptom again.',
-    keywords: [
-      /same bug/i,
-      /same error/i,
-      /same issue/i,
-      /\bagain\b/i,
-      /third time/i,
-      /second time/i,
-      /same type/i,
-      /similar error/i,
-      /\brecurring\b/i,
-      /\brepeated\b/i,
-      /root cause/i,
-      /\bunderlying\b/i,
-      /\bsystematic\b/i,
-      /同类/,
-      /同样的/,
-      /又一次/,
-      /第.{0,3}次修/,
-      /同一天.{0,5}次/,
-      /\b重复/,
+    reflection: 'after fixing a bug, search all similar locations',
+    subPatterns: [
+      {
+        id: '3a',
+        description: 'fixed the same type of bug multiple times ({count} times)',
+        keywords: [
+          /same bug/i,
+          /same error/i,
+          /same issue/i,
+          /同类.*bug/i,
+          /同一天.*次/,
+          /第.{0,3}次修/,
+          /又一次/,
+        ],
+        requiresErrorContext: false,
+      },
+      {
+        id: '3b',
+        description: 'encountered recurring issues without root cause analysis ({count} times)',
+        keywords: [
+          /\brecurring\b/i,
+          /\brepeated\b/i,
+          /重复/,
+          /\bagain\b/i,
+        ],
+        requiresErrorContext: true,
+        excludeKeywords: [
+          /root cause/i,
+          /underlying/i,
+          /systematic/i,
+        ],
+      },
     ],
   },
 ]
@@ -129,6 +213,16 @@ const PATTERN_DEFS: PatternDef[] = [
 // ---------------------------------------------------------------------------
 // File scanning
 // ---------------------------------------------------------------------------
+
+/**
+ * Returns true if a file basename should be excluded from scanning.
+ */
+function shouldExcludeFile(filename: string): boolean {
+  for (const pattern of EXCLUDE_FILENAME_PATTERNS) {
+    if (pattern.test(filename)) return true
+  }
+  return false
+}
 
 /**
  * Collect candidate memory/reflection file paths from the workspace.
@@ -142,7 +236,7 @@ function collectFiles(workspaceDir: string): string[] {
   if (existsSync(memoryDir)) {
     try {
       for (const entry of readdirSync(memoryDir)) {
-        if (entry.endsWith('.md')) {
+        if (entry.endsWith('.md') && !shouldExcludeFile(entry)) {
           candidates.push(join(memoryDir, entry))
         }
       }
@@ -168,24 +262,41 @@ function collectFiles(workspaceDir: string): string[] {
 }
 
 // ---------------------------------------------------------------------------
+// Error context detection
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns true if any line in the ±windowSize neighbourhood contains an
+ * error-context marker. Used for dual-match sub-patterns.
+ */
+function hasErrorContext(lines: string[], lineIndex: number, windowSize = 2): boolean {
+  const errorMarkers = /\[!\]|错|error|fail|bug|fix|wrong|修复|问题|broke|crash/i
+  const start = Math.max(0, lineIndex - windowSize)
+  const end = Math.min(lines.length - 1, lineIndex + windowSize)
+  for (let i = start; i <= end; i++) {
+    if (errorMarkers.test(lines[i])) return true
+  }
+  return false
+}
+
+// ---------------------------------------------------------------------------
 // Pattern matching
 // ---------------------------------------------------------------------------
 
 /**
- * Match a single pattern against all file contents.
- * Returns count + up to 3 example lines.
+ * Match a single sub-pattern against all file contents.
  */
-function matchPattern(
-  def: PatternDef,
+function matchSubPattern(
+  def: SubPatternDef,
   lines: string[]
-): { count: number; examples: string[] } {
+): number {
   let count = 0
-  const examples: string[] = []
 
-  for (const line of lines) {
-    const trimmed = line.trim()
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim()
     if (!trimmed) continue
 
+    // Check primary keywords
     let matched = false
     for (const kw of def.keywords) {
       const re = kw instanceof RegExp ? kw : new RegExp(kw, 'i')
@@ -194,17 +305,30 @@ function matchPattern(
         break
       }
     }
+    if (!matched) continue
 
-    if (matched) {
-      count++
-      if (examples.length < 3) {
-        // Truncate to 80 chars for display
-        examples.push(trimmed.length > 80 ? trimmed.slice(0, 77) + '...' : trimmed)
+    // Check exclude keywords (if any)
+    if (def.excludeKeywords) {
+      let excluded = false
+      for (const exkw of def.excludeKeywords) {
+        const re = exkw instanceof RegExp ? exkw : new RegExp(exkw, 'i')
+        if (re.test(trimmed)) {
+          excluded = true
+          break
+        }
       }
+      if (excluded) continue
     }
+
+    // Dual-match: require error context window
+    if (def.requiresErrorContext) {
+      if (!hasErrorContext(lines, i)) continue
+    }
+
+    count++
   }
 
-  return { count, examples }
+  return count
 }
 
 // ---------------------------------------------------------------------------
@@ -271,14 +395,27 @@ export function diagnose(workspaceDir: string): DiagnosisReport {
   let totalErrorEvents = 0
 
   for (const def of PATTERN_DEFS) {
-    const { count, examples } = matchPattern(def, allLines)
-    totalErrorEvents += count
-    if (count >= 2) {
+    const subPatterns: SubPatternMatch[] = []
+    let patternTotal = 0
+
+    for (const subDef of def.subPatterns) {
+      const count = matchSubPattern(subDef, allLines)
+      subPatterns.push({
+        id: subDef.id,
+        description: subDef.description,
+        count,
+      })
+      patternTotal += count
+    }
+
+    totalErrorEvents += patternTotal
+
+    if (patternTotal >= 2) {
       patterns.push({
         id: def.id,
         title: def.title,
-        count,
-        examples,
+        count: patternTotal,
+        subPatterns,
         reflection: def.reflection,
       })
     }

@@ -55,7 +55,166 @@ describe('diagnose — empty workspace', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Pattern 1: Unverified Assumptions (English)
+// File exclusion
+// ---------------------------------------------------------------------------
+
+describe('diagnose — file exclusion', () => {
+  let tmpDir: string
+
+  beforeEach(() => { tmpDir = makeTempDir() })
+  afterEach(() => { rmSync(tmpDir, { recursive: true, force: true }) })
+
+  it('skips PHILOSOPHY.md files in memory/', () => {
+    mkdirSync(join(tmpDir, 'memory'), { recursive: true })
+    // PHILOSOPHY.md with unverified keywords should be excluded
+    writeFile(tmpDir, 'memory/PHILOSOPHY.md', [
+      '# Philosophy',
+      'wrong port design principle: never assume ports.',
+      'wrong path is a philosophical mistake to avoid.',
+      'wrong endpoint matters for architecture.',
+    ].join('\n'))
+    const report = diagnose(tmpDir)
+    expect(report.filesScanned).toBe(0)
+  })
+
+  it('skips files matching plan/design/spec/insight- patterns in memory/', () => {
+    mkdirSync(join(tmpDir, 'memory'), { recursive: true })
+    writeFile(tmpDir, 'memory/design-notes.md', [
+      'wrong port in design: always use env vars.',
+      'wrong path consideration for deployment.',
+    ].join('\n'))
+    writeFile(tmpDir, 'memory/insight-2024-01-01.md', [
+      'wrong url observed in insight review.',
+      'wrong file patterns we should fix.',
+    ].join('\n'))
+    const report = diagnose(tmpDir)
+    expect(report.filesScanned).toBe(0)
+  })
+
+  it('does NOT skip regular daily log files', () => {
+    mkdirSync(join(tmpDir, 'memory'), { recursive: true })
+    writeFile(tmpDir, 'memory/2024-01-01.md', [
+      '# Day 1',
+      '[!] wrong port was used — fix deployed.',
+      'wrong path caused a 404 error.',
+    ].join('\n'))
+    const report = diagnose(tmpDir)
+    expect(report.filesScanned).toBe(1)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Dual-match: requiresErrorContext
+// ---------------------------------------------------------------------------
+
+describe('diagnose — dual-match (requiresErrorContext)', () => {
+  let tmpDir: string
+
+  beforeEach(() => { tmpDir = makeTempDir() })
+  afterEach(() => { rmSync(tmpDir, { recursive: true, force: true }) })
+
+  it('sub-pattern 1a: does NOT match "without checking" without error context', () => {
+    writeFile(tmpDir, 'MEMORY.md', [
+      '# Memory',
+      'We deployed without checking the staging environment first.',
+      'Reviewed without checking for regressions.',
+    ].join('\n'))
+
+    const report = diagnose(tmpDir)
+    const unverified = report.patterns.find(p => p.id === 'unverified')
+    const sub1a = unverified?.subPatterns.find(s => s.id === '1a')
+    // No error context → should not match
+    expect(sub1a?.count ?? 0).toBe(0)
+  })
+
+  it('sub-pattern 1a: MATCHES "without checking" when error context is nearby', () => {
+    writeFile(tmpDir, 'MEMORY.md', [
+      '# Memory',
+      '[!] Deployed without checking — error in prod.',
+      'Bug: deployed without verifying the config.',
+    ].join('\n'))
+
+    const report = diagnose(tmpDir)
+    const unverified = report.patterns.find(p => p.id === 'unverified')
+    const sub1a = unverified?.subPatterns.find(s => s.id === '1a')
+    expect(sub1a?.count).toBeGreaterThanOrEqual(2)
+  })
+
+  it('sub-pattern 1b: "fabricat" matches WITHOUT error context (strong signal)', () => {
+    writeFile(tmpDir, 'MEMORY.md', [
+      '# Memory',
+      'I fabricated a URL that did not exist.',
+      'The agent fabricated an API response.',
+    ].join('\n'))
+
+    const report = diagnose(tmpDir)
+    const unverified = report.patterns.find(p => p.id === 'unverified')
+    const sub1b = unverified?.subPatterns.find(s => s.id === '1b')
+    expect(sub1b?.count).toBeGreaterThanOrEqual(2)
+  })
+
+  it('sub-pattern 1c: "wrong port" matches WITHOUT error context (strong signal)', () => {
+    writeFile(tmpDir, 'MEMORY.md', [
+      '# Memory',
+      'Connected to wrong port 8080.',
+      'Used wrong path for the config file.',
+    ].join('\n'))
+
+    const report = diagnose(tmpDir)
+    const unverified = report.patterns.find(p => p.id === 'unverified')
+    const sub1c = unverified?.subPatterns.find(s => s.id === '1c')
+    expect(sub1c?.count).toBeGreaterThanOrEqual(2)
+  })
+
+  it('sub-pattern 2c: "没同步" does NOT match without error context', () => {
+    writeFile(tmpDir, 'MEMORY.md', [
+      '# Memory',
+      '我们没同步会议纪要，明天需要整理。',
+      '记得没同步这份报告的最新版本。',
+    ].join('\n'))
+
+    const report = diagnose(tmpDir)
+    const incomplete = report.patterns.find(p => p.id === 'incomplete')
+    const sub2c = incomplete?.subPatterns.find(s => s.id === '2c')
+    expect(sub2c?.count ?? 0).toBe(0)
+  })
+
+  it('sub-pattern 2c: "没同步" MATCHES with error context nearby', () => {
+    writeFile(tmpDir, 'MEMORY.md', [
+      '# Memory',
+      '发现bug：没同步配置导致崩溃。',
+      '修复后没同步文档，问题又出现了。',
+    ].join('\n'))
+
+    const report = diagnose(tmpDir)
+    const incomplete = report.patterns.find(p => p.id === 'incomplete')
+    const sub2c = incomplete?.subPatterns.find(s => s.id === '2c')
+    expect(sub2c?.count).toBeGreaterThanOrEqual(2)
+  })
+
+  it('sub-pattern 3b: "again" with error context — but NOT when root cause is mentioned', () => {
+    writeFile(tmpDir, 'MEMORY.md', [
+      '# Memory',
+      // These should match (error context, no root cause exclusion)
+      'Same error happened again — bug is back.',
+      'Recurring issue: it broke again in staging.',
+      // These should NOT match (root cause analysis present — excluded)
+      'Fixed again by addressing the root cause systematically.',
+      'Again: need to find the underlying pattern.',
+    ].join('\n'))
+
+    const report = diagnose(tmpDir)
+    const symptomFix = report.patterns.find(p => p.id === 'symptom-fix')
+    const sub3b = symptomFix?.subPatterns.find(s => s.id === '3b')
+    // Only 2 real matches (bug context without root cause mention)
+    expect(sub3b?.count).toBeGreaterThanOrEqual(2)
+    // The ones with "root cause" / "underlying" should be excluded
+    expect(sub3b?.count).toBeLessThanOrEqual(2)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Pattern 1: Unverified Assumptions — English
 // ---------------------------------------------------------------------------
 
 describe('diagnose — pattern: unverified assumptions (English)', () => {
@@ -64,35 +223,7 @@ describe('diagnose — pattern: unverified assumptions (English)', () => {
   beforeEach(() => { tmpDir = makeTempDir() })
   afterEach(() => { rmSync(tmpDir, { recursive: true, force: true }) })
 
-  it('detects "assumed" and "turned out" keywords', () => {
-    writeFile(tmpDir, 'MEMORY.md', [
-      '# Memory',
-      'I assumed the port was 3000 but turned out it was 4000.',
-      'Again I assumed the path was correct without checking.',
-      'Third time: assumed wrong URL.',
-    ].join('\n'))
-
-    const report = diagnose(tmpDir)
-    const unverified = report.patterns.find(p => p.id === 'unverified')
-    expect(unverified).toBeDefined()
-    expect(unverified!.count).toBeGreaterThanOrEqual(2)
-  })
-
-  it('detects "fabricated" and "hallucinate"', () => {
-    writeFile(tmpDir, 'MEMORY.md', [
-      '# Memory',
-      'I fabricated a URL that did not exist.',
-      'The model hallucinated the file path.',
-      'Another hallucinate event happened.',
-    ].join('\n'))
-
-    const report = diagnose(tmpDir)
-    const unverified = report.patterns.find(p => p.id === 'unverified')
-    expect(unverified).toBeDefined()
-    expect(unverified!.count).toBeGreaterThanOrEqual(2)
-  })
-
-  it('detects "wrong port", "wrong path", "wrong endpoint"', () => {
+  it('detects "wrong port" and "wrong path" (strong signals, no error context needed)', () => {
     writeFile(tmpDir, 'MEMORY.md', [
       '# Memory',
       'Connected to wrong port 8080.',
@@ -106,10 +237,24 @@ describe('diagnose — pattern: unverified assumptions (English)', () => {
     expect(unverified!.count).toBeGreaterThanOrEqual(2)
   })
 
-  it('does NOT create unverified pattern when count < 2', () => {
+  it('detects "fabricated" and "made up" (strong signals)', () => {
     writeFile(tmpDir, 'MEMORY.md', [
       '# Memory',
-      'I assumed the port once.',
+      'I fabricated a URL that did not exist.',
+      'Made up the file path without checking.',
+      'Another fabricated response happened.',
+    ].join('\n'))
+
+    const report = diagnose(tmpDir)
+    const unverified = report.patterns.find(p => p.id === 'unverified')
+    expect(unverified).toBeDefined()
+    expect(unverified!.count).toBeGreaterThanOrEqual(2)
+  })
+
+  it('does NOT create unverified pattern when total count < 2', () => {
+    writeFile(tmpDir, 'MEMORY.md', [
+      '# Memory',
+      'Used wrong port once.',
     ].join('\n'))
 
     const report = diagnose(tmpDir)
@@ -119,7 +264,7 @@ describe('diagnose — pattern: unverified assumptions (English)', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Pattern 1: Unverified Assumptions (Chinese)
+// Pattern 1: Unverified Assumptions — Chinese
 // ---------------------------------------------------------------------------
 
 describe('diagnose — pattern: unverified assumptions (Chinese)', () => {
@@ -128,21 +273,7 @@ describe('diagnose — pattern: unverified assumptions (Chinese)', () => {
   beforeEach(() => { tmpDir = makeTempDir() })
   afterEach(() => { rmSync(tmpDir, { recursive: true, force: true }) })
 
-  it('detects Chinese keywords 没验证, 想当然, 以为', () => {
-    writeFile(tmpDir, 'MEMORY.md', [
-      '# 记忆',
-      '没验证就直接部署了，导致出错。',
-      '想当然以为文件在那个路径。',
-      '以为端口是正确的，实际不对。',
-    ].join('\n'))
-
-    const report = diagnose(tmpDir)
-    const unverified = report.patterns.find(p => p.id === 'unverified')
-    expect(unverified).toBeDefined()
-    expect(unverified!.count).toBeGreaterThanOrEqual(2)
-  })
-
-  it('detects 虚构 and 编造 keywords', () => {
+  it('detects 虚构 and 编造 (strong signals)', () => {
     writeFile(tmpDir, 'MEMORY.md', [
       '# 记忆',
       '虚构了一个不存在的API地址。',
@@ -155,10 +286,23 @@ describe('diagnose — pattern: unverified assumptions (Chinese)', () => {
     expect(unverified).toBeDefined()
     expect(unverified!.count).toBeGreaterThanOrEqual(2)
   })
+
+  it('detects 错误端口 and 端口错配 (infrastructure strong signals)', () => {
+    writeFile(tmpDir, 'MEMORY.md', [
+      '# 记忆',
+      '配了错误端口导致连接失败。',
+      '端口错配，服务不可达。',
+    ].join('\n'))
+
+    const report = diagnose(tmpDir)
+    const unverified = report.patterns.find(p => p.id === 'unverified')
+    expect(unverified).toBeDefined()
+    expect(unverified!.count).toBeGreaterThanOrEqual(2)
+  })
 })
 
 // ---------------------------------------------------------------------------
-// Pattern 2: Incomplete Completion (English)
+// Pattern 2: Incomplete Completion — English
 // ---------------------------------------------------------------------------
 
 describe('diagnose — pattern: incomplete completion (English)', () => {
@@ -167,12 +311,11 @@ describe('diagnose — pattern: incomplete completion (English)', () => {
   beforeEach(() => { tmpDir = makeTempDir() })
   afterEach(() => { rmSync(tmpDir, { recursive: true, force: true }) })
 
-  it('detects "forgot to", "missed", "overlooked"', () => {
+  it('detects "wrote code but" (strong signal, no error context needed)', () => {
     writeFile(tmpDir, 'MEMORY.md', [
       '# Memory',
-      'I forgot to update the documentation.',
-      'Missed the config file sync.',
-      'Overlooked the test for the new function.',
+      'Wrote code but never connected the endpoint.',
+      'Implemented but the wiring was missing.',
     ].join('\n'))
 
     const report = diagnose(tmpDir)
@@ -181,12 +324,11 @@ describe('diagnose — pattern: incomplete completion (English)', () => {
     expect(incomplete!.count).toBeGreaterThanOrEqual(2)
   })
 
-  it('detects "out of sync", "not synced"', () => {
+  it('detects "overlooked" and "missed" with error context', () => {
     writeFile(tmpDir, 'MEMORY.md', [
       '# Memory',
-      'The config was out of sync with the code.',
-      'The docs were not synced after the change.',
-      'State became out of sync again.',
+      'Bug: I overlooked the integration test for the new function.',
+      'Error: missed the config file sync step.',
     ].join('\n'))
 
     const report = diagnose(tmpDir)
@@ -195,22 +337,22 @@ describe('diagnose — pattern: incomplete completion (English)', () => {
     expect(incomplete!.count).toBeGreaterThanOrEqual(2)
   })
 
-  it('detects "only half", "partially", "incomplete"', () => {
+  it('detects "out of sync" and "not synced" with error context', () => {
     writeFile(tmpDir, 'MEMORY.md', [
       '# Memory',
-      'Only half the tests were passing.',
-      'Work was partially complete when marked done.',
-      'Implementation was incomplete at review time.',
+      'The config was out of sync — caused a bug.',
+      'Docs were not synced after the fix was deployed.',
     ].join('\n'))
 
     const report = diagnose(tmpDir)
     const incomplete = report.patterns.find(p => p.id === 'incomplete')
     expect(incomplete).toBeDefined()
+    expect(incomplete!.count).toBeGreaterThanOrEqual(2)
   })
 })
 
 // ---------------------------------------------------------------------------
-// Pattern 2: Incomplete Completion (Chinese)
+// Pattern 2: Incomplete Completion — Chinese
 // ---------------------------------------------------------------------------
 
 describe('diagnose — pattern: incomplete completion (Chinese)', () => {
@@ -219,12 +361,11 @@ describe('diagnose — pattern: incomplete completion (Chinese)', () => {
   beforeEach(() => { tmpDir = makeTempDir() })
   afterEach(() => { rmSync(tmpDir, { recursive: true, force: true }) })
 
-  it('detects 遗漏, 没更新, 没同步', () => {
+  it('detects 写了但没 and 接了一半 (strong signals)', () => {
     writeFile(tmpDir, 'MEMORY.md', [
       '# 记忆',
-      '遗漏了测试用例的更新。',
-      '没更新文档就标记完成了。',
-      '没同步配置文件。',
+      '写了但没挂到路由，功能没生效。',
+      '接了一半就标了完成，后面的逻辑没接。',
     ].join('\n'))
 
     const report = diagnose(tmpDir)
@@ -233,12 +374,11 @@ describe('diagnose — pattern: incomplete completion (Chinese)', () => {
     expect(incomplete!.count).toBeGreaterThanOrEqual(2)
   })
 
-  it('detects 脱节 and 只做了一半', () => {
+  it('detects 遗漏 and 没更新 with error context', () => {
     writeFile(tmpDir, 'MEMORY.md', [
       '# 记忆',
-      '代码和文档脱节，没有同步更新。',
-      '只做了一半就提交了。',
-      '接了一半的任务就说完成了。',
+      '错误：遗漏了测试用例的更新导致CI失败。',
+      'bug：没更新文档就标记完成了。',
     ].join('\n'))
 
     const report = diagnose(tmpDir)
@@ -249,7 +389,7 @@ describe('diagnose — pattern: incomplete completion (Chinese)', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Pattern 3: Symptom Fixing (English)
+// Pattern 3: Symptom Fixing — English
 // ---------------------------------------------------------------------------
 
 describe('diagnose — pattern: symptom fixing (English)', () => {
@@ -258,12 +398,11 @@ describe('diagnose — pattern: symptom fixing (English)', () => {
   beforeEach(() => { tmpDir = makeTempDir() })
   afterEach(() => { rmSync(tmpDir, { recursive: true, force: true }) })
 
-  it('detects "same bug", "same error", "recurring"', () => {
+  it('detects "same bug", "same error" (strong signals)', () => {
     writeFile(tmpDir, 'MEMORY.md', [
       '# Memory',
       'Fixed the same bug for the second time.',
       'Same error appearing again in production.',
-      'This is a recurring problem with the auth module.',
     ].join('\n'))
 
     const report = diagnose(tmpDir)
@@ -272,12 +411,11 @@ describe('diagnose — pattern: symptom fixing (English)', () => {
     expect(symptomFix!.count).toBeGreaterThanOrEqual(2)
   })
 
-  it('detects "root cause", "systematic"', () => {
+  it('detects "recurring" with error context', () => {
     writeFile(tmpDir, 'MEMORY.md', [
       '# Memory',
-      'Did not find the root cause, same error came back.',
-      'This looks systematic — same error pattern repeated.',
-      'Need to address the root cause not just the symptom.',
+      'Bug: recurring auth failure in the module.',
+      'Recurring crash: same null-deref in the parser.',
     ].join('\n'))
 
     const report = diagnose(tmpDir)
@@ -286,12 +424,49 @@ describe('diagnose — pattern: symptom fixing (English)', () => {
     expect(symptomFix!.count).toBeGreaterThanOrEqual(2)
   })
 
-  it('detects "again", "second time"', () => {
+  it('does NOT flag "recurring" when root cause analysis is mentioned', () => {
     writeFile(tmpDir, 'MEMORY.md', [
       '# Memory',
-      'Same issue happened again after the hotfix.',
-      'Fixed it a second time with the same workaround.',
-      'Came back again — clearly not the root cause.',
+      // These should be excluded (root cause present)
+      'Recurring issue: finally found the underlying root cause.',
+      'Recurring errors addressed by systematic refactoring.',
+    ].join('\n'))
+
+    const report = diagnose(tmpDir)
+    const symptomFix = report.patterns.find(p => p.id === 'symptom-fix')
+    const sub3b = symptomFix?.subPatterns.find(s => s.id === '3b')
+    expect(sub3b?.count ?? 0).toBe(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Pattern 3: Symptom Fixing — Chinese
+// ---------------------------------------------------------------------------
+
+describe('diagnose — pattern: symptom fixing (Chinese)', () => {
+  let tmpDir: string
+
+  beforeEach(() => { tmpDir = makeTempDir() })
+  afterEach(() => { rmSync(tmpDir, { recursive: true, force: true }) })
+
+  it('detects 又一次 and 第X次修 (strong signals)', () => {
+    writeFile(tmpDir, 'MEMORY.md', [
+      '# 记忆',
+      '又一次出现了相同的连接超时问题。',
+      '第三次修同一个验证逻辑的bug。',
+    ].join('\n'))
+
+    const report = diagnose(tmpDir)
+    const symptomFix = report.patterns.find(p => p.id === 'symptom-fix')
+    expect(symptomFix).toBeDefined()
+    expect(symptomFix!.count).toBeGreaterThanOrEqual(2)
+  })
+
+  it('detects 重复 with error context', () => {
+    writeFile(tmpDir, 'MEMORY.md', [
+      '# 记忆',
+      '错误重复出现，说明根本没修好。',
+      '重复的崩溃bug，每次只打补丁。',
     ].join('\n'))
 
     const report = diagnose(tmpDir)
@@ -302,41 +477,75 @@ describe('diagnose — pattern: symptom fixing (English)', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Pattern 3: Symptom Fixing (Chinese)
+// SubPattern structure
 // ---------------------------------------------------------------------------
 
-describe('diagnose — pattern: symptom fixing (Chinese)', () => {
+describe('diagnose — sub-pattern structure', () => {
   let tmpDir: string
 
   beforeEach(() => { tmpDir = makeTempDir() })
   afterEach(() => { rmSync(tmpDir, { recursive: true, force: true }) })
 
-  it('detects 同类, 同样的, 重复', () => {
+  it('patterns have subPatterns array', () => {
     writeFile(tmpDir, 'MEMORY.md', [
-      '# 记忆',
-      '同类错误再次出现，没有从根本解决。',
-      '同样的问题昨天也发生过。',
-      '重复修复了同一个问题。',
+      '# Memory',
+      'Connected to wrong port 8080.',
+      'Used wrong path for the config file.',
     ].join('\n'))
 
     const report = diagnose(tmpDir)
-    const symptomFix = report.patterns.find(p => p.id === 'symptom-fix')
-    expect(symptomFix).toBeDefined()
-    expect(symptomFix!.count).toBeGreaterThanOrEqual(2)
+    const unverified = report.patterns.find(p => p.id === 'unverified')
+    expect(unverified).toBeDefined()
+    expect(Array.isArray(unverified!.subPatterns)).toBe(true)
+    expect(unverified!.subPatterns.length).toBeGreaterThan(0)
   })
 
-  it('detects 又一次 and 第X次修', () => {
+  it('sub-patterns have id, description, and count fields', () => {
     writeFile(tmpDir, 'MEMORY.md', [
-      '# 记忆',
-      '又一次出现了相同的连接超时问题。',
-      '第三次修同一个验证逻辑的bug。',
-      '又一次没有找到根本原因。',
+      '# Memory',
+      'I fabricated a URL that did not exist.',
+      'Another fabricated response was returned.',
     ].join('\n'))
 
     const report = diagnose(tmpDir)
-    const symptomFix = report.patterns.find(p => p.id === 'symptom-fix')
-    expect(symptomFix).toBeDefined()
-    expect(symptomFix!.count).toBeGreaterThanOrEqual(2)
+    const unverified = report.patterns.find(p => p.id === 'unverified')
+    const sub1b = unverified?.subPatterns.find(s => s.id === '1b')
+    expect(sub1b).toBeDefined()
+    expect(typeof sub1b!.id).toBe('string')
+    expect(typeof sub1b!.description).toBe('string')
+    expect(typeof sub1b!.count).toBe('number')
+    expect(sub1b!.count).toBeGreaterThanOrEqual(2)
+  })
+
+  it('pattern.count equals sum of subPattern counts', () => {
+    writeFile(tmpDir, 'MEMORY.md', [
+      '# Memory',
+      // sub 1b: fabricated (2 matches, no context needed)
+      'I fabricated a URL that did not exist.',
+      'Another fabricated response happened.',
+      // sub 1c: wrong port (1 match, no context needed)
+      'Connected to wrong port 8080.',
+    ].join('\n'))
+
+    const report = diagnose(tmpDir)
+    const unverified = report.patterns.find(p => p.id === 'unverified')
+    expect(unverified).toBeDefined()
+    const subTotal = unverified!.subPatterns.reduce((s, sp) => s + sp.count, 0)
+    expect(unverified!.count).toBe(subTotal)
+  })
+
+  it('totalErrorEvents equals sum of all pattern counts', () => {
+    writeFile(tmpDir, 'MEMORY.md', [
+      '# Memory',
+      'I fabricated a URL that did not exist.',
+      'Another fabricated response happened.',
+      'Wrote code but never wired it up.',
+      'Tests pass but integration is missing.',
+    ].join('\n'))
+
+    const report = diagnose(tmpDir)
+    const patternTotal = report.patterns.reduce((s, p) => s + p.count, 0)
+    expect(report.totalErrorEvents).toBe(patternTotal)
   })
 })
 
@@ -353,19 +562,16 @@ describe('diagnose — multiple patterns + sorting', () => {
   it('sorts patterns by count descending', () => {
     writeFile(tmpDir, 'MEMORY.md', [
       '# Memory',
-      // symptom-fix: 5 matches
-      'Same bug again and again.',
-      'Same error recurring in prod.',
-      'Same issue happened again.',
-      'This is repeated and systematic.',
-      'Root cause was never found — same bug.',
-      // unverified: 3 matches
-      'I assumed the config was right.',
-      'Turned out the path was wrong.',
-      'Used wrong file without checking.',
-      // incomplete: 2 matches
-      'Forgot to sync the docs.',
-      'Work was out of sync.',
+      // symptom-fix: strong signals (no context needed)
+      'Same bug appeared again.',
+      'Same error: same issue as last week.',
+      '又一次出现相同问题。',
+      '第二次修同一个逻辑。',
+      // unverified: strong signals (no context needed)
+      'Connected to wrong port 8080.',
+      'Used wrong path for the config.',
+      // incomplete: strong signals (no context needed)
+      'Wrote code but never wired it up.',
     ].join('\n'))
 
     const report = diagnose(tmpDir)
@@ -376,23 +582,20 @@ describe('diagnose — multiple patterns + sorting', () => {
     }
   })
 
-  it('excludes patterns with count < 2', () => {
+  it('excludes patterns with total count < 2', () => {
     writeFile(tmpDir, 'MEMORY.md', [
       '# Memory',
-      // Only 1 match for unverified — should NOT appear
-      'I assumed the port once.',
-      // 3 matches for incomplete — should appear
-      'Forgot to update the docs.',
-      'Out of sync config again.',
-      'Missed the integration test.',
+      // Only 1 match for unverified strong signal
+      'Connected to wrong port 8080.',
+      // 2 matches for incomplete strong signals
+      'Wrote code but never connected it.',
+      'Tests pass but integration was skipped.',
     ].join('\n'))
 
     const report = diagnose(tmpDir)
     const unverified = report.patterns.find(p => p.id === 'unverified')
     const incomplete = report.patterns.find(p => p.id === 'incomplete')
-    // unverified has only 1 match → excluded
     expect(unverified).toBeUndefined()
-    // incomplete has 3 matches → included
     expect(incomplete).toBeDefined()
   })
 
@@ -400,13 +603,13 @@ describe('diagnose — multiple patterns + sorting', () => {
     mkdirSync(join(tmpDir, 'memory'), { recursive: true })
     writeFile(tmpDir, 'memory/2024-01-01.md', [
       '# Day 1',
-      'I assumed the API endpoint was correct.',
-      'Turned out the URL was wrong.',
+      'Connected to wrong port 8080.',
+      'Used wrong path for the config.',
     ].join('\n'))
     writeFile(tmpDir, 'memory/2024-01-10.md', [
       '# Day 10',
-      'Forgot to sync the config.',
-      'Missed the migration file.',
+      'Wrote code but never wired it up.',
+      'Tests pass but integration is missing.',
     ].join('\n'))
 
     const report = diagnose(tmpDir)
@@ -427,15 +630,15 @@ describe('diagnose — days span from file names', () => {
 
   it('infers span from dated file names', () => {
     mkdirSync(join(tmpDir, 'memory'), { recursive: true })
-    writeFile(tmpDir, 'memory/2024-01-01.md', '# Day 1\nI assumed something.\n')
-    writeFile(tmpDir, 'memory/2024-01-31.md', '# Day 31\nAssumed again.\n')
+    writeFile(tmpDir, 'memory/2024-01-01.md', '# Day 1\nUsed wrong port.\n')
+    writeFile(tmpDir, 'memory/2024-01-31.md', '# Day 31\nWrong path again.\n')
 
     const report = diagnose(tmpDir)
     expect(report.daysSpan).toBe(31)
   })
 
   it('returns daysSpan 0 when no dated file names', () => {
-    writeFile(tmpDir, 'MEMORY.md', 'I assumed twice.\nAssumed again.\n')
+    writeFile(tmpDir, 'MEMORY.md', 'I fabricated twice.\nFabricated again.\n')
     const report = diagnose(tmpDir)
     expect(report.daysSpan).toBe(0)
   })
@@ -451,17 +654,19 @@ describe('diagnose — totalErrorEvents', () => {
   beforeEach(() => { tmpDir = makeTempDir() })
   afterEach(() => { rmSync(tmpDir, { recursive: true, force: true }) })
 
-  it('sums matches from all patterns', () => {
+  it('equals sum of all detected pattern counts', () => {
     writeFile(tmpDir, 'MEMORY.md', [
       '# Memory',
-      'I assumed the port was 3000.',
-      'Turned out I was wrong.',
-      'Forgot to update the docs.',
-      'Config was out of sync.',
+      // Strong signals (no context needed)
+      'Connected to wrong port 8080.',    // unverified 1c
+      'Used wrong path for config.',      // unverified 1c
+      'Wrote code but never wired it.',   // incomplete 2b
+      'Tests pass but integration missing.', // incomplete 2b
     ].join('\n'))
 
     const report = diagnose(tmpDir)
-    // All keyword matches across all patterns
+    const patternSum = report.patterns.reduce((s, p) => s + p.count, 0)
+    expect(report.totalErrorEvents).toBe(patternSum)
     expect(report.totalErrorEvents).toBeGreaterThanOrEqual(4)
   })
 })
@@ -495,29 +700,104 @@ describe('formatDiagnosis', () => {
     expect(output).toContain('No agent memory found')
   })
 
-  it('shows scan summary when patterns exist', () => {
+  it('shows scan summary with pattern count (not error event count)', () => {
     const report = {
       filesScanned: 5,
       daysSpan: 14,
-      totalErrorEvents: 20,
+      totalErrorEvents: 11,
       patterns: [
         {
           id: 'unverified',
           title: 'Acting on Unverified Assumptions',
-          count: 8,
-          examples: ['I assumed the config was correct.', 'Turned out the port was wrong.'],
-          reflection: 'Always verify before acting.',
+          count: 11,
+          subPatterns: [
+            { id: '1a', description: 'answered without checking data ({count} times)', count: 4 },
+            { id: '1b', description: 'fabricated outputs instead of running tools ({count} times)', count: 3 },
+            { id: '1c', description: 'assumed infrastructure details that turned out wrong ({count} times)', count: 4 },
+          ],
+          reflection: 'verify before acting',
         },
       ],
     }
     const output = formatDiagnosis(report)
     expect(output).toContain('Scanned: 5 files across 14 days')
-    expect(output).toContain('20 error events')
-    expect(output).toContain('1 recurring pattern')
+    expect(output).toContain('Found: 1 recurring pattern')
     expect(output).toContain('Acting on Unverified Assumptions')
-    expect(output).toContain('(8 times)')
-    expect(output).toContain('I assumed the config was correct.')
+    expect(output).toContain('(11 times)')
     expect(output).toContain('reflection/mistakes.md')
+  })
+
+  it('renders narrative with sub-pattern counts', () => {
+    const report = {
+      filesScanned: 5,
+      daysSpan: 14,
+      totalErrorEvents: 11,
+      patterns: [
+        {
+          id: 'unverified',
+          title: 'Acting on Unverified Assumptions',
+          count: 11,
+          subPatterns: [
+            { id: '1a', description: 'answered without checking data ({count} times)', count: 4 },
+            { id: '1b', description: 'fabricated outputs instead of running tools ({count} times)', count: 3 },
+            { id: '1c', description: 'assumed infrastructure details that turned out wrong ({count} times)', count: 4 },
+          ],
+          reflection: 'verify before acting',
+        },
+      ],
+    }
+    const output = formatDiagnosis(report)
+    expect(output).toContain('Your agent')
+    expect(output).toContain('answered without checking data (4 times)')
+    expect(output).toContain('fabricated outputs instead of running tools (3 times)')
+    expect(output).toContain('assumed infrastructure details that turned out wrong (4 times)')
+  })
+
+  it('skips sub-patterns with count 0 in narrative', () => {
+    const report = {
+      filesScanned: 5,
+      daysSpan: 14,
+      totalErrorEvents: 4,
+      patterns: [
+        {
+          id: 'unverified',
+          title: 'Acting on Unverified Assumptions',
+          count: 4,
+          subPatterns: [
+            { id: '1a', description: 'answered without checking data ({count} times)', count: 0 },
+            { id: '1b', description: 'fabricated outputs instead of running tools ({count} times)', count: 4 },
+            { id: '1c', description: 'assumed infrastructure details that turned out wrong ({count} times)', count: 0 },
+          ],
+          reflection: 'verify before acting',
+        },
+      ],
+    }
+    const output = formatDiagnosis(report)
+    // Should only show sub1b
+    expect(output).toContain('fabricated outputs instead of running tools (4 times)')
+    expect(output).not.toContain('answered without checking data')
+    expect(output).not.toContain('assumed infrastructure details')
+  })
+
+  it('shows "✅ Added rule:" with reflection', () => {
+    const report = {
+      filesScanned: 2,
+      daysSpan: 5,
+      totalErrorEvents: 4,
+      patterns: [
+        {
+          id: 'unverified',
+          title: 'Acting on Unverified Assumptions',
+          count: 4,
+          subPatterns: [
+            { id: '1b', description: 'fabricated outputs instead of running tools ({count} times)', count: 4 },
+          ],
+          reflection: 'verify before acting',
+        },
+      ],
+    }
+    const output = formatDiagnosis(report)
+    expect(output).toContain('✅ Added rule: verify before acting')
   })
 
   it('numbers patterns starting from #1', () => {
@@ -526,8 +806,20 @@ describe('formatDiagnosis', () => {
       daysSpan: 5,
       totalErrorEvents: 10,
       patterns: [
-        { id: 'unverified', title: 'Pattern A', count: 6, examples: ['ex1'], reflection: 'Rule A.' },
-        { id: 'incomplete', title: 'Pattern B', count: 4, examples: ['ex2'], reflection: 'Rule B.' },
+        {
+          id: 'unverified',
+          title: 'Pattern A',
+          count: 6,
+          subPatterns: [{ id: '1b', description: 'desc ({count} times)', count: 6 }],
+          reflection: 'Rule A',
+        },
+        {
+          id: 'incomplete',
+          title: 'Pattern B',
+          count: 4,
+          subPatterns: [{ id: '2b', description: 'desc ({count} times)', count: 4 }],
+          reflection: 'Rule B',
+        },
       ],
     }
     const output = formatDiagnosis(report)
@@ -544,6 +836,24 @@ describe('formatDiagnosis', () => {
     }
     const output = formatDiagnosis(report)
     expect(output).toContain('━')
+  })
+
+  it('uses "patterns" plural and "pattern" singular correctly', () => {
+    const makeReport = (n: number) => ({
+      filesScanned: 5,
+      daysSpan: 5,
+      totalErrorEvents: n * 3,
+      patterns: Array.from({ length: n }, (_, i) => ({
+        id: `p${i}`,
+        title: `Pattern ${i}`,
+        count: 3,
+        subPatterns: [{ id: `${i}a`, description: 'desc ({count} times)', count: 3 }],
+        reflection: 'some rule',
+      })),
+    })
+
+    expect(formatDiagnosis(makeReport(1))).toContain('1 recurring pattern')
+    expect(formatDiagnosis(makeReport(2))).toContain('2 recurring patterns')
   })
 })
 
@@ -564,7 +874,13 @@ describe('writeDiagnosisToMistakes', () => {
       daysSpan: 7,
       totalErrorEvents: 5,
       patterns: [
-        { id: 'unverified', title: 'Test Pattern', count: 3, examples: [], reflection: 'Test rule.' },
+        {
+          id: 'unverified',
+          title: 'Test Pattern',
+          count: 3,
+          subPatterns: [],
+          reflection: 'Test rule.',
+        },
       ],
     }
 
@@ -590,7 +906,13 @@ describe('writeDiagnosisToMistakes', () => {
       daysSpan: 3,
       totalErrorEvents: 4,
       patterns: [
-        { id: 'incomplete', title: 'New Pattern', count: 2, examples: [], reflection: 'New rule.' },
+        {
+          id: 'incomplete',
+          title: 'New Pattern',
+          count: 2,
+          subPatterns: [],
+          reflection: 'New rule.',
+        },
       ],
     }
 
@@ -609,8 +931,8 @@ describe('writeDiagnosisToMistakes', () => {
       daysSpan: 10,
       totalErrorEvents: 12,
       patterns: [
-        { id: 'unverified', title: 'Pattern One', count: 7, examples: [], reflection: 'Rule one.' },
-        { id: 'incomplete', title: 'Pattern Two', count: 5, examples: [], reflection: 'Rule two.' },
+        { id: 'unverified', title: 'Pattern One', count: 7, subPatterns: [], reflection: 'Rule one.' },
+        { id: 'incomplete', title: 'Pattern Two', count: 5, subPatterns: [], reflection: 'Rule two.' },
       ],
     }
 
@@ -650,8 +972,8 @@ describe('diagnose — scans reflection/mistakes.md', () => {
     mkdirSync(reflDir, { recursive: true })
     writeFileSync(join(reflDir, 'mistakes.md'), [
       '# Mistakes',
-      'I assumed the endpoint was correct.',
-      'Turned out the path was wrong.',
+      'I used the wrong port for the server.',
+      'Used the wrong path for config.',
       'Fabricated a URL that did not exist.',
     ].join('\n'), 'utf8')
 
@@ -677,9 +999,8 @@ describe('diagnose — scans .hermes/memories/MEMORY.md', () => {
     mkdirSync(hermesDir, { recursive: true })
     writeFileSync(join(hermesDir, 'MEMORY.md'), [
       '# Hermes Memory',
-      'I assumed the server was running.',
-      'Turned out it was stopped.',
-      'Another assumption error.',
+      'Connected to wrong port and it failed.',
+      'Wrong path caused a 404 error.',
     ].join('\n'), 'utf8')
 
     const report = diagnose(tmpDir)
