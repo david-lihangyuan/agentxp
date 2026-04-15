@@ -85,6 +85,7 @@ export function findWorkspace(startDir?: string): string | null {
   // Strategy 2: Walk up looking for skills/agentxp/config.yaml (ClawHub installs)
   dir = start
   for (let i = 0; i < 10; i++) {
+    if (dir === home) break
     if (existsSync(join(dir, 'skills', 'agentxp', 'config.yaml'))) {
       return dir
     }
