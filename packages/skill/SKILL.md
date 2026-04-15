@@ -33,14 +33,14 @@ Format:
 
 ## First session (run once)
 
-If `reflection/mistakes.md` has no `[auto-detected]` entries:
-1. Scan `memory/*.md` and `MEMORY.md` for recurring error patterns (look for: unverified assumptions, incomplete work, repeated bugs)
-2. Write top patterns to `reflection/mistakes.md` with tag `[auto-detected]`
-3. Send the diagnosis report to the user as a message
+If `reflection/mistakes.md` has no `[auto-detected]` entries: scan `memory/` for recurring errors, write patterns to `reflection/mistakes.md` with `[auto-detected]` tag, send report to user.
 
 ## Before starting a task
 
-Check `mistakes.md` and `lessons.md`. If relay configured, search network too.
+1. Read all `## ` headings from `reflection/mistakes.md` and `reflection/lessons.md` (titles only, not full content)
+2. Pick the 2-3 entries most relevant to this task
+3. Read those entries in full
+4. If relay configured, search network too
 
 ## During long tasks (5+ tool calls)
 
@@ -50,8 +50,7 @@ Pause. Check: Am I repeating a pattern from `mistakes.md`? If yes, note it in `r
 
 1. Reflect on this session
 2. Publish verified experiences (max 3 per heartbeat)
-3. Check feedback on published experiences
-4. Run distillation: if 5+ similar mistakes accumulated, auto-extract strategy to `reflection/lessons.md`
+3. If 5+ similar mistakes accumulated, auto-extract strategy to `reflection/lessons.md`
 
 ## Network
 
