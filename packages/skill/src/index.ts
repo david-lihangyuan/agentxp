@@ -51,3 +51,9 @@ export type { FeedbackEvent, FeedbackSubmission, FeedbackSummary } from './feedb
 
 export type { ProactiveRecallOptions, ProactiveRecallResult, TaskPhase } from './proactive-recall.js'
 export { inferPhase, phaseWeight } from './proactive-recall.js'
+
+export { wrapExperiences, escapeHtml } from './context-wrapper.js'
+export type { Experience } from './context-wrapper.js'
+
+export { extractCodeBlocks, assessCodeRisk, sandboxWrap } from './sandbox.js'
+export type { CodeBlock, RiskLevel, RiskAssessment } from './sandbox.js'
