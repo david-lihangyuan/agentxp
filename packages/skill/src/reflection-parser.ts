@@ -55,6 +55,8 @@ const SPECIFIC_INDICATORS = [
   /\b(config|restart|install|deploy|migrate|build)\b/i,    // action verbs
   /\berror\b/i,                  // error mentions
   /\bfailed?\b/i,               // failure mentions
+  /\.(?:ts|js|py|md|json|yaml|yml|toml|sh)\b/,  // file extensions
+  /[\u7aef\u53e3\u6587\u4ef6\u547d\u4ee4\u8def\u5f84\u914d\u7f6e\u9519\u8bef\u4fee\u590d\u5d29\u6e83\u8d85\u65f6\u9a8c\u8bc1\u8fc1\u79fb\u7d22\u5f15\u90e8\u7f72\u7f16\u8bd1]/,  // CJK technical terms
 ]
 
 /**
@@ -116,6 +118,11 @@ export function parseReflectionEntry(raw: string): ParsedReflection {
   // Check 4: Must contain at least one specific indicator
   const hasSpecifics = SPECIFIC_INDICATORS.some(pattern => pattern.test(combinedText))
   if (!hasSpecifics) {
+    // Success cases with substantial learned field get a pass
+    if (result.outcome === 'succeeded' && result.learned && result.learned.length > 50) {
+      result.publishable = true
+      return result
+    }
     result.reason = 'no specifics: needs commands, filenames, error codes, or config keys'
     return result
   }
