@@ -31,9 +31,11 @@ export type TaskPhase = 'planning' | 'stuck' | 'evaluating' | 'executing'
 export function inferPhase(taskDescription: string): TaskPhase {
   const lower = taskDescription.toLowerCase()
 
-  if (/\bplan\b|\bdesign\b|\barchitect\b|\bhow to\b/.test(lower)) return 'planning'
-  if (/\bfix\b|\bdebug\b|\berror\b|\bbroken\b|\bfailing\b/.test(lower)) return 'stuck'
-  if (/\breview\b|\bcheck\b|\bverify\b|\btest\b/.test(lower)) return 'evaluating'
+  // Order matters: stuck first (strongest signal), then planning, then evaluating.
+  // Evaluating keywords are narrow to avoid false positives (e.g. "match" is NOT evaluating).
+  if (/\bfix\b|\bdebug\b|\berror\b|\bbroken\b|\bfailing\b|\bcrash/.test(lower)) return 'stuck'
+  if (/\bplan\b|\bdesign\b|\barchitect\b|\bhow to\b|\bapproach\b/.test(lower)) return 'planning'
+  if (/\breview (code|pr|changes)\b|\bcode review\b|\baudit\b|\binspect\b/.test(lower)) return 'evaluating'
   return 'executing'
 }
 
@@ -78,11 +80,14 @@ export function phaseWeight(match: RecallMatch, phase: TaskPhase): number {
       return 1.0
 
     case 'evaluating':
-      // Only surface auto-distilled strategies
+      // Evaluating = review/audit phase. Surface distilled strategies as primary,
+      // but also include concrete mistakes as checklist items (not zero-weighted).
+      // Without distilled strategies, mistakes are still valuable — they remind
+      // the agent "last time I reviewed, I missed X".
       if (isLessons && isDistilled) return 2.0
-      if (isLessons) return 0.5
-      if (isMistakes) return 0.1
-      return 0.1
+      if (isLessons) return 1.2
+      if (isMistakes) return 0.8
+      return 0.5
   }
 }
 

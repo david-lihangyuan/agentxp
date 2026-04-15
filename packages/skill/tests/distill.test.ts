@@ -379,11 +379,14 @@ describe('inferPhase — phase inference from task description', () => {
     expect(inferPhase('Something is broken in the pipeline')).toBe('stuck')
   })
 
-  it('returns "evaluating" for review/check/verify/test keywords', () => {
-    expect(inferPhase('Review the PR')).toBe('evaluating')
-    expect(inferPhase('Check if all tests pass')).toBe('evaluating')
-    expect(inferPhase('Verify the deployment')).toBe('evaluating')
-    expect(inferPhase('Test the new feature')).toBe('evaluating')
+  it('returns "evaluating" for review/audit/inspect keywords', () => {
+    expect(inferPhase('Review code changes')).toBe('evaluating')
+    expect(inferPhase('Code review for the PR')).toBe('evaluating')
+    expect(inferPhase('Audit the security config')).toBe('evaluating')
+    expect(inferPhase('Inspect the build output')).toBe('evaluating')
+    // Generic "check" and "test" no longer trigger evaluating (too many false positives)
+    expect(inferPhase('Check if all tests pass')).toBe('executing')
+    expect(inferPhase('Test the new feature')).toBe('executing')
   })
 
   it('returns "executing" for anything else', () => {
@@ -393,9 +396,11 @@ describe('inferPhase — phase inference from task description', () => {
     expect(inferPhase('')).toBe('executing')
   })
 
-  it('planning takes priority when keyword appears in mixed description', () => {
-    // "plan" appears before "fix" → planning
-    expect(inferPhase('plan to fix the bug')).toBe('planning')
+  it('stuck takes priority over planning in mixed description', () => {
+    // stuck is checked first (strongest signal)
+    expect(inferPhase('plan to fix the bug')).toBe('stuck')
+    // pure planning still works
+    expect(inferPhase('plan the new architecture')).toBe('planning')
   })
 })
 
@@ -450,12 +455,13 @@ describe('phaseWeight — weight multipliers per phase and source', () => {
     expect(wDistilled).toBeGreaterThan(wPlain)
   })
 
-  it('evaluating: distilled has highest weight, mistakes have very low weight', () => {
+  it('evaluating: distilled has highest weight, mistakes still usable', () => {
     const distilled = makeMatch('lessons.md', true)
     const mistake = makeMatch('mistakes.md', false)
 
     expect(phaseWeight(distilled, 'evaluating')).toBeGreaterThan(phaseWeight(mistake, 'evaluating'))
-    expect(phaseWeight(mistake, 'evaluating')).toBeLessThan(0.5)
+    // Mistakes are no longer zero-weighted in evaluating — they serve as checklist items
+    expect(phaseWeight(mistake, 'evaluating')).toBeGreaterThanOrEqual(0.5)
   })
 })
 
