@@ -1,6 +1,6 @@
 {
   "name": "@agentxp/skill",
-  "version": "4.7.0",
+  "version": "4.7.1",
   "description": "AgentXP Reflection Skill — teach your AI Agent to learn from mistakes",
   "type": "module",
   "main": "./dist/index.js",
