@@ -48,19 +48,46 @@ export function findWorkspace(startDir?: string): string | null {
     return null
   }
 
-  // Walk up looking for skills/agentxp/config.yaml
+  // Strategy 1: Walk up looking for AGENTS.md or .openclaw marker (most reliable)
   let dir = start
-  for (let i = 0; i < 8; i++) {
-    const candidate = join(dir, 'skills', 'agentxp', 'config.yaml')
-    if (existsSync(candidate)) {
+  for (let i = 0; i < 10; i++) {
+    if (existsSync(join(dir, 'AGENTS.md')) || existsSync(join(dir, '.openclaw'))) {
       return dir
     }
-    const parent = join(dir, '..')
+    const parent = dirname(dir)
     if (parent === dir) break
     dir = parent
   }
 
-  // Fall back to the start directory (it may be a fresh workspace)
+  // Strategy 2: Walk up looking for skills/agentxp/config.yaml (ClawHub installs)
+  dir = start
+  for (let i = 0; i < 10; i++) {
+    if (existsSync(join(dir, 'skills', 'agentxp', 'config.yaml'))) {
+      return dir
+    }
+    const parent = dirname(dir)
+    if (parent === dir) break
+    dir = parent
+  }
+
+  // Strategy 3: Walk up from script location (npm global installs)
+  dir = dirname(fileURLToPath(import.meta.url))
+  for (let i = 0; i < 10; i++) {
+    if (existsSync(join(dir, 'AGENTS.md')) || existsSync(join(dir, '.openclaw'))) {
+      return dir
+    }
+    const parent = dirname(dir)
+    if (parent === dir) break
+    dir = parent
+  }
+
+  // Strategy 4: OpenClaw default workspace
+  const openclawDefault = join(homedir(), '.openclaw', 'workspace')
+  if (existsSync(openclawDefault)) {
+    return openclawDefault
+  }
+
+  // Fallback: cwd
   return start
 }
 

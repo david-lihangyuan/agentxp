@@ -116,6 +116,14 @@ Before starting a task, check mistakes.md and lessons.md for relevant past exper
 See skills/agentxp/SKILL.md for full instructions.
 `
 
+// One-time diagnosis trigger block — agent sees this on next session,
+// runs diagnosis, sends report to user, then removes this block.
+const DIAGNOSE_TRIGGER = `
+## AgentXP: First Run (remove after done)
+
+Run this now: scan memory/*.md for recurring error patterns, write findings to reflection/mistakes.md with [auto-detected] tag, then send the diagnosis report to the user. After done, delete this section from AGENTS.md.
+`
+
 const agentsPath = join(workspace, 'AGENTS.md')
 if (existsSync(agentsPath)) {
   const existing = readFileSync(agentsPath, 'utf8')
@@ -125,8 +133,16 @@ if (existsSync(agentsPath)) {
   } else {
     console.log('  ✓ AGENTS.md already configured')
   }
+  // Add one-time diagnosis trigger if no auto-detected entries exist yet
+  const mistakesPath = join(workspace, 'reflection', 'mistakes.md')
+  const hasDiagnosis = existsSync(mistakesPath) && readFileSync(mistakesPath, 'utf8').includes('[auto-detected]')
+  if (!hasDiagnosis && !existing.includes('First Run')) {
+    const current = readFileSync(agentsPath, 'utf8')
+    writeFileSync(agentsPath, current.trimEnd() + '\n' + DIAGNOSE_TRIGGER)
+    console.log('  ✓ First-run diagnosis trigger added to AGENTS.md')
+  }
 } else {
-  writeFileSync(agentsPath, '# Agent Configuration\n' + AGENTS_BLOCK)
+  writeFileSync(agentsPath, '# Agent Configuration\n' + AGENTS_BLOCK + DIAGNOSE_TRIGGER)
   console.log('  ✓ AGENTS.md created')
 }
 
