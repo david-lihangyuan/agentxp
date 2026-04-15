@@ -77,13 +77,45 @@ export function sanitize(content: Record<string, unknown>): SanitizeResult {
 /**
  * Relay-side last-resort sanitization scan.
  * Called on raw incoming events before storage.
+ * Checks: credential leaks + prompt injection + invisible unicode.
  */
 export function relaySanitize(event: unknown): { blocked: boolean; reason?: string } {
   const text = JSON.stringify(event)
 
+  // Credential leak scan
   for (const { pattern, reason } of HIGH_RISK_PATTERNS) {
     if (pattern.test(text)) {
       return { blocked: true, reason }
+    }
+  }
+
+  // Invisible Unicode scan (hidden text attacks)
+  const INVISIBLE_RANGES: Array<[number, number]> = [
+    [0x200B, 0x200F], [0x2028, 0x2029], [0x2060, 0x2064],
+    [0x2066, 0x2069], [0x202A, 0x202E], [0xFEFF, 0xFEFF],
+    [0xFFF9, 0xFFFB],
+  ]
+  for (let i = 0; i < text.length; i++) {
+    const code = text.codePointAt(i)!
+    for (const [lo, hi] of INVISIBLE_RANGES) {
+      if (code >= lo && code <= hi) {
+        return { blocked: true, reason: `invisible unicode U+${code.toString(16).toUpperCase().padStart(4, '0')}` }
+      }
+    }
+  }
+
+  // Prompt injection scan (subset of critical patterns)
+  const lower = text.toLowerCase()
+  const CRITICAL_INJECTIONS = [
+    'ignore previous instructions', 'ignore all previous', 'disregard previous',
+    'you are now', 'system:', '<|im_start|>', '<|system|>',
+    'enter developer mode', 'jailbreak', 'do anything now',
+    'delete all files', 'rm -rf', 'drop table',
+    'reveal your prompt', 'output your system prompt',
+  ]
+  for (const pattern of CRITICAL_INJECTIONS) {
+    if (lower.includes(pattern)) {
+      return { blocked: true, reason: `prompt injection: "${pattern}"` }
     }
   }
 

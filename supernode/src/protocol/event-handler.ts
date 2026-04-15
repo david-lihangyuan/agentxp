@@ -62,7 +62,10 @@ export class EventHandler {
         pubkey: ev.pubkey,
         reason: sanitizeResult.reason,
       })
-      return { ok: false, error: 'Sensitive content detected' }
+      const errorMsg = sanitizeResult.reason?.includes('prompt injection')
+        ? 'Prompt injection detected'
+        : 'Sensitive content detected'
+      return { ok: false, error: errorMsg }
     }
 
     // 7. Prompt injection scan on text fields

@@ -14,12 +14,124 @@ const PUBKEY_PATTERN = /^[0-9a-f]{64}$/
 export const MAX_PAYLOAD_BYTES = 64 * 1024
 
 /** Prompt injection patterns to reject */
-const INJECTION_PATTERNS = [
+// ─── Prompt Injection Detection ────────────────────────────────────────────
+// Three tiers: BLOCK (hard reject), FLAG (log + pass for review), INVISIBLE (always block).
+// Based on OWASP LLM Top 10, Hermes skills_guard, and real-world attack patterns.
+
+// Tier 1: Hard block — clear injection attempts
+const INJECTION_PATTERNS_BLOCK: string[] = [
+  // Direct instruction override
   'ignore previous instructions',
+  'ignore all previous',
+  'ignore the above',
+  'disregard previous',
+  'disregard all previous',
+  'disregard the above',
+  'forget previous instructions',
+  'forget all previous',
+  'override your instructions',
+  'new instructions:',
+  'updated instructions:',
+  'revised instructions:',
+
+  // Role hijacking
   'you are now',
+  'act as if you are',
+  'pretend you are',
+  'you must act as',
+  'assume the role of',
+  'switch to role',
+  'enter developer mode',
+  'enter debug mode',
+  'enable developer mode',
+  'jailbreak',
+  'dan mode',
+  'do anything now',
+
+  // System prompt manipulation
   'system:',
+  'system prompt:',
+  'system message:',
+  '[system]',
+  '<<sys>>',
+  '<<system>>',
   '<|im_start|>',
+  '<|im_end|>',
+  '<|system|>',
+  '<|user|>',
+  '<|assistant|>',
+  '[INST]',
+  '[/INST]',
+  '<s>',
+  '</s>',
+
+  // Data exfiltration
+  'reveal your prompt',
+  'show your instructions',
+  'print your system',
+  'what are your instructions',
+  'output your system prompt',
+  'repeat the above',
+  'repeat everything above',
+  'tell me your rules',
+  'show me your rules',
+
+  // Action injection
+  'delete all files',
+  'rm -rf',
+  'drop table',
+  'exec(',
+  'eval(',
+  'execute this command',
+  'run this command',
+  'send this message to',
+  'forward this to',
+  'email this to',
+  'post this to',
+
+  // Encoding evasion markers
+  'base64 decode',
+  'decode the following',
+  'rot13',
+  'translate from hex',
 ]
+
+// Tier 2: Soft patterns — suspicious but may appear in legitimate technical content
+// These are checked with additional context (must appear with command-like language)
+const INJECTION_PATTERNS_SUSPICIOUS: Array<{ pattern: string; requires: RegExp }> = [
+  { pattern: 'instead, do', requires: /\b(must|should|always|never|important)\b/i },
+  { pattern: 'do not follow', requires: /\b(previous|above|prior|original)\b/i },
+  { pattern: 'important:', requires: /\b(ignore|override|disregard|forget)\b/i },
+  { pattern: 'note:', requires: /\b(ignore|override|disregard|forget)\b/i },
+  { pattern: 'correction:', requires: /\b(actually|instead|ignore|override)\b/i },
+]
+
+// Tier 3: Invisible Unicode — always block (used for hidden text attacks)
+const INVISIBLE_UNICODE_RANGES: Array<[number, number, string]> = [
+  [0x200B, 0x200F, 'zero-width characters'],       // ZWS, ZWNJ, ZWJ, LRM, RLM
+  [0x2028, 0x2029, 'line/paragraph separators'],    // LS, PS
+  [0x2060, 0x2064, 'invisible operators'],           // WJ, invisible operators
+  [0x2066, 0x2069, 'bidi isolates'],                 // LRI, RLI, FSI, PDI
+  [0x202A, 0x202E, 'bidi overrides'],                // LRE, RLE, PDF, LRO, RLO
+  [0xFEFF, 0xFEFF, 'BOM (zero-width no-break)'],     // BOM
+  [0xFFF9, 0xFFFB, 'interlinear annotations'],       // IAA, IAS, IAT
+  [0xE0001, 0xE007F, 'tag characters'],              // deprecated tag chars
+]
+
+function containsInvisibleUnicode(text: string): string | null {
+  for (let i = 0; i < text.length; i++) {
+    const code = text.codePointAt(i)!
+    for (const [lo, hi, name] of INVISIBLE_UNICODE_RANGES) {
+      if (code >= lo && code <= hi) {
+        return `${name} (U+${code.toString(16).toUpperCase().padStart(4, '0')})`
+      }
+    }
+  }
+  return null
+}
+
+// Legacy alias for backward compat
+const INJECTION_PATTERNS = INJECTION_PATTERNS_BLOCK
 
 export interface ValidationResult {
   valid: boolean
@@ -93,11 +205,27 @@ export function validatePayloadSize(payload: unknown): ValidationResult {
   return { valid: true }
 }
 
-/** Scan text fields for prompt injection patterns. */
+/** Scan text fields for prompt injection patterns.
+ *  Three-tier detection:
+ *  1. Hard block patterns (clear injection attempts)
+ *  2. Suspicious patterns (need additional context to trigger)
+ *  3. Invisible Unicode (hidden text attacks)
+ */
 export function scanForPromptInjection(obj: unknown): ValidationResult {
   const text = typeof obj === 'string' ? obj : JSON.stringify(obj)
   const lower = text.toLowerCase()
-  for (const pattern of INJECTION_PATTERNS) {
+
+  // Tier 3: Invisible Unicode (always block — no legitimate use in experience text)
+  const invisibleHit = containsInvisibleUnicode(text)
+  if (invisibleHit) {
+    return {
+      valid: false,
+      error: `invisible unicode detected: ${invisibleHit}`,
+    }
+  }
+
+  // Tier 1: Hard block patterns
+  for (const pattern of INJECTION_PATTERNS_BLOCK) {
     if (lower.includes(pattern.toLowerCase())) {
       return {
         valid: false,
@@ -105,6 +233,17 @@ export function scanForPromptInjection(obj: unknown): ValidationResult {
       }
     }
   }
+
+  // Tier 2: Suspicious patterns (require co-occurring context)
+  for (const { pattern, requires } of INJECTION_PATTERNS_SUSPICIOUS) {
+    if (lower.includes(pattern.toLowerCase()) && requires.test(text)) {
+      return {
+        valid: false,
+        error: `suspicious injection pattern: "${pattern}" with command-like context`,
+      }
+    }
+  }
+
   return { valid: true }
 }
 
