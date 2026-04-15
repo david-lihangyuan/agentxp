@@ -143,9 +143,16 @@ export function qualityGate(draft: DraftEntry): { pass: boolean; reason?: string
   // - backtick command
   // - error code (standalone number 2-5 digits)
   // - dotted config key (word.word)
-  const CONCRETE_RE = /[\/\\]|`[^`]+`|\b\d{2,5}\b|\b\w+\.\w+/
+  // - CJK concrete markers: 端口/文件/命令/路径/配置/错误 + number or name
+  // - any .ts/.js/.py/.md/.json/.yaml file extension
+  const CONCRETE_RE = /[\/\\]|`[^`]+`|\b\d{2,5}\b|\b\w+\.\w+|\.(?:ts|js|py|md|json|yaml|yml|toml|sh)\b|[\u7aef\u53e3\u6587\u4ef6\u547d\u4ee4\u8def\u5f84\u914d\u7f6e\u9519\u8bef\u4fee\u590d\u5d29\u6e83\u8d85\u65f6]/
   if (!CONCRETE_RE.test(draft.learned)) {
-    return { pass: false, reason: '"learned" must contain at least one concrete detail (path, command, error code, or config key)' }
+    // Success cases with decent length get a pass even without concrete markers
+    // (e.g. "discovered that X pattern works well" is useful even without a file path)
+    if (draft.outcome === 'succeeded' && draft.learned.length > 50) {
+      return { pass: true }
+    }
+    return { pass: false, reason: '"learned" must contain at least one concrete detail (path, command, error code, config key, or CJK technical term)' }
   }
   return { pass: true }
 }

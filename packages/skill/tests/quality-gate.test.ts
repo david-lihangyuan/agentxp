@@ -105,6 +105,7 @@ describe('qualityGate', () => {
   describe('failing drafts — learned lacks concrete detail', () => {
     it('fails when learned has no path, command, number, or dotted key', () => {
       const result = qualityGate(makeDraft({
+        outcome: 'failed',
         learned: 'This approach works better than the other approach we tried before',
       }))
       expect(result.pass).toBe(false)
@@ -113,6 +114,7 @@ describe('qualityGate', () => {
 
     it('fails when learned is generic lesson without specifics', () => {
       const result = qualityGate(makeDraft({
+        outcome: 'failed',
         learned: 'Always check the documentation before making assumptions about behavior',
       }))
       // "documentation" contains a dot? No. Let's check: no path, no backtick, no number, no dotted word.
@@ -134,3 +136,29 @@ describe('qualityGate', () => {
     })
   })
 })
+
+  describe('CJK and success exemption', () => {
+    it('passes when learned contains Chinese technical terms', () => {
+      const result = qualityGate(makeDraft({
+        outcome: 'failed',
+        learned: '端口 3141 被占用导致服务启动失败，需要先检查端口占用情况',
+      }))
+      expect(result.pass).toBe(true)
+    })
+
+    it('passes succeeded outcome with long learned even without concrete markers', () => {
+      const result = qualityGate(makeDraft({
+        outcome: 'succeeded',
+        learned: 'Discovered that this pattern works much better when applied consistently across all modules in the project',
+      }))
+      expect(result.pass).toBe(true)
+    })
+
+    it('fails succeeded outcome with short learned without concrete markers', () => {
+      const result = qualityGate(makeDraft({
+        outcome: 'succeeded',
+        learned: 'This works better now yeah',
+      }))
+      expect(result.pass).toBe(false)
+    })
+  })
