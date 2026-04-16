@@ -82,7 +82,7 @@ const pluginEntry = {
       api.on('after_tool_call', createAfterToolCallHook())
       api.on('agent_end', createAgentEndHook(db))
       api.on('before_tool_call', createBeforeToolCallHook(db))
-      api.on('session_start', createSessionStartHook())
+      api.on('session_start', createSessionStartHook(db))
       api.on('session_end', createSessionEndHook(db))
     }
 

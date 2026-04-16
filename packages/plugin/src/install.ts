@@ -78,11 +78,14 @@ export function installIfNeeded(
   }
 
   // 2. Generate Serendip identity keys if not present
-  const keyPath = join(stateDir, 'identity.json')
-  if (!existsSync(keyPath)) {
-    const publicKey = randomBytes(32).toString('hex')
-    const secretKey = randomBytes(64).toString('hex')
-    writeFileSync(keyPath, JSON.stringify({ publicKey, secretKey }, null, 2))
+  // Skip if stateDir is not a real filesystem path (e.g., ':memory:' for in-memory DB)
+  if (stateDir && stateDir !== ':memory:' && existsSync(stateDir)) {
+    const keyPath = join(stateDir, 'identity.json')
+    if (!existsSync(keyPath)) {
+      const publicKey = randomBytes(32).toString('hex')
+      const secretKey = randomBytes(64).toString('hex')
+      writeFileSync(keyPath, JSON.stringify({ publicKey, secretKey }, null, 2))
+    }
   }
 
   return { installed: true, imported }
