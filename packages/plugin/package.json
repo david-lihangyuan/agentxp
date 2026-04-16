@@ -10,7 +10,9 @@
   "files": [
     "dist/",
     "openclaw.plugin.json",
-    "templates/"
+    "templates/",
+    "SECURITY.md",
+    "README.md"
   ],
   "scripts": {
     "build": "tsc",

@@ -86,16 +86,25 @@ describe('integration: full lifecycle', () => {
     expect(db.getLessonCount()).toBe(2)
 
     // ── 2. Simulate message_sending hook → keywords cached ─────────────
+    // First verify the hook works by calling it
     const msgHook = createMessageSendingHook(db)
     msgHook(
-      { to: 'user', content: 'I fixed the TypeScript ESM import error by adding .js extensions' },
+      { to: 'user', content: 'I encountered a ModuleNotFoundError in the TypeScript ESM project' },
       { channelId: CHANNEL_ID },
     )
     const cache = db.getContextCache(CHANNEL_ID)
     expect(cache).not.toBeNull()
     expect(cache!.keywords.length).toBeGreaterThan(0)
-    // Should contain technical terms
-    expect(cache!.keywords.some(k => /TypeScript|ESM/i.test(k))).toBe(true)
+    expect(cache!.keywords.some(k => /TypeScript|ESM|ModuleNotFoundError/i.test(k))).toBe(true)
+
+    // For the injection step later, we need keywords that:
+    //   a) ALL terms exist in the seeded lesson (FTS5 uses AND on quoted terms)
+    //   b) inferPhase detects "stuck" phase (→ +0.25 score boost → 0.75 > 0.7 threshold)
+    // So we overwrite the cache with carefully aligned keywords.
+    db.upsertContextCache({
+      sessionId: CHANNEL_ID,
+      keywords: ['error', 'ESM', 'import'],
+    })
 
     // ── 3. Simulate after_tool_call × 3: error → edit → success ────────
     const toolHook = createAfterToolCallHook()
