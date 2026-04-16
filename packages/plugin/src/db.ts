@@ -291,6 +291,10 @@ export function createDb(dbPath: string = ':memory:') {
     SELECT * FROM local_lessons WHERE outdated = 0 ORDER BY relevance_score DESC, created_at DESC LIMIT ?
   `)
 
+  const stmtListLessonsPaginated = db.prepare(`
+    SELECT * FROM local_lessons WHERE outdated = 0 ORDER BY relevance_score DESC, created_at DESC LIMIT ? OFFSET ?
+  `)
+
   function insertLesson(lesson: Omit<Lesson, 'id'>): number {
     const now = Date.now()
     const result = stmtInsertLesson.run(
@@ -321,6 +325,11 @@ export function createDb(dbPath: string = ':memory:') {
 
   function listLessons(limit = 50): Lesson[] {
     const rows = stmtListLessons.all(limit) as LessonRow[]
+    return rows.map(rowToLesson)
+  }
+
+  function listLessonsPaginated(offset: number, limit: number): Lesson[] {
+    const rows = stmtListLessonsPaginated.all(limit, offset) as LessonRow[]
     return rows.map(rowToLesson)
   }
 
@@ -572,6 +581,174 @@ export function createDb(dbPath: string = ':memory:') {
     stmtDeleteContext.run(sessionId)
   }
 
+  // ── Service helpers ───────────────────────────────────────────────────────
+
+  function getLessonCount(): number {
+    const row = db.prepare('SELECT COUNT(*) as cnt FROM local_lessons WHERE outdated = 0').get() as { cnt: number }
+    return row.cnt
+  }
+
+  function getNewLessonCount(sinceMsAgo = 30 * 60 * 1000): number {
+    const cutoff = Date.now() - sinceMsAgo
+    const row = db.prepare('SELECT COUNT(*) as cnt FROM local_lessons WHERE outdated = 0 AND created_at > ?').get(cutoff) as { cnt: number }
+    return row.cnt
+  }
+
+  function listLessonsForDistillation(minGroupSize = 5): Array<{ tag: string; lessons: Lesson[] }> {
+    // Find tags that have >= minGroupSize non-outdated lessons
+    const rows = db.prepare(`
+      SELECT id, what, tried, outcome, learned, source, tags, relevance_score,
+             applied_count, success_count, created_at, updated_at, outdated, embedding
+      FROM local_lessons WHERE outdated = 0
+    `).all() as LessonRow[]
+
+    const tagMap = new Map<string, Lesson[]>()
+    for (const row of rows) {
+      const lesson = rowToLesson(row)
+      const tags = lesson.tags ?? []
+      for (const tag of tags) {
+        const existing = tagMap.get(tag) ?? []
+        existing.push(lesson)
+        tagMap.set(tag, existing)
+      }
+    }
+
+    const groups: Array<{ tag: string; lessons: Lesson[] }> = []
+    for (const [tag, lessons] of tagMap) {
+      if (lessons.length >= minGroupSize) {
+        groups.push({ tag, lessons })
+      }
+    }
+    return groups
+  }
+
+  function hasPublished(): boolean {
+    const row = db.prepare('SELECT COUNT(*) as cnt FROM published_log WHERE unpublished_at IS NULL').get() as { cnt: number }
+    return row.cnt > 0
+  }
+
+  function hasNewTraces(sinceMsAgo = 60 * 60 * 1000): boolean {
+    const cutoff = Date.now() - sinceMsAgo
+    const row = db.prepare('SELECT COUNT(*) as cnt FROM trace_steps WHERE timestamp > ?').get(cutoff) as { cnt: number }
+    return row.cnt > 0
+  }
+
+  function listAllLessons(): Lesson[] {
+    const rows = db.prepare('SELECT * FROM local_lessons ORDER BY created_at DESC').all() as LessonRow[]
+    return rows.map(rowToLesson)
+  }
+
+  function listUnpublishedLessons(): Lesson[] {
+    const rows = db.prepare(`
+      SELECT ll.* FROM local_lessons ll
+      LEFT JOIN published_log pl ON ll.id = pl.lesson_id AND pl.unpublished_at IS NULL
+      WHERE ll.outdated = 0 AND pl.id IS NULL
+      ORDER BY ll.created_at DESC
+    `).all() as LessonRow[]
+    return rows.map(rowToLesson)
+  }
+
+  function listTraceSessions(): Array<{ sessionId: string; stepCount: number; hasErrors: boolean }> {
+    const rows = db.prepare(`
+      SELECT session_id,
+             COUNT(*) as step_count,
+             SUM(CASE WHEN significance = 'error' THEN 1 ELSE 0 END) as error_count
+      FROM trace_steps
+      GROUP BY session_id
+      ORDER BY MAX(timestamp) DESC
+    `).all() as Array<{ session_id: string; step_count: number; error_count: number }>
+    return rows.map(r => ({
+      sessionId: r.session_id,
+      stepCount: r.step_count,
+      hasErrors: r.error_count > 0,
+    }))
+  }
+
+  function getInjectionStats(sinceMsAgo?: number): { total: number; injected: number } {
+    const cutoff = sinceMsAgo ? Date.now() - sinceMsAgo : 0
+    const row = db.prepare(`
+      SELECT COUNT(*) as total,
+             SUM(CASE WHEN injected = 1 THEN 1 ELSE 0 END) as injected
+      FROM injection_log
+      WHERE created_at > ?
+    `).get(cutoff) as { total: number; injected: number }
+    return { total: row.total, injected: row.injected ?? 0 }
+  }
+
+  function updateLessonRelevanceScore(id: number, score: number): void {
+    db.prepare('UPDATE local_lessons SET relevance_score = ?, updated_at = ? WHERE id = ?').run(score, Date.now(), id)
+  }
+
+  function listLessonsWithContradictions(minCount = 3): Array<{ lessonId: number; contradictionCount: number }> {
+    const rows = db.prepare(`
+      SELECT f.lesson_id, COUNT(*) as cnt
+      FROM feedback f
+      JOIN local_lessons ll ON f.lesson_id = ll.id
+      WHERE f.type = 'contradicted' AND ll.outdated = 0
+      GROUP BY f.lesson_id
+      HAVING COUNT(*) >= ?
+    `).all(minCount) as Array<{ lesson_id: number; cnt: number }>
+    return rows.map(r => ({ lessonId: r.lesson_id, contradictionCount: r.cnt }))
+  }
+
+  function getTraceStepCount(): number {
+    const row = db.prepare('SELECT COUNT(*) as cnt FROM trace_steps').get() as { cnt: number }
+    return row.cnt
+  }
+
+  function getTableCounts(): Record<string, number> {
+    const tables = ['local_lessons', 'trace_steps', 'feedback', 'published_log', 'injection_log', 'context_cache']
+    const counts: Record<string, number> = {}
+    for (const t of tables) {
+      const row = db.prepare(`SELECT COUNT(*) as cnt FROM ${t}`).get() as { cnt: number }
+      counts[t] = row.cnt
+    }
+    return counts
+  }
+
+  function getFts5Status(): { available: boolean; rowCount: number } {
+    if (!fts5Available) return { available: false, rowCount: 0 }
+    try {
+      const row = db.prepare('SELECT COUNT(*) as cnt FROM local_lessons_fts').get() as { cnt: number }
+      return { available: true, rowCount: row.cnt }
+    } catch {
+      return { available: true, rowCount: 0 }
+    }
+  }
+
+  function getOutdatedLessonCount(): number {
+    const row = db.prepare('SELECT COUNT(*) as cnt FROM local_lessons WHERE outdated = 1').get() as { cnt: number }
+    return row.cnt
+  }
+
+  function getLastPublish(): PublishedLog | null {
+    const row = db.prepare(`
+      SELECT * FROM published_log
+      WHERE unpublished_at IS NULL
+      ORDER BY published_at DESC
+      LIMIT 1
+    `).get() as {
+      id: number
+      lesson_id: number
+      relay_event_id: string | null
+      published_at: number
+      unpublished_at: number | null
+    } | undefined
+    if (!row) return null
+    return {
+      id: row.id,
+      lessonId: row.lesson_id,
+      relayEventId: row.relay_event_id ?? undefined,
+      publishedAt: row.published_at,
+      unpublishedAt: row.unpublished_at ?? undefined,
+    }
+  }
+
+  function getPublishedCount(): number {
+    const row = db.prepare('SELECT COUNT(*) as cnt FROM published_log WHERE unpublished_at IS NULL').get() as { cnt: number }
+    return row.cnt
+  }
+
   // ── Close ────────────────────────────────────────────────────────────────
 
   function close(): void {
@@ -589,6 +766,7 @@ export function createDb(dbPath: string = ':memory:') {
     markOutdated,
     deleteLesson,
     listLessons,
+    listLessonsPaginated,
     incrementApplied,
     searchLessons,
 
@@ -608,6 +786,25 @@ export function createDb(dbPath: string = ':memory:') {
 
     // Injection log
     insertInjectionLog,
+
+    // Service helpers
+    getLessonCount,
+    getNewLessonCount,
+    listLessonsForDistillation,
+    hasPublished,
+    hasNewTraces,
+    listAllLessons,
+    listUnpublishedLessons,
+    listTraceSessions,
+    getInjectionStats,
+    updateLessonRelevanceScore,
+    listLessonsWithContradictions,
+    getTraceStepCount,
+    getTableCounts,
+    getFts5Status,
+    getOutdatedLessonCount,
+    getLastPublish,
+    getPublishedCount,
 
     // Context cache
     upsertContextCache,
