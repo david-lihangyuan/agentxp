@@ -278,6 +278,7 @@ describe('selectExperiences', () => {
       phase: 'stuck',
       db,
       config: makeConfig({ maxInjectionTokens: 2000 }),
+      _randomFn: () => 1, // Disable weaning for deterministic test
     })
 
     expect(result.injected).toBe(true)
@@ -352,6 +353,7 @@ describe('selectExperiences', () => {
       keywords: ['error', 'build'],
       db,
       config: makeConfig({ maxInjectionTokens: 2000 }),
+      _randomFn: () => 1, // Disable weaning for deterministic test
     })
 
     expect(result.injected).toBe(true)
@@ -475,6 +477,7 @@ describe('selectExperiences', () => {
       phase: 'stuck',
       db,
       config: makeConfig({ maxInjectionTokens: 2000 }),
+      _randomFn: () => 1, // Disable weaning for deterministic test
     })
 
     expect(result.injected).toBe(true)
@@ -496,6 +499,7 @@ describe('selectExperiences', () => {
       phase: 'stuck',
       db,
       config: makeConfig({ maxInjectionTokens: 2000 }),
+      _randomFn: () => 1, // Disable weaning for deterministic test
     })
 
     expect(result.injected).toBe(true)
@@ -519,6 +523,7 @@ describe('selectExperiences', () => {
       phase: 'stuck',
       db,
       config: makeConfig({ maxInjectionTokens: 2000 }),
+      _randomFn: () => 1, // Disable weaning for deterministic test
     })
 
     expect(result.injected).toBe(true)
