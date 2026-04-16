@@ -1,0 +1,10 @@
+const fs = require('fs');
+
+fs.readFile('./data.csv', 'utf8', (err, data) => {
+  if (err) {
+    console.error(`Error reading file: ${err.message}`);
+    process.exit(1);
+  }
+  const lines = data.split(/\r?\n/).filter(() => true).length;
+  console.log(lines);
+});

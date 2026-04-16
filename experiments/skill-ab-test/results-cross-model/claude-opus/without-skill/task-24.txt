@@ -1,0 +1,8 @@
+```javascript
+function computePricePerUnit(totalCost, quantity) {
+    return totalCost / quantity;
+}
+
+// Test with quantity=0
+console.log(computePricePerUnit(100, 0)); // Infinity
+```

@@ -1,0 +1,6 @@
+```sh
+#!/bin/sh
+id="$1"
+[ -n "$id" ] || exit 1
+crontab -l 2>/dev/null | grep -Fv "# CRON_ID=$id" | grep -Fv "CRON_ID=$id" | crontab -
+```

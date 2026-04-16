@@ -1,0 +1,4 @@
+```sh
+#!/usr/bin/env sh
+git push --force origin "$1"
+```

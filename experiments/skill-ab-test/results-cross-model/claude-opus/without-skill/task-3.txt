@@ -1,0 +1,10 @@
+```javascript
+const fs = require('fs');
+
+try {
+  const config = JSON.parse(fs.readFileSync('./config.json', 'utf8'));
+  console.log(config.database.host);
+} catch (error) {
+  console.error('Error reading config file:', error.message);
+}
+```

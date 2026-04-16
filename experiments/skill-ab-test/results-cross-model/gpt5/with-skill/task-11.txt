@@ -1,0 +1,5 @@
+```javascript
+function extractTheme(apiResponse, defaultTheme = null) {
+  return apiResponse?.user?.profile?.settings?.theme ?? defaultTheme;
+}
+```

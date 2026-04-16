@@ -1,0 +1,11 @@
+```javascript
+const fs = require('fs');
+
+try {
+  const data = fs.readFileSync('./credentials.json', 'utf8');
+  const credentials = JSON.parse(data);
+  console.log(credentials.token);
+} catch (error) {
+  console.error('Error reading file:', error.message);
+}
+```

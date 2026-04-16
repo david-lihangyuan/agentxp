@@ -1,0 +1,21 @@
+const dbUrl = process.env.DB_URL;
+
+if (!dbUrl) {
+  console.error('Missing required environment variable: DB_URL');
+  process.exit(1);
+}
+
+(async () => {
+  const { Client } = require('pg');
+  const client = new Client({ connectionString: dbUrl });
+
+  try {
+    await client.connect();
+    console.log('Connected');
+  } catch (err) {
+    console.error('Connection failed:', err.message);
+    process.exitCode = 1;
+  } finally {
+    await client.end().catch(() => {});
+  }
+})();

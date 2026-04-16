@@ -1,0 +1,16 @@
+```javascript
+#!/usr/bin/env node
+
+const apiKey = process.env.API_KEY;
+
+if (!apiKey) {
+  console.error('Error: API_KEY not set');
+  process.exit(1);
+}
+
+const headers = {
+  Authorization: `Bearer ${apiKey}`,
+};
+
+console.log(headers);
+```

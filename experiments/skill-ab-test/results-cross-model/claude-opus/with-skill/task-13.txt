@@ -1,0 +1,20 @@
+```javascript
+const fs = require('fs');
+const path = require('path');
+
+const filePath = './data.csv';
+
+try {
+  if (!fs.existsSync(filePath)) {
+    console.error(`Error: File not found: ${filePath}`);
+    process.exit(1);
+  }
+  
+  const content = fs.readFileSync(filePath, 'utf8');
+  const lines = content.split('\n').filter(line => line.trim() !== '');
+  console.log(`Line count: ${lines.length}`);
+} catch (error) {
+  console.error(`Error reading file: ${error.message}`);
+  process.exit(1);
+}
+```

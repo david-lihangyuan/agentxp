@@ -1,0 +1,30 @@
+- security: always validate and sanitize file paths from user input to prevent path traversal attacks (e.g., using os.path.abspath and checking if the resolved path is within allowed directories)
+- path traversal: check startswith() doesn't match partial directory names (e.g., /base vs /base_evil)
+- reliability: always use try-finally or context managers to ensure database cursors are closed even if exceptions occur
+- ok: no issues detected
+- reliability: always set timeout parameter in requests.get() to prevent indefinite hangs
+- validation: always validate URL format to prevent requests to malicious or internal network addresses
+- concurrency: always use a single atomic operation instead of separate SELECT/INSERT logic to avoid race conditions
+- concurrency: always limit concurrent connections to prevent resource exhaustion when processing large URL lists
+- reliability: always check database file permissions and disk space before write operations
+- resource management: always clean up temporary resources (like temp directories) even on successful execution, not just on failure
+- error-handling: always handle socket.timeout and socket.error exceptions when reading from sockets
+- validation: always specify which column to sum instead of guessing based on column names
+- reliability: always check for circular references in recursive functions that process nested data structures
+- ok: no issues detected
+- ok: no issues detected
+- security: always validate or sanitize shell commands to prevent command injection when shell=True
+- resource management: always handle ClientSession lifecycle properly when using create_task() to prevent session closure before request completion
+- concurrency: always use tempfile.NamedTemporaryFile() or unique filenames to prevent race conditions when multiple processes write to the same filename
+- concurrency: always use connection pooling instead of thread-local connections for high-concurrency web apps to avoid connection exhaustion
+- file_handling: always check for file rotation/truncation scenarios and handle seek position invalidation gracefully
+- security: validate file paths to prevent path traversal attacks (../../etc/passwd)
+- path traversal: always validate file paths against a safe base directory, but also ensure the base directory itself is explicitly configured rather than using cwd()
+- security: always validate IP addresses properly (172.16-31.x.x and 10.x.x.x ranges are incomplete)
+- validation: always validate input list is not None and has reasonable size limits to prevent resource exhaustion from unbounded concurrent requests
+- type hints: avoid importing `bool` from typing (it's a built-in type)
+- concurrency: always use thread-safe data structures or locks when accessing shared mutable state in long-running servers
+- validation: path traversal check is broken (allows any path when dirname is empty/root)
+- validation: always check that os.getcwd() doesn't raise OSError when file system is unavailable
+- concurrency: check for race conditions when using file existence as idempotency mechanism (multiple requests could pass the exists() check before any creates the file)
+- concurrency: always check if database-level locking mechanisms (like SELECT FOR UPDATE) are actually supported by the database engine being used (SQLite doesn't support it)

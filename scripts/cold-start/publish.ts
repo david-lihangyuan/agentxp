@@ -15,7 +15,8 @@ export async function publishEvent(
       return { ok: true };
     }
 
-    return { ok: false, error: `HTTP ${response.status}: ${response.statusText}` };
+    const body = await response.text().catch(() => '(no body)');
+    return { ok: false, error: `HTTP ${response.status}: ${response.statusText} — ${body}` };
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
     return { ok: false, error };

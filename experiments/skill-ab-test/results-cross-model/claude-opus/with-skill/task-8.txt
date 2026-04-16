@@ -1,0 +1,13 @@
+```python
+def calculate_percentage(part, total):
+    if total == 0:
+        raise ValueError("Division by zero: total cannot be 0")
+    return (part / total) * 100
+
+# Test with total=0
+try:
+    result = calculate_percentage(50, 0)
+    print(f"Result: {result}%")
+except ValueError as e:
+    print(f"Error: {e}")
+```

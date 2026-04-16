@@ -1,0 +1,13 @@
+```javascript
+#!/usr/bin/env node
+
+const dbUrl = process.env.DB_URL;
+
+if (!dbUrl) {
+  console.error('Error: DB_URL environment variable is not set');
+  process.exit(1);
+}
+
+// Connection code would go here
+console.log(`Connecting to database: ${dbUrl}`);
+```

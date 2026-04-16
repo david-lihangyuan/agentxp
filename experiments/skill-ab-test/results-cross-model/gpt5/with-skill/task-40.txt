@@ -1,0 +1,33 @@
+```python
+#!/usr/bin/env python3
+import sys
+import os
+
+try:
+    import yaml
+except ImportError:
+    print("Error: PyYAML is not installed", file=sys.stderr)
+    sys.exit(1)
+
+config_path = sys.argv[1] if len(sys.argv) > 1 else "config.yaml"
+
+if not os.path.exists(config_path):
+    print(f"Error: File not found: {config_path}", file=sys.stderr)
+    sys.exit(1)
+
+try:
+    with open(config_path, "r", encoding="utf-8") as f:
+        config = yaml.safe_load(f)
+except OSError as e:
+    print(f"Error reading file: {e}", file=sys.stderr)
+    sys.exit(1)
+except yaml.YAMLError as e:
+    print(f"Error parsing YAML: {e}", file=sys.stderr)
+    sys.exit(1)
+
+try:
+    print(config["services"]["api"]["endpoints"][0])
+except (TypeError, KeyError, IndexError) as e:
+    print(f"Error: Missing expected config path services.api.endpoints[0]: {e}", file=sys.stderr)
+    sys.exit(1)
+```

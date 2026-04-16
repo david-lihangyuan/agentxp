@@ -1,0 +1,26 @@
+```js
+const fs = require('fs');
+const path = require('path');
+
+const packageJsonPath = path.join(process.cwd(), 'package.json');
+
+if (!fs.existsSync(packageJsonPath)) {
+  console.error(`File not found: ${packageJsonPath}`);
+  process.exit(1);
+}
+
+let pkg;
+try {
+  pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+} catch (err) {
+  console.error(`Failed to read or parse package.json: ${err.message}`);
+  process.exit(1);
+}
+
+if (!pkg || !pkg.scripts || typeof pkg.scripts.test === 'undefined') {
+  console.error('pkg.scripts.test not found');
+  process.exit(1);
+}
+
+console.log(pkg.scripts.test);
+```

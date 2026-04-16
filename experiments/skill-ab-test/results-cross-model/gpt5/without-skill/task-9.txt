@@ -1,0 +1,2 @@
+#!/bin/sh
+mkdir -p /tmp/archive && mv -- "$1" /tmp/archive/

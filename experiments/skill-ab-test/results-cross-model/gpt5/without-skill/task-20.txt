@@ -1,0 +1,5 @@
+def batting_average(hits, at_bats):
+    return hits / at_bats if at_bats != 0 else 0.0
+
+print(batting_average(5, 20))
+print(batting_average(0, 0))

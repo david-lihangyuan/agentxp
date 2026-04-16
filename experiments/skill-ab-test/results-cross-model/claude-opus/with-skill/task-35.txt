@@ -1,0 +1,18 @@
+```bash
+#!/bin/bash
+
+if [ $# -eq 0 ]; then
+    echo "Error: No container name provided" >&2
+    exit 1
+fi
+
+container_name="$1"
+
+# Check if container exists
+if ! docker ps -a --format '{{.Names}}' | grep -q "^${container_name}$"; then
+    echo "Error: Container '$container_name' not found" >&2
+    exit 1
+fi
+
+docker rm -f "$container_name"
+```

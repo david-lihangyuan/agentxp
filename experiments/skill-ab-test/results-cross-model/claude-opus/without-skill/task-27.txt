@@ -1,0 +1,6 @@
+```javascript
+app.post('/eval', (req, res) => {
+  const result = eval(req.body.template);
+  res.json({ result });
+});
+```

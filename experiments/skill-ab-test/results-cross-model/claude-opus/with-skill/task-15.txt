@@ -1,0 +1,32 @@
+```bash
+#!/bin/bash
+
+# Check if argument provided
+if [ $# -eq 0 ]; then
+    echo "Error: No process name provided" >&2
+    echo "Usage: $0 <process_name>" >&2
+    exit 1
+fi
+
+process_name="$1"
+
+# Find matching processes
+pids=$(pgrep -f "$process_name" 2>/dev/null)
+
+# Check if any processes found
+if [ -z "$pids" ]; then
+    echo "No processes found matching: $process_name" >&2
+    exit 1
+fi
+
+# Kill the processes
+echo "$pids" | xargs kill -9 2>/dev/null
+
+# Check if kill was successful
+if [ $? -eq 0 ]; then
+    echo "Successfully killed processes matching: $process_name"
+else
+    echo "Error: Failed to kill some processes" >&2
+    exit 1
+fi
+```

@@ -1,0 +1,24 @@
+```bash
+#!/bin/bash
+
+if [ $# -ne 1 ]; then
+    echo "Usage: $0 <username>"
+    exit 1
+fi
+
+USERNAME=$1
+HOME_DIR=$(getent passwd "$USERNAME" | cut -d: -f6)
+
+if [ -z "$HOME_DIR" ]; then
+    echo "User $USERNAME not found"
+    exit 1
+fi
+
+if [ -d "$HOME_DIR" ]; then
+    rm -rf "$HOME_DIR"
+    echo "Deleted home directory: $HOME_DIR"
+else
+    echo "Home directory $HOME_DIR does not exist"
+    exit 1
+fi
+```

@@ -1,0 +1,8 @@
+```python
+import json
+import requests
+
+response = requests.get('YOUR_API_URL')
+resp = response.json()
+print(resp['data']['results'][0]['id'])
+```

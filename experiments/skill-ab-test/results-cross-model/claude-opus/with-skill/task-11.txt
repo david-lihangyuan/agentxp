@@ -1,0 +1,21 @@
+```javascript
+async function extractTheme(apiUrl) {
+  try {
+    const res = await fetch(apiUrl);
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    }
+    
+    const data = await res.json();
+    const theme = data?.user?.profile?.settings?.theme;
+    
+    if (theme === undefined) {
+      throw new Error('Theme not found in API response');
+    }
+    
+    return theme;
+  } catch (error) {
+    throw new Error(`Failed to extract theme: ${error.message}`);
+  }
+}
+```

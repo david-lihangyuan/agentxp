@@ -1,0 +1,19 @@
+```javascript
+#!/usr/bin/env node
+
+const readline = require('readline');
+
+const regex = new RegExp(process.argv[2]);
+
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+  terminal: false
+});
+
+rl.on('line', (line) => {
+  if (regex.test(line)) {
+    console.log(line);
+  }
+});
+```

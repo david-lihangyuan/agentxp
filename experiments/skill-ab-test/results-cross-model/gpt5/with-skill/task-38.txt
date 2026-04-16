@@ -1,0 +1,15 @@
+```javascript
+#!/usr/bin/env node
+
+const http = require('http');
+
+const arg = process.argv[2];
+
+if (arg === undefined) {
+  console.error('Usage: node server.js <port>');
+  process.exit(1);
+}
+
+const port = Number(arg);
+
+if (!Number.isInteger

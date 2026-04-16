@@ -1,0 +1,90 @@
+- Use exception handling to gracefully handle missing files and provide sensible defaults.
+- Use file locking (like fcntl) when multiple processes need to read/write the same file to prevent race conditions and data corruption.
+- Always consider cross-platform compatibility when working with file operations, especially regarding line endings and file locking mechanisms.
+- Always use atomic operations (like extracting to a temporary directory first, then moving) to avoid leaving partial results when operations fail.
+- Always sanitize user-supplied filenames to prevent directory traversal attacks.
+- Memory-mapped files enable efficient processing of large files by avoiding loading the entire file into memory at once.
+- Use file locking (like fcntl) when multiple processes need to write to the same file to prevent data corruption and ensure atomic operations.
+- Use `os.walk()` to recursively traverse directories and `os.path.join()` with `os.path.abspath()` to build proper absolute file paths.
+- Always rotate log files in reverse order (highest to lowest) to avoid overwriting existing backups.
+- Always check for and handle byte order marks (BOMs) when reading files that may come from different sources or encodings.
+- Always use atomic file operations (write to temp file, then rename) when multiple processes might read the same file to prevent data corruption.
+- Always ensure temporary files are cleaned up in a try-finally block when dealing with file operations that might fail.
+- Process large files in small chunks to avoid loading the entire file into memory at once.
+- Always use file locking when multiple threads or processes need to read-modify-write the same file to prevent race conditions.
+- Always validate and sanitize user-provided input when constructing file paths to prevent directory traversal attacks.
+- Always validate and sanitize user inputs before inserting them into a database to prevent SQL injection and ensure data integrity.
+- Always validate and whitelist user inputs before using them in database queries to prevent SQL injection attacks.
+- Always validate and sanitize inputs from external sources before using them in calculations.
+- Always use yaml.safe_load() instead of yaml.load() to prevent arbitrary code execution vulnerabilities when parsing untrusted YAML input.
+- Always validate and sanitize user input before applying pattern matching to prevent security issues and ensure data integrity.
+- Always validate and sanitize user inputs, especially when dealing with database operations and datetime parsing, to prevent security vulnerabilities and ensure data integrity.
+- Always use parameterized queries for user input, but never for table/column names which must be validated and concatenated directly.
+- Always validate and sanitize user input to prevent security vulnerabilities and resource exhaustion attacks.
+- Never trust user-provided filenames - always validate, sanitize, and use secure paths to prevent directory traversal attacks.
+- Always validate and sanitize user input from URL parameters before using it in your application logic.
+- Always validate and sanitize user-supplied file paths before processing them to prevent security vulnerabilities and runtime errors.
+- Always validate and sanitize user inputs from web forms before using them in email functions to prevent injection attacks and ensure data integrity.
+- Always sanitize and validate user input before regex processing to prevent ReDoS attacks and ensure security.
+- Always validate and sanitize user inputs before using them in database queries to prevent SQL injection and ensure data integrity.
+- Always validate and sanitize user inputs from API requests to prevent security vulnerabilities and resource exhaustion attacks.
+- Always complete your code before submitting it, as even a simple typo like "Fal" instead of "False" will cause a syntax error.
+- Always implement retry logic with exponential backoff when dealing with services that may be temporarily unavailable.
+- Always implement idempotency checks when processing webhooks to prevent duplicate processing from retries.
+- Always validate and sanitize input data before processing it in API operations.
+- Always validate and sanitize user inputs to prevent injection attacks and ensure data integrity when making API calls.
+- Always validate and sanitize user inputs before using them in API calls to prevent security vulnerabilities.
+- Always implement retry logic with exponential backoff when dealing with external services that may have transient failures.
+- Always implement timeout mechanisms and retry logic when dealing with network operations that may stall or fail.
+- Always validate and sanitize user input before passing it to external APIs to prevent injection attacks and ensure data integrity.
+- Always validate webhook payloads and use idempotency to handle retries safely in distributed systems.
+- Always implement proper timeout mechanisms when polling external resources to prevent infinite loops and system hangs.
+- Always validate and sanitize user input before using it in network operations to prevent security vulnerabilities and ensure proper functionality.
+- Always provide a mechanism to gracefully stop background threads to prevent resource leaks and ensure clean application shutdown.
+- Always validate and sanitize user inputs before using them in API requests to prevent security vulnerabilities and ensure data integrity.
+- Always implement proper error handling, input validation, and exponential backoff when designing systems that connect to external services.
+- Always validate and sanitize inputs before performing any database operations to prevent security vulnerabilities and ensure data integrity.
+- Handle fire-and-forget async tasks by creating a separate task with comprehensive error handling rather than just awaiting and ignoring exceptions.
+- Use thread pools with proper error handling and graceful shutdown mechanisms when processing large batches of I/O-bound tasks in parallel.
+- Use database transactions with proper locking mechanisms to handle concurrent access and prevent race conditions when multiple users attempt to reserve the same resource.
+- Use a dedicated thread with a new event loop to safely run async code from sync contexts where the main thread may already have an event loop.
+- Use database transactions with proper isolation levels and row-level locking to handle concurrent operations safely.
+- Always track and properly clean up scheduled tasks in long-running servers to prevent memory leaks and ensure graceful shutdown.
+- Use asynchronous programming with connection pooling and concurrent request limits to efficiently handle thousands of I/O-bound operations.
+- Use database transactions with proper locking to prevent race conditions when generating unique identifiers under concurrent load.
+- Use database transactions with appropriate isolation levels and row-level locking to ensure atomicity when multiple concurrent operations modify shared state.
+- When creating a sync wrapper for async code, you must run it in a separate event loop to avoid conflicts with any existing running loop.
+- Use connection pooling with rate limiting (semaphore) when making thousands of concurrent HTTP requests to avoid overwhelming the server and network.
+- Use Redis' atomic SET with NX (set if not exists) and EX (expiration) options to implement distributed locks in a single operation.
+- Always supervise background tasks to detect and handle crashes rather than letting them fail silently.
+- Database transactions ensure atomicity by allowing you to commit all changes together or rollback everything if any operation fails.
+- Always use connection pooling instead of creating new database connections for each request to improve performance and resource efficiency.
+- When building systems for millions of users, you must implement memory limits, TTL-based expiration, and thread-safe operations to prevent memory exhaustion and ensure reliable performance.
+- When reading the last N lines of a potentially large file, seek to the end and read backwards in blocks rather than loading the entire file into memory.
+- Always use proper buffer variable names and complete your code before checking for sentinel values in streaming data.
+- Use cursor.fetchmany() to process large database results in chunks rather than loading millions of rows into memory at once.
+- Always use a temporary file during risky operations and only move it to the final location after successful completion to avoid leaving partial/corrupted files.
+- Always ensure resources are properly closed in the finally block of a context manager to prevent resource leaks.
+- Always implement cache size limits with LRU eviction when dealing with potentially unbounded input variations to prevent memory exhaustion.
+- Always use platform-specific file system monitoring libraries (like watchdog) instead of polling for better performance and reliability.
+- Always test code before submitting - the variable name "chunk" was misspelled as "chun" causing a critical error.
+- Always properly handle SMTP protocol requirements including CRLF line endings, response code validation, and the complete SMTP command sequence (HELO, MAIL FROM, RCPT TO, DATA, QUIT).
+- Always clean up temporary files in a finally block to prevent resource leaks even when exceptions occur.
+- Always use transactions with explicit rollback capabilities when performing database migrations to ensure data integrity.
+- Use a lock to protect shared mutable state when accessing it from multiple threads.
+- Always use streaming with configurable chunk sizes when handling large files to avoid memory exhaustion.
+- Always validate and sanitize user-provided input before using it in system commands to prevent command injection attacks.
+- Never use string concatenation or formatting to build SQL queries; always use parameterized queries to prevent SQL injection vulnerabilities.
+- Always sanitize user-provided filenames to prevent directory traversal attacks and other security vulnerabilities when handling file uploads.
+- Always use parameterized queries with placeholders (?) instead of string concatenation when building SQL queries with user input to prevent SQL injection attacks.
+- Always validate user inputs and use temporary files for output when executing system commands.
+- Always sanitize user input before displaying it in HTML to prevent XSS attacks.
+- Always validate the integrity of session data from untrusted sources using cryptographic signatures before deserializing.
+- Always sanitize user-provided file paths to prevent directory traversal attacks when serving files.
+- Always sanitize and validate user input before passing it to system commands to prevent command injection attacks.
+- Always validate and sanitize file paths when loading data from disk to prevent directory traversal attacks.
+- Always sanitize user input from external sources before rendering it in HTML to prevent XSS attacks.
+- Always use parameterized queries with placeholders instead of string concatenation to prevent SQL injection vulnerabilities.
+- Always sanitize user input and validate file paths to prevent directory traversal attacks when accessing files based on user-provided parameters.
+- Always sanitize user-supplied input before using it in file operations to prevent path traversal and other security vulnerabilities.
+- Never use pickle to deserialize untrusted user input as it can execute arbitrary code.

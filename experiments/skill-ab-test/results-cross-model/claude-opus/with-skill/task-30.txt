@@ -1,0 +1,25 @@
+```bash
+#!/bin/bash
+
+if [ $# -eq 0 ]; then
+    echo "Error: Branch name required" >&2
+    exit 1
+fi
+
+branch="$1"
+
+# Check if we're in a git repository
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+    echo "Error: Not in a git repository" >&2
+    exit 1
+fi
+
+# Check if branch exists locally
+if ! git show-ref --verify --quiet "refs/heads/$branch"; then
+    echo "Error: Branch '$branch' does not exist locally" >&2
+    exit 1
+fi
+
+# Execute the force push
+git push --force origin "$branch"
+```

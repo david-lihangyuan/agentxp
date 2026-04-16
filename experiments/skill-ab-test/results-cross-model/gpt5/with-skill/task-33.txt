@@ -1,0 +1,15 @@
+function computeAspectRatio(width, height) {
+  if (typeof width !== 'number' || typeof height !== 'number' || Number.isNaN(width) || Number.isNaN(height)) {
+    throw new TypeError('width and height must be valid numbers');
+  }
+  if (height === 0) {
+    throw new Error('Division by zero');
+  }
+  return width / height;
+}
+
+try {
+  console.log(computeAspectRatio(1920, 0));
+} catch (err) {
+  console.error(err.message);
+}

@@ -1,0 +1,16 @@
+```javascript
+function computeRate(amount, duration_seconds) {
+  if (duration_seconds === 0) {
+    throw new Error('Division by zero: duration_seconds cannot be 0');
+  }
+  return amount / duration_seconds;
+}
+
+// Test
+try {
+  const result = computeRate(100, 0);
+  console.log('Rate:', result);
+} catch (error) {
+  console.error('Error:', error.message);
+}
+```

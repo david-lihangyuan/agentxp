@@ -1,0 +1,12 @@
+```javascript
+const fs = require('fs');
+
+fs.readFile('./data.csv', 'utf8', (err, data) => {
+  if (err) {
+    console.error('Error reading file:', err.message);
+    return;
+  }
+  const lineCount = data.split('\n').filter(line => line.trim() !== '').length;
+  console.log(`Number of lines: ${lineCount}`);
+});
+```

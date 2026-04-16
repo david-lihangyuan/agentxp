@@ -1,0 +1,58 @@
+```bash
+#!/bin/bash
+
+if [ $# -eq 0 ]; then
+    echo "Usage: $0 <cron_job_id>" >&2
+    exit 1
+fi
+
+cron_id="$1"
+
+# Check if crontab exists
+if ! crontab -l >/dev/null 2>&1; then
+    echo "No crontab found" >&2
+    exit 1
+fi
+
+# Create temp file
+temp_file=$(mktemp)
+if [ $? -ne 0 ]; then
+    echo "Failed to create temp file" >&2
+    exit 1
+fi
+
+# Save current crontab
+crontab -l > "$temp_file" 2>/dev/null
+
+# Check if ID exists
+if ! grep -q "^[[:space:]]*#[[:space:]]*ID:[[:space:]]*${cron_id}[[:space:]]*$" "$temp_file"; then
+    rm -f "$temp_file"
+    echo "Cron job ID '${cron_id}' not found" >&2
+    exit 1
+fi
+
+# Remove job and its ID comment
+awk -v id="$cron_id" '
+    /^[[:space:]]*#[[:space:]]*ID:[[:space:]]*/ {
+        if ($0 ~ "ID:[[:space:]]*" id "[[:space:]]*$") {
+            skip=1
+            next
+        }
+    }
+    skip && /^[^#]/ {
+        skip=0
+        next
+    }
+    !skip
+' "$temp_file" | crontab -
+
+# Check if crontab update succeeded
+if [ ${PIPESTATUS[1]} -ne 0 ]; then
+    rm -f "$temp_file"
+    echo "Failed to update crontab" >&2
+    exit 1
+fi
+
+rm -f "$temp_file"
+echo "Cron job ID '${cron_id}' removed successfully"
+```

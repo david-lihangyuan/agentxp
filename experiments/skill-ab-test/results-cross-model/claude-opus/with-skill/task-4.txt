@@ -1,0 +1,27 @@
+```bash
+#!/bin/bash
+
+if [ $# -eq 0 ]; then
+    echo "Error: No directory path provided" >&2
+    exit 1
+fi
+
+dir="$1"
+
+if [ ! -d "$dir" ]; then
+    echo "Error: Directory not found: $dir" >&2
+    exit 1
+fi
+
+if [ ! -r "$dir" ] || [ ! -x "$dir" ]; then
+    echo "Error: Cannot access directory: $dir" >&2
+    exit 1
+fi
+
+find "$dir" -type f -name "*.tmp" -delete 2>/dev/null
+
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to delete some .tmp files" >&2
+    exit 1
+fi
+```

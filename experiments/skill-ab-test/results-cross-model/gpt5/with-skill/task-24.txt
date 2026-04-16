@@ -1,0 +1,15 @@
+function computePricePerUnit(totalCost, quantity) {
+  if (typeof totalCost !== 'number' || typeof quantity !== 'number' || Number.isNaN(totalCost) || Number.isNaN(quantity)) {
+    throw new TypeError('totalCost and quantity must be valid numbers');
+  }
+  if (quantity === 0) {
+    throw new Error('Division by zero: quantity must not be 0');
+  }
+  return totalCost / quantity;
+}
+
+try {
+  console.log(computePricePerUnit(100, 0));
+} catch (err) {
+  console.error(err.message);
+}

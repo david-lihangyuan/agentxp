@@ -1,0 +1,6 @@
+```javascript
+const fs = require('fs');
+
+const package = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+console.log(package.scripts.test);
+```

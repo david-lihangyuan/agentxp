@@ -1,0 +1,26 @@
+```python
+#!/usr/bin/env python3
+import os
+import sys
+import shutil
+
+def main():
+    if len(sys.argv) != 2:
+        print(f"Usage: {sys.argv[0]} <directory>", file=sys.stderr)
+        sys.exit(1)
+
+    target = sys.argv[1]
+
+    if not os.path.exists(target):
+        print(f"Error: path does not exist: {target}", file=sys.stderr)
+        sys.exit(1)
+
+    if not os.path.isdir(target):
+        print(f"Error: not a directory: {target}", file=sys.stderr)
+        sys.exit(1)
+
+    shutil.rmtree(target)
+
+if __name__ == "__main__":
+    main()
+```

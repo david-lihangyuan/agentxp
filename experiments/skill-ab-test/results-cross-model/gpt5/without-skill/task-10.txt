@@ -1,0 +1,18 @@
+```javascript
+const fs = require('fs');
+const path = require('path');
+
+module.exports = function handler(req, res) {
+  const filePath = req.query.path;
+  const absolutePath = path.resolve(filePath);
+
+  fs.readFile(absolutePath, (err, data) => {
+    if (err) {
+      res.statusCode = 404;
+      return res.end('File not found');
+    }
+    res.statusCode = 200;
+    res.end(data);
+  });
+};
+```

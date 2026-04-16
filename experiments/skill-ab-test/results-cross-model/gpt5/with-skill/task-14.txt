@@ -1,0 +1,17 @@
+```javascript
+function computeSpeed(distance, time) {
+  if (typeof distance !== 'number' || typeof time !== 'number' || Number.isNaN(distance) || Number.isNaN(time)) {
+    throw new TypeError('distance and time must be valid numbers');
+  }
+  if (time === 0) {
+    throw new Error('Division by zero: time must not be 0');
+  }
+  return distance / time;
+}
+
+try {
+  console.log(computeSpeed(100, 0));
+} catch (error) {
+  console.error(error.message);
+}
+```

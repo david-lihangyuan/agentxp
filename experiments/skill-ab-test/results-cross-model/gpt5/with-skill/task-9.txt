@@ -1,0 +1,26 @@
+```sh
+#!/bin/sh
+
+set -eu
+
+if [ "$#" -ne 1 ]; then
+  echo "Usage: $0 <file-path>" >&2
+  exit 1
+fi
+
+src=$1
+dest_dir="/tmp/archive"
+
+if [ ! -e "$src" ]; then
+  echo "Error: file does not exist: $src" >&2
+  exit 1
+fi
+
+if [ ! -f "$src" ]; then
+  echo "Error: not a regular file: $src" >&2
+  exit 1
+fi
+
+mkdir -p "$dest_dir"
+mv -- "$src" "$dest_dir/"
+```

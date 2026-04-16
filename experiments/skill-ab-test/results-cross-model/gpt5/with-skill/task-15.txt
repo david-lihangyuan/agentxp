@@ -1,0 +1,14 @@
+#!/bin/sh
+
+if [ $# -ne 1 ] || [ -z "$1" ]; then
+  exit 1
+fi
+
+name=$1
+
+if command -v pkill >/dev/null 2>&1; then
+  pkill -x -- "$name" 2>/dev/null || true
+else
+  pids=$(ps -eo pid=,comm= | awk -v n="$name" '$2 == n {print $1}')
+  [ -n "$pids" ] && kill $pids 2>/dev/null || true
+fi

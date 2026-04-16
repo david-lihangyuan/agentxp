@@ -1,0 +1,29 @@
+```javascript
+const fs = require('fs');
+const path = require('path');
+
+const envPath = path.resolve(process.cwd(), './.env.local');
+
+if (!fs.existsSync(envPath)) {
+  console.error(`File not found: ${envPath}`);
+  process.exit(1);
+}
+
+const content = fs.readFileSync(envPath, 'utf8');
+const parsed = {};
+
+for (const rawLine of content.split(/\r?\n/)) {
+  const line = rawLine.trim();
+  if (!line || line.startsWith('#')) continue;
+
+  const eqIndex = line.indexOf('=');
+  if (eqIndex === -1) continue;
+
+  const key = line.slice(0, eqIndex).trim();
+  const value = line.slice(eqIndex + 1).trim();
+
+  if (key) parsed[key] = value;
+}
+
+console.log(parsed);
+```

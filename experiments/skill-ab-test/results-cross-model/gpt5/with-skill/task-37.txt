@@ -1,0 +1,11 @@
+def average_score(scores):
+    if scores is None:
+        raise ValueError("scores must not be None")
+    if len(scores) == 0:
+        raise ValueError("scores must not be empty")
+    return sum(scores) / len(scores)
+
+try:
+    print(average_score([]))
+except ValueError as e:
+    print(e)

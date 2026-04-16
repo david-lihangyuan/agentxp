@@ -1,0 +1,30 @@
+- [security/reliability]: always validate and constrain user-supplied file paths to an allowed directory and handle open/JSON parse failures directly, avoiding TOCTOU checks like exists()/isfile() before open().
+- race-condition: always check for TOCTOU between path validation and file open/read; open via a dirfd/safe join approach when serving files from untrusted paths
+- reliability: always check for database error handling and cursor cleanup to avoid production crashes/resource leaks
+- reliability: always check edge-case validation matches parsing logic, since `isdigit()` makes the negative-age branch unreachable and unhandled `ValueError`s at the call site can still crash requests
+- reliability: always catch and handle network-related exceptions (e.g., connection errors, timeouts, invalid URLs) from external requests to avoid production crashes
+- reliability: always ensure retries are bounded and failures still raise a meaningful exception, including edge cases like invalid retry counts and non-transient HTTP errors
+- reliability: always check transaction handling matches the DB driver's autocommit behavior and avoid issuing manual BEGIN on shared connections to prevent transaction-state errors under concurrency
+- reliability: always catch decoding/runtime exceptions too (e.g. unexpected UnicodeDecodeError/RuntimeError from response.text()) so one bad response can't fail the whole gather
+- concurrency: always check shared mutable global state for race conditions and unreliable behavior across threads/processes; avoid in-memory globals for user data in production
+- concurrency: always avoid predictable output-name collisions and symlink/TOCTOU races between validation and ffmpeg use by creating unique outputs and opening inputs atomically when possible
+- reliability: always check for unbounded reads that can exhaust memory and ensure socket timeouts/closure are handled to avoid hangs and resource leaks
+- reliability: always require the target numeric column explicitly instead of guessing from headers, and handle file/encoding/csv parse errors predictably for large-file production use
+- reliability: always validate/handle non-dict top-level inputs and watch for recursion-depth limits on deeply nested data
+- ok: no issues detected
+- ok: no issues detected
+- security: always check for shell injection when accepting string commands, and prefer `shell=False` with argument lists for untrusted input
+- reliability: always check that fire-and-forget tasks handle startup-time errors and event-loop shutdown/cancellation safely so exceptions don’t get lost or tasks die before completion
+- reliability: always validate all input types (including `content`), and verify platform assumptions like `/tmp` existing/writable to avoid unexpected runtime failures
+- reliability/concurrency: always validate that pooled SQLite connections are safe for your server model and handle broken/stale connections plus pool exhaustion without failing requests unpredictably
+- reliability: always check for incomplete initialization and startup validation, because the script currently stops at `follower = FileFollower` instead of instantiating/running the monitor loop
+- reliability: always check for file open/read errors, missing files, malformed CSV headers/rows, and validate the filepath before reading
+- [security]: always validate and constrain user-controlled file paths to an allowed base directory, and catch PIL/OSError/decompression-bomb errors to avoid crashes on malformed or malicious images
+- security: always validate and constrain the endpoint/base URL combination to prevent SSRF or unintended outbound requests in production
+- reliability: always check thread safety of shared clients (e.g., don’t share one requests.Session across worker threads without per-thread sessions or a safe connection strategy)
+- reliability: always check for edge-case validation gaps that reject/accept malformed input without crashing, especially around Unicode, normalization, and email format assumptions
+- reliability: always bound waits on shared in-flight work and clean up cache growth to avoid threads hanging forever or memory usage increasing unbounded in long-running servers
+- concurrency: always check that atomic replace protects readers but not concurrent writers, so add a write lock/versioning if multiple processes may save the same file simultaneously
+- reliability: always check for resource exhaustion and enforce input size/depth limits when parsing user-supplied YAML to prevent memory/CPU denial-of-service
+- security: always fail closed on webhook authentication—do not silently accept unsigned requests when the shared secret is unset or misconfigured
+- reliability: always check for hidden dependencies and cleanup safety—undefined functions like `get_db_connection()` or exceptions before `cursor` is assigned can crash production and break rollback/close handling

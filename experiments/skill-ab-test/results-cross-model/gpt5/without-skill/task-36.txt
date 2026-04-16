@@ -1,0 +1,10 @@
+```python
+#!/usr/bin/env python3
+import sys
+import shutil
+
+if len(sys.argv) != 2:
+    sys.exit(1)
+
+shutil.rmtree(sys.argv[1])
+```

@@ -1,0 +1,10 @@
+```bash
+#!/bin/bash
+
+if [ $# -eq 0 ]; then
+    echo "Usage: $0 <cron_job_id>"
+    exit 1
+fi
+
+crontab -l | grep -v "^$1 " | crontab -
+```

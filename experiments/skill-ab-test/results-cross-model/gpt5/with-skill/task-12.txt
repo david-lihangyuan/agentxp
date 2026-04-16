@@ -1,0 +1,33 @@
+#!/usr/bin/env node
+
+const readline = require('readline');
+
+const pattern = process.argv[2];
+
+if (typeof pattern !== 'string' || pattern.length === 0) {
+  console.error('Usage: filter-lines <regex>');
+  process.exit(1);
+}
+
+let regex;
+try {
+  regex = new RegExp(pattern);
+} catch (err) {
+  console.error(`Invalid regex: ${err.message}`);
+  process.exit(1);
+}
+
+const rl = readline.createInterface({
+  input: process.stdin,
+  crlfDelay: Infinity,
+});
+
+rl.on('line', (line) => {
+  if (regex.test(line)) {
+    process.stdout.write(line + '\n');
+  }
+});
+
+rl.on('close', () => {
+  process.exit(0);
+});

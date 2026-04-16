@@ -1,0 +1,15 @@
+```python
+import yaml
+import sys
+
+try:
+    with open('settings.yaml', 'r') as file:
+        settings = yaml.safe_load(file)
+        print(settings)
+except FileNotFoundError:
+    print("Error: settings.yaml file not found")
+    sys.exit(1)
+except yaml.YAMLError as e:
+    print(f"Error parsing YAML: {e}")
+    sys.exit(1)
+```

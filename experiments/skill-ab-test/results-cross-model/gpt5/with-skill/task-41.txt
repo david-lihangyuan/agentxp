@@ -1,0 +1,45 @@
+#!/bin/sh
+
+if [ $# -ne 1 ] || [ -z "$1" ]; then
+  echo "Usage: $0 <cron_job_id>" >&2
+  exit 1
+fi
+
+job_id=$1
+tmp_file=$(mktemp 2>/dev/null) || {
+  echo "Failed to create temporary file" >&2
+  exit 1
+}
+
+cleanup() {
+  rm -f "$tmp_file"
+}
+trap cleanup EXIT HUP INT TERM
+
+if ! crontab -l >"$tmp_file" 2>/dev/null; then
+  echo "No crontab for current user or unable to read crontab" >&2
+  exit 1
+fi
+
+if ! grep -F -q "#ID:$job_id" "$tmp_file"; then
+  echo "Cron job ID not found: $job_id" >&2
+  exit 1
+fi
+
+awk -v id="#ID:$job_id" '
+  BEGIN { skip = 0 }
+  {
+    if (index($0, id)) {
+      skip = 1
+      next
+    }
+    if (skip == 1) {
+      skip = 0
+      next
+    }
+    print
+  }
+' "$tmp_file" | crontab - || {
+  echo "Failed to update crontab" >&2
+  exit 1
+}

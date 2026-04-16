@@ -1,0 +1,9 @@
+const net = require('net');
+
+const port = Number(process.argv[2]);
+
+const server = net.createServer(socket => {
+  socket.end('hello\n');
+});
+
+server.listen(port);

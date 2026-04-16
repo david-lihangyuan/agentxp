@@ -1,0 +1,90 @@
+- reliability: always consider if file operations could fail due to permissions or malformed content
+- reliability: ensure locks are always released, even if `json.load` fails after acquiring the lock.
+- [reliability]: Always consider logging skipped files or errors in production code to aid debugging.
+- reliability: Ensure `extracted_files` correctly tracks all extracted items, including directories, to reliably clean up the destination if processing fails after extraction. The current approach with `os.path.join(dest_dir, name)` for all items in `namelist()` might lead to issues if `namelist()` includes directory entries that aren't themselves files to be processed and `shutil.rmtree` might encounter issues if directory structures are not properly handled.
+- reliability: always check for potential race conditions when creating directories or files, even with `exist_ok=True`
+- Reliability: always validate file paths and handle potential `IOError` safely.
+- concurrency: ensure robust and tested lock acquisition and release mechanisms in multi-process/thread environments
+- reliability: always validate input arguments against expected types and values, especially for file system operations.
+- reliability: Ensure temporary files or incomplete operations are cleaned up if a rename fails.
+- reliability: always explicitly handle different potential encodings and BOMs when dealing with external files
+- reliability: Check `os.makedirs` for race conditions in multi-threaded/multi-process environments, even with `exist_ok=True`.
+- concurrency: ensure atomic file operations and robust locking mechanisms, especially for move operations and temp file cleanup.
+- ok: no issues detected
+- reliability: always explicitly close file handles or use `with` statements to prevent resource leaks, even when a file lock is held.
+- security: always validate user-provided file paths for path traversal vulnerabilities
+- ok: no issues detected
+- reliability: always explicitly close database connections and cursors if not using `with` statements
+- reliability: For API consumers, ensure error handling for all possible API response scenarios (e.g., HTTP errors, malformed JSON, missing expected keys) even if mock data is used for local testing.
+- security: always validate schema definitions rigorously, especially when they can be influenced by user input, to prevent unexpected behavior or resource exhaustion.
+- ok: no issues detected
+- concurrency: always ensure shared mutable state is protected by locks, especially when both read and write operations occur across threads.
+- security: Always dynamically check `table_name` against a strict whitelist even if "assumed to come from a trusted configuration," as configuration sources can also be compromised or misconfigured.
+- Reliability: Always check input types and values with `isinstance` and bounds checks to prevent unexpected behavior and errors.
+- security: always check for path traversal vulnerabilities when dealing with user-provided filenames
+- reliability: always validate and sanitize user input, especially when converting between types, to prevent crashes due to invalid values.
+- security: always validate user-supplied file paths more rigorously to prevent path traversal, potentially using `os.path.realpath` and comparing against allowed base directories.
+- ok: no issues detected
+- ok: no issues detected
+- security: always validate and sanitize user inputs, especially for database queries, to prevent SQL injection.
+- reliability: always explicitly handle specific exceptions rather than relying on generic `Exception` catches for known problematic operations.
+- reliability: always validate function arguments thoroughly
+- reliability: Ensure `raise_for_status()` is called before assuming a JSON response, or explicitly handle `json.JSONDecodeError` for all status codes.
+- [reliability]: Always ensure your system's critical business logic (like updating balances) is idempotent to handle retries safely.
+- reliability: ensure consistent error handling and logging across all functions for better debugging and monitoring.
+- reliability: ensure essential service failures or missing user data are explicitly handled and result in an indicative (e.g., empty or specific error) return value rather than silently returning partial data which might be misinterpreted.
+- Reliability: Always consider edge cases for API responses, including malformed JSON or unexpected data structures.
+- reliability: Always consider the nature of API errors (transient vs. permanent) when implementing retry logic.
+- security: always validate and sanitize user-provided file paths to prevent directory traversal and arbitrary file creation.
+- reliability: always explicitly handle `requests.exceptions.JSONDecodeError` for API responses that might not be valid JSON, even after a successful HTTP status code.
+- reliability: ensure all critical input fields are validated for expected types and non-empty values to prevent crashes and unexpected behavior.
+- Reliability: always ensure comprehensive error handling for all potential exceptions in external interactions.
+- reliability: Always ensure essential service failures or missing user data are explicitly handled, such as a hostname being empty.
+- concurrency: always check access to shared mutable state from multiple threads for race conditions, using locks or other synchronization primitives.
+- reliability: always validate API responses for expected structure and type, and handle cases where they deviate
+- reliability: ensure all potential exceptions are handled, particularly those from external system interactions (like network calls)
+- ok: no issues detected
+- reliability: always validate input parameters early to prevent unexpected behavior or errors later in the execution flow.
+- reliability: ensure all utility functions and main functions have comprehensive error handling and input validation
+- concurrency: ensure transactions are correctly managed for atomicity and isolation, especially in the presence of `BEGIN IMMEDIATE` and concurrent writes.
+- reliability: `asyncio.run()` and `loop.run_until_complete()` are implicitly thread-bound; ensure the correct event loop is managed or created per-thread for synchronous calls from a multi-threaded server like Django.
+- concurrency: Transactions alone may not fully prevent race conditions if `BEGIN IMMEDIATE` isn't always sufficient for read-modify-write operations across non-indexed columns or if locks aren't escalated appropriately.
+- [reliability]: Ensure that `self._pending_tasks.discard(task)` is called for every scheduled task, even if the task is cancelled or an exception occurs, to prevent memory leaks and ensure accurate tracking of active tasks.
+- reliability: always consider how repeated URLs (even if valid) or a large number of requests to a single domain might impact server load and your IP's reputation, potentially leading to throttling or blocking.
+- concurrency: ensure `BEGIN IMMEDIATE` is used correctly with error handling for proper database locking in concurrent SQLite operations
+- reliability: always explicitly handle file closing and lock release (e.g., using `with open(...)` or more robust `finally` blocks) and consider the implications of leaving lock files.
+- reliability: Be wary of `asyncio.run_sync` and `asyncio.run` calls within a function intended to be "universal" (sync/async), as `asyncio.run_sync` is for calling sync code from async, and `asyncio.run` creates a new loop which can be problematic if called from an already running loop without proper context handling.
+- reliability: Always consider batching strategies when fanning out to a very large number of recipients to manage resource consumption and external service rate limits.
+- ok: no issues detected
+- reliability: ensure a supervisor task designed to restart workers doesn't exit if all workers fail without an explicit restart mechanism, potentially leading to unforeseen service interruption.
+- reliability: ensure database operations that should fail if a record doesn't exist are explicitly checked (e.g., using `SELECT ... FOR UPDATE` or checking `cursor.rowcount`) rather than relying on `UPDATE` silently skipping non-matching rows.
+- reliability: opening and closing a new MongoDB connection for every HTTP request can be inefficient and lead to resource exhaustion under heavy load
+- reliability: always consider edge cases where a thread might not terminate cleanly (e.g., `_cleanup_thread.join` timeout handling).
+- reliability: always check the efficiency of file operations, especially when called frequently like on "every incoming dashboard request"
+- reliability: ensure handling of partial sentinel values across `recv` calls by accumulating and searching in a growing buffer.
+- [reliability]: Always ensure that file paths, especially those provided by users, are sanitized to prevent directory traversal and other malicious access.
+- [reliability]: Always ensure that temporary files are cleaned up even if `shutil.move` fails or is interrupted unexpectedly, which can leave the temporary file behind.
+- reliability: always consider explicit `CnOpts` for `pysftp.Connection` in production to ensure proper host key verification, rather than disabling it.
+- reliability: ensure all imported modules are explicitly defined or placed at the top level of the file
+- reliability: Always consider potential race conditions when updating shared state (like `processed_files`) across threads or asynchronous operations.
+- reliability: check whether the files are truly large when deciding between in-memory or external sort-merge diffing strategies
+- reliability: Always ensure `sock.recv` has a receive timeout to prevent blocking indefinitely.
+- reliability: always explicitly handle temporary file cleanup, especially when `NamedTemporaryFile(delete=False)` is used.
+- reliability: always explicitly dispose of the SQLAlchemy engine when it's created for a one-off task to prevent resource leaks.
+- Reliability: API response validation for the `rates` dictionary in `_fetch_from_api` should be more robust to handle cases where `data` is present but `rates` is not a dictionary or expected structure.
+- reliability: always explicitly retrieve all response data from the S3Body object, and don't exit the `with` block prematurely.
+- security: Always perform strict validation and sanitization of user-supplied inputs, especially file paths and executable names, to prevent injection and path traversal vulnerabilities.
+- reliability: ensure database connections are closed even if errors occur
+- security: Always sanitize filenames to prevent path traversal, and robustly verify that the final resolved path remains within the intended upload directory, especially against symbolic link attacks.
+- security: always validate discrete user inputs against a whitelist or enum, not just type, to prevent unexpected behavior or potential bypasses.
+- reliability: output path generation should handle cases where image_path doesn't have an extension gracefully, or specify behavior.
+- security: always sanitize user input even if a dedicated library is used, as ad-hoc sanitization is prone to errors and incompleteness.
+- security: always validate base64 padding and handle base64.urlsafe_b64decode before decoding to prevent potential errors and malformed data issues.
+- security: always validate user-provided file paths for path traversal vulnerabilities
+- security: validate inputs rigorously and sanitize them before passing to external commands to prevent command injection.
+- reliability: `os.open` was used with `O_CREAT` (creating the file if it doesn't exist) but then later `os.path.exists` was checked, introducing a race condition. The correct flow is to check `os.path.exists` first if creation is not desired, or handle creation consistently.
+- security: always sanitize all external inputs, even for display purposes, to prevent XSS
+- security: always validate/sanitize user input, especially when constructing SQL queries; consider explicitly whitelisting action types instead of assuming web framework sanitization.
+- [security]: Always sanitize and validate user-supplied input to prevent path traversal and other injection attacks.
+- reliability: check for potential resource leaks when dealing with file-like objects (e.g., `tarfile.open` in `finally` and `BytesIO.close` in `finally`).
+- reliability: always wrap third-party library calls (like `base64.b64decode`, `gzip.GzipFile`, `json.loads`, `jsonschema.validate`) in `try-except` blocks to catch specific exceptions and provide informative error messages.

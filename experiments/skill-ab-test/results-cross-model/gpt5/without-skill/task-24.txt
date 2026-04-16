@@ -1,0 +1,13 @@
+function pricePerUnit(total_cost, quantity) {
+  if (quantity === 0) {
+    throw new Error('Quantity cannot be zero');
+  }
+  return total_cost / quantity;
+}
+
+// Test with quantity = 0
+try {
+  console.log(pricePerUnit(100, 0));
+} catch (err) {
+  console.error(err.message);
+}

@@ -1,0 +1,23 @@
+```javascript
+const fs = require('fs');
+
+const configPath = './config.json';
+
+try {
+  if (!fs.existsSync(configPath)) {
+    throw new Error(`File not found: ${configPath}`);
+  }
+  
+  const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  const dbHost = config?.database?.host;
+  
+  if (!dbHost) {
+    throw new Error('Database host not found in config');
+  }
+  
+  console.log(dbHost);
+} catch (error) {
+  console.error(`Error: ${error.message}`);
+  process.exit(1);
+}
+```

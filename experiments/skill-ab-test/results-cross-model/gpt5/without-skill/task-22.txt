@@ -1,0 +1,4 @@
+import json
+
+resp = json.loads(api_response)
+print(resp['data']['results'][0]['id'])

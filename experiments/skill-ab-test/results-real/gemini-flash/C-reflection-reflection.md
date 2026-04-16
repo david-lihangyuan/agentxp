@@ -1,0 +1,30 @@
+- reliability: `sys.exit()` in a function makes it hard to reuse; prefer re-raising exceptions when appropriate
+- security: always ensure path normalization and strict directory confinement to prevent path traversal vulnerabilities
+- ok: no issues detected
+- reliability: always validate and handle non-string inputs when type hints suggest str but external input might be different
+- ok: no issues detected
+- reliability: ensure timeouts are always included in network requests to prevent indefinite blocking
+- reliability: connection pool usage with `getconn` and `putconn` should be robust against connection failures
+- reliability: Ensure comprehensive error handling for network-related issues and timeouts, distinguishing between different failure modes.
+- security: Always sanitize user input before rendering it, especially when using `| safe` in templates, to prevent XSS.
+- reliability: Always consider adding a timeout to external process calls to prevent hangs.
+- ok: no issues detected
+- ok: no issues detected
+- reliability: Always consider how lists should be handled during flattening, as the current implementation might lose information or not meet all requirements when lists contain dictionaries or nested structures.
+- ok: no issues detected
+- reliability: always check for null or undefined properties in nested objects before accessing them
+- reliability: ensure all process resources are released even if killing fails or is not needed
+- reliability: ensure that fire-and-forget tasks are properly managed by the `asyncio` event loop and won't be silently cancelled before completion if the main application exits too quickly.
+- security: always sanitize user input for path traversal vulnerabilities, even when using temporary file functions.
+- concurrency: ensure thread-local storage is correctly initialized or reset for each request to prevent accidental re-use of connections across request boundaries if not explicitly managed.
+- reliability: always put the main loop (`monitor.run()`) or critical long-running operations inside a `try...except` block, especially for scripts intended to run continuously, to catch unexpected exceptions and prevent crashes.
+- reliability: always explicitly handle all potential exceptions, especially when dealing with external resources like files.
+- reliability: ensure image saving doesn't clobber the original without explicit intent or a clear use case for overwriting
+- reliability: Always consider explicit error handling for common API failure modes, like timeouts and specific HTTP statuses.
+- reliability: always validate external service URLs to prevent malformed requests
+- security: regex vulnerabilities should always be considered, specifically ReDoS (Regular Expression Denial of Service)
+- reliability: ensure thread-safe expiration and eviction mechanisms in caches
+- reliability: ensure that finally blocks for releasing locks are properly structured to guarantee lock release even if subsequent operations fail
+- security: always use `yaml.safe_load` when processing user-provided YAML to prevent arbitrary code execution
+- security: always ensure that the `WEBHOOK_SECRET` is actually being used in `verify_signature` under all conditions, especially when it's explicitly set. The current logic `if not WEBHOOK_SECRET: ... return False` means that if the secret is missing, it skips verification, but the subsequent conditional `if WEBHOOK_SECRET and not verify_signature(...)` ensures that `verify_signature` is *not* called if `WEBHOOK_SECRET` is missing. This results in the handler proceeding without verification if the secret isn't set, which might be acceptable depending on the deployment strategy regarding the secret's presence, but it's important to be clear about this behavior. A more secure default would be to raise an error and exit if the secret is missing.
+- concurrency: Ensure locks are always acquired in a consistent order to prevent deadlocks.

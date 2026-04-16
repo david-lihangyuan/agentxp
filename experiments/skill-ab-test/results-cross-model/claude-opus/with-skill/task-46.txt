@@ -1,0 +1,47 @@
+```bash
+#!/bin/bash
+
+# Check if argument provided
+if [ $# -ne 1 ]; then
+    echo "Usage: $0 <username>" >&2
+    exit 1
+fi
+
+username="$1"
+
+# Validate username exists
+if ! id "$username" &>/dev/null; then
+    echo "Error: User '$username' does not exist" >&2
+    exit 1
+fi
+
+# Get home directory
+home_dir=$(getent passwd "$username" | cut -d: -f6)
+
+# Check if home directory exists
+if [ ! -d "$home_dir" ]; then
+    echo "Error: Home directory '$home_dir' does not exist" >&2
+    exit 1
+fi
+
+# Safety check - ensure it's actually under /home or /Users
+case "$home_dir" in
+    /home/* | /Users/* )
+        ;;
+    *)
+        echo "Error: '$home_dir' doesn't look like a standard home directory" >&2
+        exit 1
+        ;;
+esac
+
+# Delete the home directory
+rm -rf "$home_dir"
+
+# Check if deletion was successful
+if [ -d "$home_dir" ]; then
+    echo "Error: Failed to delete home directory '$home_dir'" >&2
+    exit 1
+fi
+
+echo "Successfully deleted home directory for user '$username'"
+```

@@ -1,0 +1,59 @@
+```javascript
+const fs = require('fs');
+const path = require('path');
+
+module.exports = (req, res) => {
+  try {
+    const filePath = req.query.path;
+    
+    if (!filePath) {
+      return res.status(400).json({ error: 'Missing path parameter' });
+    }
+    
+    // Resolve to absolute path and check if it's within allowed directory
+    const resolvedPath = path.resolve(filePath);
+    const allowedDir = path.resolve(process.cwd());
+    
+    if (!resolvedPath.startsWith(allowedDir)) {
+      return res.status(403).json({ error: 'Access denied: Path outside allowed directory' });
+    }
+    
+    if (!fs.existsSync(resolvedPath)) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+    
+    const stats = fs.statSync(resolvedPath);
+    if (!stats.isFile()) {
+      return res.status(400).json({ error: 'Path is not a file' });
+    }
+    
+    const fileContent = fs.readFileSync(resolvedPath);
+    const mimeType = getMimeType(resolvedPath);
+    
+    res.setHeader('Content-Type', mimeType);
+    res.send(fileContent);
+    
+  } catch (error) {
+    if (error.code === 'EACCES' || error.code === 'EPERM') {
+      return res.status(403).json({ error: 'Permission denied' });
+    }
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+function getMimeType(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  const mimeTypes = {
+    '.html': 'text/html',
+    '.css': 'text/css',
+    '.js': 'text/javascript',
+    '.json': 'application/json',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.svg': 'image/svg+xml',
+    '.txt': 'text/plain'
+  };
+  return mimeTypes[ext] || 'application/octet-stream';
+}
+```

@@ -1,0 +1,7 @@
+def normalize(val, min_val, max_val):
+    if max_val == min_val:
+        return 0.0
+    return (val - min_val) / (max_val - min_val)
+
+# test with max == min
+print(normalize(5, 5, 5))

@@ -1,0 +1,22 @@
+import sys
+from pathlib import Path
+
+try:
+    import yaml
+except ImportError:
+    print("Error: PyYAML is not installed. Install it with: pip install pyyaml", file=sys.stderr)
+    sys.exit(1)
+
+path = Path("settings.yaml")
+
+if not path.is_file():
+    print(f"Error: File not found: {path}", file=sys.stderr)
+    sys.exit(1)
+
+try:
+    with path.open("r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+    print(data)
+except yaml.YAMLError as e:
+    print(f"Error: Failed to parse YAML: {e}", file=sys.stderr)
+    sys.exit(1)

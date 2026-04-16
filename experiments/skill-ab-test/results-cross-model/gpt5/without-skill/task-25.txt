@@ -1,0 +1,10 @@
+const url = process.argv[2];
+
+if (!url) {
+  process.exit(1);
+}
+
+fetch(url)
+  .then(res => res.text())
+  .then(text => process.stdout.write(text))
+  .catch(() => process.exit(1));

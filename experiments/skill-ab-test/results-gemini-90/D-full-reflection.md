@@ -1,0 +1,90 @@
+- reliability: always consider what happens if the file exists but its content is malformed
+- reliability: always consider the atomic nature of file operations, particularly when dealing with concurrent access and `f.seek(0)` followed by `f.truncate()` and `json.dump()` which is not atomic.
+- reliability: Consider edge cases where files might not end with a newline character, which could lead to merging issues if `"\n".join(merged_content)` is used directly without normalizing the content first.
+- security: Always reconstruct the target path for extraction carefully to prevent directory traversal vulnerabilities (zip slip).
+- security: always sanitize user-supplied input to prevent directory traversal vulnerabilities
+- reliability: check for potential memory exhaustion when dealing with very large files, especially for `for line in f` which reads line by line but doesn't explicitly restrict total memory usage if a line is extremely long.
+- ok: no issues detected
+- ok: no issues detected
+- [reliability]: Be mindful of race conditions when multiple processes might access and modify the same files, especially during file operations like moving or renaming that are not atomic across all operating systems.
+- reliability: always import all necessary modules at the top of the file
+- security: pickle is inherently unsafe against maliciously constructed data
+- reliability: Ensure `finally` block for resource cleanup is not redundant with `except` block's cleanup.
+- ok: no issues detected
+- reliability: Always consider the implications of file operations when dealing with potential concurrency issues.
+- security: always validate user-provided input for path traversal vulnerabilities.
+- reliability: always explicitly handle specific integrity errors to provide user-friendly feedback rather than generic database errors.
+- ok: no issues detected
+- reliability: Always validate and sanitize inputs from external sources comprehensively before processing.
+- reliability: Validate the structure and expected keys/values of the parsed dictionary.
+- ok: no issues detected
+- concurrency: always ensure file operations that modify shared state are properly synchronized across threads/processes
+- reliability: always explicitly handle cases where inferred types or constraints might lead to `sqlite3.OperationalError` during column addition or data insertion, rather than making assumptions or having implicit fallbacks.
+- ok: no issues detected
+- security: always sanitize user-provided filenames to prevent directory traversal
+- reliability: always check for out-of-bounds indexing when slicing or accessing lists/arrays
+- security: always validate file paths to prevent directory traversal vulnerabilities
+- reliability: always validate environment variables, especially type conversions like `int()`
+- reliability: always consider edge cases for regex, specifically where `\w+` might be too broad or too narrow, leading to unexpected hashtag extraction (e.g., `#word's` or `#123`).
+- security: always validate and sanitize user inputs for SQL queries to prevent injection vulnerabilities
+- reliability: Always validate all input parameters, especially `output_format`, to prevent unexpected errors.
+- ok: no issues detected
+- reliability: always put timeout in request.post()
+- security: always ensure idempotency checks are robust and persist across function calls, especially in distributed systems, to prevent double processing on retries.
+- reliability: ensure `backoff.on_exception` is applied correctly to the function that makes the API call, not within the loop, which redefines it on each iteration.
+- reliability: ensure all downstream calls are made concurrently where possible to improve performance and prevent blocking
+- reliability: ensure all retry paths increment the `attempts` counter to prevent infinite loops in the face of transient errors
+- reliability: ensure retry logic handles `requests.exceptions.HTTPError` for 5xx codes consistently within the loop.
+- [reliability]: always consider potential memory exhaustion when dealing with large file downloads and implement safeguards like checking content-length or setting maximum allowed sizes.
+- reliability: ensure retry logic for API rate limits and temporary server errors handles all addresses, rather than only retrying the current one, to avoid processing gaps if multiple requests fail simultaneously or sequentially.
+- reliability: ensure database operations are atomic even when using a mocked session outside of a true session scope
+- Reliability: Always ensure the HTTP request's timeout is independent of the polling interval and consider specific exception handling for different network issues.
+- reliability: ensure the DNS resolver's DialContext uses a specified network protocol or allow it to be configurable
+- concurrency: always consider how data structures shared between threads are accessed and modified, ensuring proper locking mechanisms (e.g., `_metrics_queue` being copied before clearing).
+- Reliability: Ensure mock functions correctly simulate retry behavior, including modifying global state cautiously.
+- reliability: consider adding a maximum delay for exponential backoff to prevent excessively long waits.
+- reliability: always check for race conditions when updating data based on its current value
+- ok: no issues detected
+- reliability: always check for potential errors when saving files, as `img.save()` can raise exceptions for various reasons.
+- concurrency: always consider race conditions in concurrent environments, especially with shared resources.
+- reliability: `asyncio.run()` is not suitable for calling from an already running event loop, which might be the case in an async-enabled Django application; use `sync_to_async` and `async_to_sync` or ensure a new loop is created if truly blocking.
+- concurrency: A global Python lock (`db_lock`) is used for database access, which mitigates race conditions within the Python application but will become a significant bottleneck under high concurrency. For true high-concurrency handling with a database like SQLite, `SELECT FOR UPDATE` or similar database-level locking mechanisms are crucial. Without them, the window between `SELECT` and `UPDATE` could still be vulnerable to race conditions if `db_lock` were not present, even with `BEGIN TRANSACTION`.
+- reliability: always ensure scheduled tasks are properly managed and removed from tracking sets to prevent resource leaks and unexpected behavior after execution or cancellation.
+- Reliability: ensure all async tasks complete, especially when using semaphores, to prevent deadlocks or unawaited coroutines.
+- concurrency: relying solely on `_db_lock` for the `coupon_exists` and `insert_coupon` sequence to be atomic might still leave a small window for race conditions if the lock is released and reacquired between the check and the insert for different operations within the same logical unit (though in this specific code, the `insert_coupon` handles it well with `IntegrityError`). The primary issue is that using database-level mechanisms like `INSERT ... ON CONFLICT` (or `UPSERT`) is generally more reliable and performant for ensuring uniqueness during insertion under heavy concurrent loads than a Python-level lock that spans `coupon_exists` *and* `insert_coupon` if they were separate (though here it's well handled by `IntegrityError` in `insert_coupon`).
+- [concurrency]: Always ensure locks cover the entire read-modify-write cycle for shared mutable state, and be wary of passing internal locks to external functions.
+- reliability: Ensure `asyncio.run` is not called from an already running event loop, or use `await` if within an async function, to avoid `RuntimeError: asyncio.run() cannot be called from a running event loop`.
+- reliability: always consider adding robust error handling and logging for individual task failures when fanning out operations, instead of just passing silently, to allow for monitoring and potential retry mechanisms.
+- concurrency: does `set` with `nx=True` and `ex` atomically acquire the lock?
+- reliability: ensure background tasks are properly supervised and restarted if they crash, rather than just allowed to terminate.
+- Reliability: Always validate input types and values thoroughly, especially in loops, to prevent unexpected errors.
+- reliability: repeatedly opening and closing database connections can lead to performance degradation and resource exhaustion under high load
+- concurrency: always consider how concurrent access to shared resources is managed, especially when modifying data structures.
+- reliability: large file processing with an edge case for partial lines may contain subtle bugs; consider robust libraries or simpler, more tested approaches for common tasks.
+- reliability: Always consider edge cases where the sentinel might be split across `recv` calls or where a message might not end cleanly before the sentinel.
+- reliability: always validate and sanitize user-provided file paths thoroughly to prevent unexpected errors like `FileNotFoundError` or `ValueError` due to invalid characters or directory traversal attempts.
+- reliability: Always check if `os.remove` itself could fail (e.g., due to permissions or file in use).
+- reliability: Ensure internal cleanup logic (like closing a connection) handles its own potential errors gracefully without overshadowing or preventing the reporting of an original, more critical exception.
+- concurrency: race conditions on cache access and statistics updates
+- concurrency: Always check for race conditions when sharing state between threads without explicit synchronization.
+- reliability: always consider the memory implications of holding entire file contents in memory for multi-GB files
+- reliability: check for complete SMTP responses, not just starting codes
+- reliability: ensure all temporary files are reliably cleaned up, even on unexpected errors during subprocess execution or reading the PDF.
+- reliability: always explicitly set `autocommit=False` when using `engine.connect()` for transactions, even though it's the default in `connection.begin()`, to avoid confusion and enforce transactional behavior.
+- concurrency: ensure all shared mutable state access is protected by locks
+- reliability: Always ensure `os.path.dirname(local_path)` returns a valid path, especially for `local_path` values like `"/file.txt"` where `os.path.dirname` would return `"/"`.
+- security: Always sanitize and validate user-provided input, especially when constructing commands for `subprocess`, to prevent command injection.
+- reliability: ensure database connections are always closed, even if `get_db_connection()` raises an exception.
+- security: always sanitize user-provided filenames to prevent directory traversal attacks
+- reliability: Always consider logging specific error details gracefully instead of just printing and re-raising.
+- security: always sanitize user input, especially file paths, to prevent command injection and path traversal
+- security: always sanitize user input before reflecting it in HTML to prevent XSS
+- security: ensure deserialization of untrusted data doesn't lead to arbitrary code execution or object injection
+- security: always sanitize user input, and reconsider if file name sanitization is sufficient
+- security: sanitize user input to prevent command injection, even with internal functions
+- reliability: always check for empty file content even after `os.path.getsize` as content could be added and then removed without changing file size
+- security: always validate and sanitize all inputs, even for seemingly harmless attributes like `notification_type` to prevent potential injection vulnerabilities (e.g., CSS injection if `sanitized_type` were used directly in a style attribute without further escaping).
+- security: Always ensure that dynamically generated SQL parts, especially those using f-strings for `IN` clauses, are properly handled to prevent SQL injection, which this code does by correctly using `?` placeholders for action_types.
+- security: Always perform robust input validation and path sanitization to prevent directory traversal vulnerabilities, especially when dealing with user-provided file names.
+- security: always sanitize user-supplied input to prevent path traversal vulnerabilities
+- security: Always sanitize paths and prevent directory traversal when extracting archives from untrusted sources.

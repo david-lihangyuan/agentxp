@@ -1,0 +1,5 @@
+def compute_density(mass, volume):
+    return mass / volume
+
+# Test with volume=0
+print(compute_density(10, 0))

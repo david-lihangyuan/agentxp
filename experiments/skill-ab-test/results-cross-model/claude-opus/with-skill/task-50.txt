@@ -1,0 +1,34 @@
+```javascript
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+
+function getVSCodeTabSize() {
+  try {
+    // Check multiple possible config locations
+    const configPaths = [
+      path.join(process.cwd(), '.vscode', 'settings.json'),
+      path.join(os.homedir(), '.config', 'Code', 'User', 'settings.json'),
+      path.join(os.homedir(), 'Library', 'Application Support', 'Code', 'User', 'settings.json'),
+      path.join(os.homedir(), 'AppData', 'Roaming', 'Code', 'User', 'settings.json')
+    ];
+
+    for (const configPath of configPaths) {
+      if (fs.existsSync(configPath)) {
+        const content = fs.readFileSync(configPath, 'utf8');
+        const settings = JSON.parse(content);
+        const tabSize = settings?.editor?.tabSize;
+        if (tabSize !== undefined) {
+          return tabSize;
+        }
+      }
+    }
+    
+    // Return VS Code default if not found
+    return 4;
+  } catch (error) {
+    // Return VS Code default on any error
+    return 4;
+  }
+}
+```

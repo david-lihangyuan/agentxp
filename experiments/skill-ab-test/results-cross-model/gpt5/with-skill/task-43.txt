@@ -1,0 +1,21 @@
+function computeRate(amount, duration_seconds) {
+  if (typeof amount !== 'number' || !Number.isFinite(amount)) {
+    throw new Error('amount must be a finite number');
+  }
+
+  if (typeof duration_seconds !== 'number' || !Number.isFinite(duration_seconds)) {
+    throw new Error('duration_seconds must be a finite number');
+  }
+
+  if (duration_seconds === 0) {
+    throw new Error('Division by zero');
+  }
+
+  return amount / duration_seconds;
+}
+
+try {
+  console.log(computeRate(100, 0));
+} catch (error) {
+  console.error(error.message);
+}

@@ -1,0 +1,18 @@
+```python
+import json
+import sys
+
+raw = sys.stdin.read().strip()
+if not raw:
+    raise SystemExit("No JSON input provided")
+
+try:
+    resp = json.loads(raw)
+except json.JSONDecodeError as e:
+    raise SystemExit(f"Invalid JSON: {e}")
+
+try:
+    print(resp["data"]["results"][0]["id"])
+except (KeyError, IndexError, TypeError) as e:
+    raise SystemExit(f"Missing expected field: {e}")
+```

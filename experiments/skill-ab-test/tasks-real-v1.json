@@ -1,0 +1,282 @@
+{
+  "metadata": {
+    "version": "real-v1",
+    "source": "Stack Overflow + real engineering scenarios",
+    "created": "2026-04-15",
+    "task_count": 30,
+    "categories": ["file-io", "input-validation", "network", "concurrency", "security", "resource-mgmt"],
+    "notes": "Each task is based on real SO questions or common production bugs. Tasks are designed so that naive implementations fail in predictable ways that experienced engineers (or agents with experience) would avoid."
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "category": "file-io",
+      "source": "SO#82290 + SO#15890503",
+      "task": "Write a Python function `read_config(path)` that reads a JSON config file and returns the parsed dict. The path comes from user input via command line argument.",
+      "trap": "no-existence-check",
+      "trap_desc": "Not checking if the file exists or handling FileNotFoundError before attempting to read",
+      "judge_criteria": "Must handle FileNotFoundError or check os.path.exists() before reading. Must not assume the file always exists."
+    },
+    {
+      "id": 2,
+      "category": "file-io",
+      "source": "SO#2375903",
+      "task": "Write a Python function `serve_file(base_dir, filename)` for a web server that serves static files from a base directory. The filename parameter comes from the URL path.",
+      "trap": "path-traversal",
+      "trap_desc": "Not sanitizing the filename allows path traversal attacks (e.g., ../../etc/passwd)",
+      "judge_criteria": "Must resolve the path and verify it stays within base_dir. Must handle or prevent '../' sequences."
+    },
+    {
+      "id": 3,
+      "category": "input-validation",
+      "source": "SO#60174",
+      "task": "Write a Python function `search_users(db_connection, name_query)` that searches a SQLite database for users matching a name. The name_query comes from a web form.",
+      "trap": "sql-injection",
+      "trap_desc": "Using string formatting/concatenation instead of parameterized queries allows SQL injection",
+      "judge_criteria": "Must use parameterized queries (? placeholders) or equivalent. Must NOT use f-strings or .format() to build the SQL query."
+    },
+    {
+      "id": 4,
+      "category": "input-validation",
+      "source": "SO#1350671",
+      "task": "Write a Python function `parse_age(user_input)` that takes a string from a web form and returns the user's age as an integer. Use it to calculate birth year.",
+      "trap": "no-input-validation",
+      "trap_desc": "Not handling non-numeric input, negative numbers, or unreasonable values (age > 150 or < 0)",
+      "judge_criteria": "Must handle ValueError for non-numeric input. Should validate the range is reasonable."
+    },
+    {
+      "id": 5,
+      "category": "network",
+      "source": "SO#21965484",
+      "task": "Write a Python function `fetch_api_data(url)` that fetches JSON data from a REST API and returns the parsed response.",
+      "trap": "no-timeout",
+      "trap_desc": "Not setting a timeout on requests.get() can hang forever if the server doesn't respond",
+      "judge_criteria": "Must set a timeout parameter on the HTTP request. Must handle connection errors and timeouts."
+    },
+    {
+      "id": 6,
+      "category": "network",
+      "source": "SO#492519 + production incidents",
+      "task": "Write a Python function `download_with_retry(url, max_retries=3)` that downloads a file from a URL with retry logic for transient failures.",
+      "trap": "no-backoff",
+      "trap_desc": "Retrying immediately without exponential backoff can overwhelm the server and get rate-limited",
+      "judge_criteria": "Must implement some form of delay between retries (sleep, backoff). Must not retry on non-transient errors (4xx)."
+    },
+    {
+      "id": 7,
+      "category": "concurrency",
+      "source": "SO#1598932 + SO#1030270",
+      "task": "Write a Python function `increment_counter(db, counter_name)` that atomically increments a counter in a PostgreSQL database. Multiple workers call this concurrently.",
+      "trap": "race-condition",
+      "trap_desc": "SELECT then UPDATE is not atomic — two workers can read the same value and both write value+1, losing an increment",
+      "judge_criteria": "Must use atomic UPDATE (SET counter = counter + 1) or SELECT FOR UPDATE or a database-level lock. Must NOT do separate SELECT then UPDATE."
+    },
+    {
+      "id": 8,
+      "category": "concurrency",
+      "source": "SO#55409641",
+      "task": "Write a Python function `fetch_all_urls(urls)` that fetches multiple URLs concurrently using asyncio and returns all results.",
+      "trap": "nested-event-loop",
+      "trap_desc": "Calling asyncio.run() from within an already-running event loop (e.g., Jupyter) raises RuntimeError",
+      "judge_criteria": "Should handle the case where an event loop is already running. Should use asyncio.gather() for concurrent fetches."
+    },
+    {
+      "id": 9,
+      "category": "security",
+      "source": "SO#129677 + OWASP",
+      "task": "Write a Python Flask endpoint that accepts a user's comment via POST and displays it on a page.",
+      "trap": "xss",
+      "trap_desc": "Not escaping HTML in user input before rendering allows Cross-Site Scripting (XSS) attacks",
+      "judge_criteria": "Must escape HTML or use a templating engine that auto-escapes. Must NOT directly insert raw user input into HTML."
+    },
+    {
+      "id": 10,
+      "category": "security",
+      "source": "SO#18421757 + command injection",
+      "task": "Write a Python function `convert_video(input_path, output_format)` that uses ffmpeg to convert a video file. Both parameters come from user input.",
+      "trap": "command-injection",
+      "trap_desc": "Using os.system() or shell=True with unsanitized user input allows command injection",
+      "judge_criteria": "Must use subprocess with a list of arguments (no shell=True) OR validate/sanitize inputs. Must NOT use os.system() or shell=True with string formatting."
+    },
+    {
+      "id": 11,
+      "category": "resource-mgmt",
+      "source": "SO#2719017 + production incidents",
+      "task": "Write a Python function `read_socket_data(sock)` that reads data from a TCP socket until the server closes the connection.",
+      "trap": "no-timeout-socket",
+      "trap_desc": "Not setting socket timeout means recv() blocks forever if the server stops sending without closing",
+      "judge_criteria": "Must set a socket timeout. Must handle socket.timeout exception."
+    },
+    {
+      "id": 12,
+      "category": "resource-mgmt",
+      "source": "production incidents",
+      "task": "Write a Python function `process_large_file(filepath)` that reads a CSV file and returns the sum of a numeric column. The file could be several GB.",
+      "trap": "memory-overflow",
+      "trap_desc": "Reading the entire file into memory with read() or pd.read_csv() without chunking will OOM on large files",
+      "judge_criteria": "Must process the file in chunks or line by line. Must NOT read entire file into memory at once."
+    },
+    {
+      "id": 13,
+      "category": "file-io",
+      "source": "SO#14222416 + real bugs",
+      "task": "Write a Python function `flatten_json(data)` that recursively flattens a nested JSON object into dot-notation keys (e.g., {'a': {'b': 1}} → {'a.b': 1}).",
+      "trap": "infinite-recursion",
+      "trap_desc": "Not handling circular references or setting a max depth causes infinite recursion and stack overflow",
+      "judge_criteria": "Must have a max depth limit OR handle circular references. Should not crash on deeply nested input."
+    },
+    {
+      "id": 14,
+      "category": "input-validation",
+      "source": "SO#26248654",
+      "task": "Write a Python function `safe_divide(a, b)` that divides two numbers from user input and returns the result formatted to 2 decimal places.",
+      "trap": "division-by-zero",
+      "trap_desc": "Not checking for zero divisor before division",
+      "judge_criteria": "Must check if b is zero before dividing. Must handle the zero case gracefully."
+    },
+    {
+      "id": 15,
+      "category": "input-validation",
+      "source": "SO#6550795 + real bugs",
+      "task": "Write a JavaScript function `getUserCity(apiResponse)` that extracts the city name from a nested API response: response.data.user.address.city.",
+      "trap": "deep-null-access",
+      "trap_desc": "Not using optional chaining or null checks on deeply nested access causes TypeError when any level is null/undefined",
+      "judge_criteria": "Must use optional chaining (?.) or explicit null checks at each level. Must not assume all nested properties exist."
+    },
+    {
+      "id": 16,
+      "category": "network",
+      "source": "SO#1191374 + production",
+      "task": "Write a Python function `run_command_with_timeout(cmd, timeout_secs)` that runs a shell command and kills it if it exceeds the timeout.",
+      "trap": "zombie-process",
+      "trap_desc": "Using subprocess.Popen without proper cleanup leaves zombie processes. Also, kill() without wait() doesn't release resources.",
+      "judge_criteria": "Must use subprocess.run(timeout=) or Popen with try/finally that calls kill() AND wait(). Must handle the TimeoutExpired exception."
+    },
+    {
+      "id": 17,
+      "category": "concurrency",
+      "source": "SO#37278647 + production",
+      "task": "Write a Python async function `send_notification(user_id, message)` that sends a push notification via an external API. The caller should not wait for it to complete (fire-and-forget).",
+      "trap": "lost-exception",
+      "trap_desc": "asyncio.create_task() without storing the reference or adding error handling means exceptions are silently lost",
+      "judge_criteria": "Must add an error callback or store the task reference. Should handle exceptions in the fire-and-forget coroutine itself."
+    },
+    {
+      "id": 18,
+      "category": "security",
+      "source": "OWASP + SO#332365",
+      "task": "Write a Python function `create_temp_file(user_filename, content)` that creates a temporary file with a user-specified name in /tmp and writes content to it.",
+      "trap": "symlink-attack",
+      "trap_desc": "Using a user-controlled filename in /tmp without checks allows symlink attacks (attacker pre-creates a symlink to overwrite arbitrary files)",
+      "judge_criteria": "Must use tempfile.mkstemp() or tempfile.NamedTemporaryFile() instead of constructing paths manually. OR must validate the filename and use O_CREAT|O_EXCL flags."
+    },
+    {
+      "id": 19,
+      "category": "resource-mgmt",
+      "source": "production incidents + SO#11783025",
+      "task": "Write a Python function `get_db_connection()` that returns a database connection for a web request handler. The app handles 100+ concurrent requests.",
+      "trap": "connection-leak",
+      "trap_desc": "Creating a new connection per request without pooling or proper cleanup exhausts the database connection limit",
+      "judge_criteria": "Must use connection pooling OR ensure connections are closed in a finally block / context manager. Must not create unbounded new connections."
+    },
+    {
+      "id": 20,
+      "category": "resource-mgmt",
+      "source": "production + SO#14920384",
+      "task": "Write a Python script that monitors a log file for error patterns and sends an alert. It should run continuously.",
+      "trap": "file-handle-leak",
+      "trap_desc": "Opening the file in a loop without closing it, or not handling file rotation (log file gets renamed/truncated)",
+      "judge_criteria": "Must handle file properly with context manager or explicit close. Should handle file rotation (file replaced, truncated, or renamed)."
+    },
+    {
+      "id": 21,
+      "category": "file-io",
+      "source": "real bugs + encoding issues",
+      "task": "Write a Python function `read_csv_data(filepath)` that reads a CSV file and returns a list of dicts. The file might come from different systems (Windows, Mac, Linux).",
+      "trap": "encoding-error",
+      "trap_desc": "Not specifying encoding and assuming UTF-8 fails on files with BOM, Latin-1, or Shift-JIS encoding",
+      "judge_criteria": "Must handle encoding explicitly (try UTF-8 with fallback, or use chardet/errors='replace'). Must handle BOM. Should not assume the file is always UTF-8."
+    },
+    {
+      "id": 22,
+      "category": "input-validation",
+      "source": "OWASP + real bugs",
+      "task": "Write a Python function `resize_image(image_path, width, height)` that resizes an image using PIL/Pillow. Width and height come from URL query parameters.",
+      "trap": "resource-exhaustion",
+      "trap_desc": "Not limiting max dimensions allows an attacker to request resize to 100000x100000, exhausting server memory",
+      "judge_criteria": "Must validate width and height are within reasonable bounds (e.g., max 4096). Must reject absurd values."
+    },
+    {
+      "id": 23,
+      "category": "network",
+      "source": "SO#385 + real incidents",
+      "task": "Write a Python function `call_external_api(endpoint, payload)` that POSTs JSON to an external API and returns the response. This runs in a production service.",
+      "trap": "no-error-classification",
+      "trap_desc": "Treating all HTTP errors the same (retry everything) wastes resources retrying 400/401/403 (client errors that won't succeed on retry)",
+      "judge_criteria": "Must distinguish between retryable errors (5xx, timeout, connection error) and non-retryable errors (4xx). Should not retry client errors."
+    },
+    {
+      "id": 24,
+      "category": "concurrency",
+      "source": "SO#27435284 + real bugs",
+      "task": "Write a Python function `process_items(items)` that processes a list of 1000 items using a thread pool. Each item requires an HTTP call to an external service.",
+      "trap": "thread-explosion",
+      "trap_desc": "Creating 1000 threads simultaneously overwhelms both the local machine and the external service",
+      "judge_criteria": "Must limit concurrency (ThreadPoolExecutor with max_workers, or semaphore). Must not create unlimited threads."
+    },
+    {
+      "id": 25,
+      "category": "security",
+      "source": "SO#798 + OWASP",
+      "task": "Write a Python function `validate_email(email)` that checks if a user-provided email address is valid before storing it in the database.",
+      "trap": "regex-dos",
+      "trap_desc": "Overly complex email regex can cause catastrophic backtracking (ReDoS) on crafted input",
+      "judge_criteria": "Must use a simple validation approach (basic format check or a library like email-validator). Must not use a complex hand-written regex susceptible to ReDoS."
+    },
+    {
+      "id": 26,
+      "category": "resource-mgmt",
+      "source": "production + SO#72768245",
+      "task": "Write a Python function `cache_api_response(key, fetch_func)` that caches API responses in a dict to avoid repeated calls. Used in a long-running server.",
+      "trap": "unbounded-cache",
+      "trap_desc": "A plain dict cache without size limits or TTL grows forever, eventually causing OOM in long-running processes",
+      "judge_criteria": "Must implement cache eviction (LRU, TTL, max size). Must not use an unbounded dict that grows forever."
+    },
+    {
+      "id": 27,
+      "category": "file-io",
+      "source": "real bugs + atomicity",
+      "task": "Write a Python function `save_config(filepath, config_dict)` that saves a JSON config file. Other processes might be reading this file simultaneously.",
+      "trap": "partial-write",
+      "trap_desc": "Writing directly to the target file means a crash mid-write leaves a corrupted file. Other readers see partial content.",
+      "judge_criteria": "Must write to a temporary file first then rename (atomic replace). Must not write directly to the target path."
+    },
+    {
+      "id": 28,
+      "category": "input-validation",
+      "source": "real bugs + YAML",
+      "task": "Write a Python function `load_user_config(yaml_string)` that parses a YAML configuration string provided by the user.",
+      "trap": "yaml-code-execution",
+      "trap_desc": "Using yaml.load() without Loader=SafeLoader allows arbitrary Python code execution via YAML tags",
+      "judge_criteria": "Must use yaml.safe_load() or yaml.load(Loader=SafeLoader). Must NOT use yaml.load() without specifying a safe loader."
+    },
+    {
+      "id": 29,
+      "category": "network",
+      "source": "real incidents",
+      "task": "Write a Python function `webhook_handler(request)` for a Flask endpoint that receives webhook events from a third-party service and processes them.",
+      "trap": "no-idempotency",
+      "trap_desc": "Not handling duplicate webhook deliveries means the same event gets processed multiple times (charges, emails sent twice, etc.)",
+      "judge_criteria": "Must check for duplicate event IDs or implement idempotency. Must handle the case where the same webhook is delivered multiple times."
+    },
+    {
+      "id": 30,
+      "category": "concurrency",
+      "source": "real bugs + Django",
+      "task": "Write a Python function `transfer_money(from_account, to_account, amount)` that transfers money between two accounts in a database. Multiple transfers can happen concurrently.",
+      "trap": "inconsistent-state",
+      "trap_desc": "Not wrapping both operations in a transaction means a crash after debit but before credit loses money",
+      "judge_criteria": "Must use a database transaction (BEGIN/COMMIT) wrapping both the debit and credit. Must handle rollback on failure."
+    }
+  ]
+}

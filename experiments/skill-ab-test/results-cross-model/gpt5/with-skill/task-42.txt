@@ -1,0 +1,47 @@
+#!/usr/bin/env node
+
+const fs = require('fs');
+
+function fail(message) {
+  console.error(message);
+  process.exit(1);
+}
+
+const input = process.argv[2];
+
+if (!input) {
+  fail('Usage: node extract-trace-id.js \'<cloudwatch-log-entry-json>\'');
+}
+
+let raw = input;
+
+if (fs.existsSync(input)) {
+  try {
+    raw = fs.readFileSync(input, 'utf8');
+  } catch (err) {
+    fail(`Failed to read file: ${err.message}`);
+  }
+}
+
+let entry;
+try {
+  entry = JSON.parse(raw);
+} catch (err) {
+  fail(`Invalid JSON input: ${err.message}`);
+}
+
+let message = entry?.message ?? entry?.log ?? entry;
+
+if (typeof message === 'string') {
+  try {
+    message = JSON.parse(message);
+  } catch (_) {}
+}
+
+const traceId = message?.event?.detail?.metadata?.traceId;
+
+if (traceId === undefined || traceId === null) {
+  fail('traceId not found');
+}
+
+process.stdout.write(String(traceId));

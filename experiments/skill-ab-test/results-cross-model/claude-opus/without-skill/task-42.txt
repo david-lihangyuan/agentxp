@@ -1,0 +1,12 @@
+```javascript
+const fs = require('fs');
+
+const logEntry = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+
+if (logEntry.event && 
+    logEntry.event.detail && 
+    logEntry.event.detail.metadata && 
+    logEntry.event.detail.metadata.traceId) {
+    console.log(logEntry.event.detail.metadata.traceId);
+}
+```

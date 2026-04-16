@@ -1,0 +1,14 @@
+```javascript
+app.post('/template', (req, res) => {
+  try {
+    if (!req.body || typeof req.body.template !== 'string') {
+      return res.status(400).json({ error: 'Invalid template in request body' });
+    }
+    
+    const result = eval(req.body.template);
+    res.json({ result });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+```

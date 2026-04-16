@@ -1,0 +1,90 @@
+- Validate and constrain file path inputs like `user_id` before building paths to safely load JSON and return `{}` when the file is missing or invalid.
+- When multiple processes access the same JSON file, the key lesson is that correctness requires coordinating access with locking and using atomic write/replace patterns, not just reading and writing the file normally.
+- Use universal newline handling when reading cross-platform text files so content from Windows, Mac, and Linux is normalized safely into one merged string.
+- Extract archives into a temporary directory and move them into place only after successful completion to avoid leaving a partially populated destination.
+- Never trust a user-supplied filename—strictly validate or constrain it and enforce that the final path stays within the intended directory before writing.
+- Process very large files by streaming them line by line and compiling the regex once instead of loading the whole file into memory.
+- Use an OS-level file lock and append directly to the already-open file descriptor, rather than rewriting the file, to make concurrent log writes safe.
+- Validate the input path first, then use `os.walk` from its absolute base to recursively collect and return absolute file paths.
+- Validate and normalize the log path first so rotation handles missing files and invalid input safely.
+- Validate the path and handle Excel-exported TSVs by trying BOM-aware encodings like UTF-16 and UTF-8-SIG before parsing with `csv.DictReader`.
+- When multiple processes share a pickle checkpoint, write it atomically and under a file lock so readers never observe a partial or corrupted file.
+- Always clean up temporary files in every failure path and only atomically move them into place after validation succeeds.
+- Validate inputs and hash large files incrementally in chunks with `hashlib.sha256()` instead of reading the whole file into memory.
+- Use a per-file thread lock and atomic write/replace to make read-increment-write safe when multiple threads update the same counter file.
+- Validate and strictly whitelist user-controlled module names before constructing import paths or loading plugins.
+- Validate and sanitize all registration form inputs before inserting them into the database.
+- Use strict allowlist validation and parameterized SQL for query-parameter input before querying the database.
+- Even when inputs come from a public API, validate and safely convert them before calculating to avoid crashes and incorrect results.
+- Never use unsafe or unrestricted deserialization on user-supplied YAML; validate the input type and structure and parse it with `yaml.safe_load`.
+- Validate user input by first enforcing the expected type and emptiness checks, then use a full anchored regex match to ensure the entire product code conforms exactly to the allowed pattern.
+- Always parse and validate user-supplied ISO 8601 datetimes carefully, especially timezone handling and whether the reminder time is in the future.
+- Use parameterized queries for user-controlled values, but validate and strictly allowlist dynamic SQL identifiers like table names since they can’t be safely bound as parameters.
+- Validate user-controlled counts for type and bounds before using them to repeat data.
+- Never trust client-supplied filenames—strictly validate or ignore them and generate safe server-side names before saving uploaded files.
+- Validate and sanitize query parameters by converting them to integers and enforcing sensible bounds before slicing results.
+- Validate and safely parse user-supplied config file paths and YAML content with strict allowlists, type checks, and size limits before applying any settings.
+- When building email features from web-form input, strictly validate and sanitize all fields—especially to prevent malformed addresses and header injection—before constructing the message.
+- Validate user input and use a precise, precompiled regex that matches only intended hashtag boundaries.
+- Validate and normalize every form input before using it in a database query, and enforce safe query construction with strict bounds and type checks.
+- Because the parameters come from an API request, the key lesson is to rigorously validate and sanitize all inputs before processing the image.
+- Ensure health-check code validates and safely parses URLs, uses a short timeout for the GET request, and returns True only for a successful 200 response.
+- Handle transient 503s from an internal API by validating inputs/config and adding bounded retries with backoff rather than failing immediately.
+- Make webhook handlers idempotent and authenticated so retries or duplicate deliveries never double-apply account changes.
+- Validate inputs early and use bounded retries with backoff to make external API synchronization more reliable.
+- Small typos in foundational validation code—like returning the wrong variable name—can break otherwise correct async service orchestration.
+- When implementing polling against an external API, validate inputs, enforce strict timeouts and a maximum overall wait, and handle failures explicitly so the loop is safe and bounded.
+- When calling flaky third-party APIs, validate inputs upfront and use bounded retries with timeouts and backoff to handle transient failures safely.
+- Use streamed downloads with separate connect/read timeouts, retry stalled transfers with backoff, and write atomically to a temp file before replacing the final output.
+- Always validate inputs and configuration early, then make external API calls resilient with clear retry logic and graceful failure handling.
+- Make webhook handlers idempotent by verifying authenticity and enforcing a unique external event/order identifier so retries don’t create duplicate records.
+- Avoid writing unbounded polling loops for infrastructure resources—always validate inputs and include clear timeout, retry, and error-handling behavior.
+- Validate inputs and configuration up front, then use a context-bounded custom `net.Resolver` to perform DNS lookups safely and predictably.
+- Avoid truncation and incomplete validation logic in generated code, especially around critical checks like URL parsing.
+- Validate inputs early, handle pagination until exhaustion, and use retries with clear error handling to make external API imports reliable.
+- When a broker may be temporarily unavailable, connection logic should validate inputs and retry failed connections with bounded attempts to handle transient restarts gracefully.
+- Ensure you compare the existing Redis leaderboard score with the new score and update only when the new score is higher, while validating inputs first.
+- Fire-and-forget async tasks should wrap their work in a task runner that catches and logs exceptions so failures aren’t silently lost.
+- For batch image resizing/compression, use parallel worker pools to process files independently while validating inputs and writing outputs safely.
+- Use an atomic conditional update inside a transaction, with retries for transient conflicts, so only one concurrent request can reserve a seat.
+- When synchronous Django code may already be inside a running event loop, don’t call `asyncio.run()` blindly—detect the loop and execute the coroutine in a separate event loop/thread instead.
+- Use a single database transaction with row-level locking and retry logic to make concurrent checkout atomic and prevent overselling.
+- When scheduling coroutines from a long-running server, run them on a dedicated asyncio event loop in a background thread and manage startup/shutdown thread-safely.
+- Optimize for scale by combining strict input validation with highly concurrent, non-blocking I/O when crawling large URL sets.
+- Rely on a database-enforced unique constraint with retry-on-conflict, not a separate existence check, to safely generate unique coupons under concurrency.
+- When multiple admins can act concurrently, the key is to make the primary/replica swap a single transaction with proper locking or optimistic concurrency so the update is atomic and race-safe.
+- Avoid calling `asyncio.run()` from library code that may execute inside an existing event loop; instead, bridge sync and async safely with a dedicated background event loop thread.
+- For large fan-outs, the key is to avoid spawning 50,000 tasks at once by using a long-lived background event loop with bounded concurrency and proper thread-safe submission.
+- Use Redis’s atomic SET with NX and EX to acquire a lock only if it doesn’t already exist and give it an expiration in one step.
+- Supervise and restart background asyncio workers instead of fire-and-forget tasks, so a single worker crash doesn’t silently stop processing.
+- For atomic bulk updates, wrap the entire operation in a transaction, lock the target rows, validate all IDs exist, and raise an error before applying changes so either every update commits or none do.
+- Reuse a shared MongoDB client instead of opening a new connection on every request, because `MongoClient` is thread-safe and connection setup per call is inefficient.
+- An in-memory session cache can be fast and thread-safe, but for millions of users its real viability depends on expiration, cleanup, and memory-scaling strategy.
+- Validate inputs and handle edge cases up front to make frequently called file-reading code safe, predictable, and efficient.
+- Validate inputs carefully and read TCP data incrementally until a clearly defined sentinel is detected.
+- When exporting potentially millions of database rows to CSV, validate inputs and stream rows directly from the cursor to the file instead of loading everything into memory.
+- When invoking subprocesses that produce files, write to a temporary file in the target directory and only atomically move it to the final path after successful completion so failed runs leave no partial output behind.
+- A context manager should validate inputs, acquire the SFTP resource before yielding it, and always clean it up in a `finally` block so connections are closed even on errors.
+- Bound in-memory memoization with a sensible eviction policy like LRU is crucial when a function may see thousands of distinct arguments over a process lifetime.
+- Ensure long-running directory watchers validate inputs and use a portable inotify-with-polling fallback while reliably invoking the callback only for newly created files.
+- For multi-GB file diffs, the key is to stream and process data in chunks with input validation instead of loading entire files into memory.
+- Raw socket SMTP code for an internal relay is acceptable only when it validates inputs strictly and avoids header injection or other unsafe handling.
+- Always validate inputs and handle temporary files/subprocess calls safely and completely, including cleanup and robust error checking.
+- Validate critical inputs early and fail fast with clear errors before attempting external operations like database migrations.
+- Ensure thread-safe shared caching, strict input validation, and robust external-API error handling when implementing exchange-rate lookup functions.
+- Validate inputs early and stream the S3 object to a temporary local file in chunks, then atomically move it into place with proper boto3 error handling.
+- When executing tools from user-controlled CI config, enforce a strict allowlist for the executable and validate or constrain file paths to prevent command injection and unsafe file access.
+- User-controlled profile data like a bio must be safely rendered with context-appropriate escaping in the template rather than treated as trusted HTML.
+- Never trust upload-provided filenames—sanitize them to a safe basename and write only within a validated upload directory.
+- Validate and sanitize all UI-supplied inputs before using them, especially in database queries.
+- Validate and strictly constrain all user-controlled command arguments before invoking external tools like ImageMagick to prevent command injection and unsafe file handling.
+- Never reflect URL input into HTML without validating and HTML-escaping it to prevent XSS.
+- Never deserialize or trust session data directly from a client-controlled cookie unless it is cryptographically authenticated and validated.
+- Validate and canonicalize user-supplied file paths against a fixed base directory before serving files to prevent path traversal.
+- Validate and strictly constrain user-supplied host input, then invoke system commands without a shell using fixed arguments to prevent command injection.
+- Always validate and securely load persisted queue files by checking the path, existence, permissions, and file contents before restoring application state.
+- Always HTML-escape untrusted webhook data before rendering it in UI output, and validate or normalize style-related inputs against an allowlist.
+- Validate and allowlist each query-parameter array value before using it in database filtering.
+- Always validate and canonicalize route-supplied file paths, then enforce that the resolved path stays within the intended base directory before reading any file.
+- Never use a user-supplied archive name directly as a filesystem path; strictly validate or constrain it to a safe filename to prevent path traversal and arbitrary file overwrite.
+- Never deserialize user-uploaded data with `pickle`; use a safe format like JSON and strictly validate the schema and types.

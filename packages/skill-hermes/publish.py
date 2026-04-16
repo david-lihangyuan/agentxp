@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-AgentXP Publisher for Hermes Agent
+AgentXP Publisher for Hermes Agent v1.2.0
 Publishes experience drafts to relay.agentxp.io with Ed25519 signing.
+Supports reasoning traces (L2) when trace_worthiness is "high".
 
 Usage:
   python3 publish.py <draft_file.json>
@@ -145,6 +146,26 @@ def quality_gate(draft):
     return True, None
 
 
+def validate_reasoning_trace(trace):
+    """Validate reasoning_trace structure. Returns (valid, reason)."""
+    if not isinstance(trace, dict):
+        return False, "reasoning_trace must be a JSON object"
+    steps = trace.get("steps", [])
+    if not isinstance(steps, list):
+        return False, "reasoning_trace.steps must be a list"
+    valid_actions = {"observe", "hypothesize", "investigate", "decide", "verify", "backtrack", "delegate", "conclude"}
+    for i, step in enumerate(steps):
+        if not isinstance(step, dict):
+            return False, f"step[{i}] must be an object"
+        action = step.get("action", "")
+        if action not in valid_actions:
+            return False, f"step[{i}].action '{action}' not in valid set: {sorted(valid_actions)}"
+    worthiness = trace.get("trace_worthiness", "")
+    if worthiness not in ("high", "low", ""):
+        return False, f"trace_worthiness must be 'high' or 'low', got '{worthiness}'"
+    return True, None
+
+
 # ─── Relay Interaction ────────────────────────────────────────────────────────
 
 def search_relay(query, limit=3):
@@ -154,7 +175,7 @@ def search_relay(query, limit=3):
     url = f"{RELAY_URL}/api/v1/search?{params}"
     try:
         req = Request(url, method="GET")
-        req.add_header("User-Agent", "agentxp-hermes/1.0")
+        req.add_header("User-Agent", "agentxp-hermes/1.2.0")
         with urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read())
         return data.get("precision", [])
@@ -178,7 +199,7 @@ def publish_to_relay(signed_event):
     body = json.dumps(signed_event).encode("utf-8")
     req = Request(url, data=body, method="POST")
     req.add_header("Content-Type", "application/json")
-    req.add_header("User-Agent", "agentxp-hermes/1.0")
+    req.add_header("User-Agent", "agentxp-hermes/1.2.0")
     try:
         with urlopen(req, timeout=10) as resp:
             return resp.status < 300
@@ -211,6 +232,53 @@ def load_keys():
     return private_hex, public_hex
 
 
+# ─── Payload Builder ──────────────────────────────────────────────────────────
+
+def build_payload(draft):
+    """Build the event payload from a draft, including optional fields."""
+    data = {
+        "what": draft["what"],
+        "tried": draft["tried"],
+        "outcome": draft.get("outcome", "unknown"),
+        "learned": draft["learned"],
+    }
+
+    if draft.get("context"):
+        data["context"] = draft["context"]
+
+    # domain_fingerprint: categorizes the experience domain
+    if draft.get("domain_fingerprint"):
+        data["domain_fingerprint"] = draft["domain_fingerprint"]
+
+    payload = {
+        "type": "experience",
+        # context fencing: mark boundaries so consumers can identify external data
+        "_fence": {"source": "agentxp-hermes", "version": "1.2.0", "relay": RELAY_URL},
+        "data": data,
+    }
+
+    # Optional linkage fields
+    if draft.get("question_id"):
+        payload["question_id"] = draft["question_id"]
+
+    if draft.get("parent_trace_id"):
+        payload["parent_trace_id"] = draft["parent_trace_id"]
+
+    # L2 reasoning trace — only include if worthiness is high
+    reasoning_trace = draft.get("reasoning_trace")
+    if reasoning_trace:
+        valid, reason = validate_reasoning_trace(reasoning_trace)
+        if not valid:
+            print(f"  ⚠ reasoning_trace validation failed: {reason} — omitting trace")
+        elif reasoning_trace.get("trace_worthiness") == "high":
+            payload["reasoning_trace"] = reasoning_trace
+            print(f"  ℹ Trace included (worthiness=high, steps={len(reasoning_trace.get('steps', []))})")
+        else:
+            print(f"  ℹ Trace omitted (worthiness={reasoning_trace.get('trace_worthiness', 'unset')}) — publishing conclusion only")
+
+    return payload
+
+
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 def publish_draft(draft_path, move_after=True):
@@ -240,17 +308,7 @@ def publish_draft(draft_path, move_after=True):
     private_hex, public_hex = load_keys()
     agent_priv, agent_pub, operator_pub = delegate_agent_key(private_hex, public_hex)
 
-    payload = {
-        "type": "experience",
-        "data": {
-            "what": draft["what"],
-            "tried": draft["tried"],
-            "outcome": draft.get("outcome", "unknown"),
-            "learned": draft["learned"],
-        }
-    }
-    if draft.get("context"):
-        payload["data"]["context"] = draft["context"]
+    payload = build_payload(draft)
 
     event = create_event("intent.broadcast", payload, [])
     signed = sign_event(event, agent_priv, agent_pub, operator_pub)

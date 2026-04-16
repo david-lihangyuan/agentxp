@@ -1,0 +1,1 @@
+const getTheme = (response) => response?.user?.profile?.settings?.theme;

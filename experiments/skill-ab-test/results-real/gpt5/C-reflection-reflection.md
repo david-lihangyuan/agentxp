@@ -1,0 +1,30 @@
+- reliability/security: always validate and constrain user-supplied file paths, and handle file/JSON parsing errors explicitly to avoid crashes and unintended file access
+- security: always check for symlink traversal and TOCTOU races when validating then opening filesystem paths from URL input
+- reliability: always close cursors and handle database exceptions/timeouts so query failures or leaked resources don’t crash production
+- reliability: always handle expected user-input exceptions at the call site and validate business rules like realistic age ranges and birth-year assumptions
+- [security]: always check for SSRF risk when fetching user-supplied URLs by restricting allowed hosts/IP ranges and blocking internal network targets
+- reliability: always check DNS/network validation for production impact, because pre-resolving hostnames can fail unexpectedly and block legitimate downloads without a fallback or clear handling
+- reliability: always verify transaction ownership before calling commit/rollback on a passed-in db connection, so helper functions don’t break caller-managed transactions
+- reliability: always distinguish malformed `Content-Length` from oversized responses so valid large responses don’t get misreported as invalid headers
+- ok: no issues detected
+- [concurrency]: always check for TOCTOU race conditions in file validation/use (e.g., path, symlink, and overwrite checks before invoking external tools)
+- reliability: always handle socket timeouts/errors and bound total bytes read to avoid hangs or memory exhaustion
+- [concurrency]: always check for TOCTOU race conditions from validating a path before opening it; open first and verify the opened file instead of re-checking by pathname
+- reliability: always check for recursion-depth and memory growth risks when flattening deeply nested or very large untrusted data structures
+- ok: no issues detected
+- ok: no issues detected
+- [security]: always check for shell injection risk when accepting `cmd` as a string and passing it with `shell=True`
+- reliability: always keep a strong reference to fire-and-forget tasks and surface their exceptions, or they may be garbage-collected/cancelled and fail silently
+- reliability: always check platform assumptions and edge cases, especially hard-coded paths like /tmp that may not exist or behave differently across environments
+- concurrency: always check that the DB choice and connection pattern actually support 100+ concurrent requests, since opening per-request SQLite connections with WAL can still hit lock contention and “database is locked” failures under write load
+- reliability: always check that code is complete and syntax-valid, with all required imports and no truncated functions before shipping
+- reliability: always check for TOCTOU race conditions from pre-validating paths before open, and catch csv.Error on both decode paths
+- security: always validate and constrain filesystem paths from URL parameters to prevent path traversal and unauthorized file access
+- reliability: always check that streamed response reading is actually enabled (`stream=True`) before using `iter_content`, or response size limits may not be enforced and large bodies can be buffered in memory
+- [concurrency]: always check whether shared clients used across threads are actually thread-safe; avoid sharing one requests.Session across worker threads or use one session per thread/thread-local session
+- reliability: always check for Unicode/internationalized email handling and whether stripping or regex-based validation rejects valid real-world addresses unexpectedly
+- concurrency: always check for cache stampedes and ensure in-flight fetches are synchronized so concurrent misses don’t trigger duplicate API calls
+- concurrency: always check symlink races between temp-file creation and replace, especially if the target path may be attacker-controlled
+- reliability: always check for resource exhaustion from unbounded user input size/depth when parsing YAML, even with safe_load
+- [security]: always validate webhook signatures against the provider’s exact scheme—including prefixes/encodings and any timestamp/replay protection—because naive HMAC comparison can reject valid requests or allow replayed ones
+- reliability: always check transaction ownership and thread-safety of shared DB connections under concurrent use

@@ -1,0 +1,7 @@
+```javascript
+const vscode = require('vscode');
+
+function getTabSize() {
+    return vscode.workspace.getConfiguration('editor').get('tabSize');
+}
+```

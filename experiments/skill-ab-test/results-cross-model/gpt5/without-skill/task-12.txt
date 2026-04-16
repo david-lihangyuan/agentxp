@@ -1,0 +1,23 @@
+#!/usr/bin/env node
+
+const pattern = process.argv[2];
+if (pattern == null) process.exit(1);
+
+let re;
+try {
+  re = new RegExp(pattern);
+} catch {
+  process.exit(1);
+}
+
+let data = '';
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', chunk => (data += chunk));
+process.stdin.on('end', () => {
+  const hasTrailingNewline = data.endsWith('\n');
+  const lines = data.split(/\r?\n/);
+  if (hasTrailingNewline) lines.pop();
+  const out = lines.filter(line => re.test(line)).join('\n');
+  process.stdout.write(out + (out ? '\n' : ''));
+});
+process.stdin.resume();

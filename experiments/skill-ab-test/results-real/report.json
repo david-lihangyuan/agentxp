@@ -1,0 +1,2545 @@
+{
+  "timestamp": "2026-04-15T23:49:58.725Z",
+  "metadata": {
+    "version": "real-v1",
+    "source": "Stack Overflow + real engineering scenarios",
+    "created": "2026-04-15",
+    "task_count": 30,
+    "categories": [
+      "file-io",
+      "input-validation",
+      "network",
+      "concurrency",
+      "security",
+      "resource-mgmt"
+    ],
+    "notes": "Each task is based on real SO questions or common production bugs. Tasks are designed so that naive implementations fail in predictable ways that experienced engineers (or agents with experience) would avoid."
+  },
+  "models": [
+    {
+      "id": "claude-opus",
+      "label": "Claude Opus 4",
+      "provider": "anthropic",
+      "model": "claude-opus-4-20250514"
+    },
+    {
+      "id": "gpt5",
+      "label": "GPT-5.4",
+      "provider": "openrouter",
+      "model": "openai/gpt-5.4"
+    },
+    {
+      "id": "gemini-flash",
+      "label": "Gemini Flash",
+      "provider": "openrouter",
+      "model": "google/gemini-2.5-flash"
+    }
+  ],
+  "groups": [
+    {
+      "id": "A-bare",
+      "label": "A: Bare model",
+      "preloaded": false,
+      "reflection": false
+    },
+    {
+      "id": "B-preloaded",
+      "label": "B: Preloaded knowledge",
+      "preloaded": true,
+      "reflection": false
+    },
+    {
+      "id": "C-reflection",
+      "label": "C: Reflection only",
+      "preloaded": false,
+      "reflection": true
+    },
+    {
+      "id": "D-full",
+      "label": "D: Full AgentXP",
+      "preloaded": true,
+      "reflection": true
+    }
+  ],
+  "judge": "claude-sonnet-4-20250514",
+  "results": [
+    {
+      "modelId": "claude-opus",
+      "modelLabel": "Claude Opus 4",
+      "groups": {
+        "A-bare": {
+          "passed": 14,
+          "failed": 16,
+          "total": 30,
+          "rate": "47%",
+          "byCategory": {
+            "file-io": {
+              "passed": 2,
+              "total": 5
+            },
+            "input-validation": {
+              "passed": 4,
+              "total": 6
+            },
+            "network": {
+              "passed": 1,
+              "total": 5
+            },
+            "concurrency": {
+              "passed": 2,
+              "total": 5
+            },
+            "security": {
+              "passed": 3,
+              "total": 4
+            },
+            "resource-mgmt": {
+              "passed": 2,
+              "total": 5
+            }
+          }
+        },
+        "B-preloaded": {
+          "passed": 17,
+          "failed": 13,
+          "total": 30,
+          "rate": "57%",
+          "byCategory": {
+            "file-io": {
+              "passed": 3,
+              "total": 5
+            },
+            "input-validation": {
+              "passed": 5,
+              "total": 6
+            },
+            "network": {
+              "passed": 1,
+              "total": 5
+            },
+            "concurrency": {
+              "passed": 3,
+              "total": 5
+            },
+            "security": {
+              "passed": 2,
+              "total": 4
+            },
+            "resource-mgmt": {
+              "passed": 3,
+              "total": 5
+            }
+          }
+        },
+        "C-reflection": {
+          "passed": 18,
+          "failed": 12,
+          "total": 30,
+          "rate": "60%",
+          "byCategory": {
+            "file-io": {
+              "passed": 3,
+              "total": 5
+            },
+            "input-validation": {
+              "passed": 6,
+              "total": 6
+            },
+            "network": {
+              "passed": 1,
+              "total": 5
+            },
+            "concurrency": {
+              "passed": 2,
+              "total": 5
+            },
+            "security": {
+              "passed": 3,
+              "total": 4
+            },
+            "resource-mgmt": {
+              "passed": 3,
+              "total": 5
+            }
+          }
+        },
+        "D-full": {
+          "passed": 17,
+          "failed": 13,
+          "total": 30,
+          "rate": "57%",
+          "byCategory": {
+            "file-io": {
+              "passed": 3,
+              "total": 5
+            },
+            "input-validation": {
+              "passed": 6,
+              "total": 6
+            },
+            "network": {
+              "passed": 2,
+              "total": 5
+            },
+            "concurrency": {
+              "passed": 2,
+              "total": 5
+            },
+            "security": {
+              "passed": 2,
+              "total": 4
+            },
+            "resource-mgmt": {
+              "passed": 2,
+              "total": 5
+            }
+          }
+        }
+      },
+      "details": [
+        {
+          "taskId": 1,
+          "category": "file-io",
+          "trap": "no-existence-check",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: Code does not handle FileNotFoundError or check if file exists before attempting to read, will crash on non-existent files"
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code properly checks os.path.exists() and os.path.isfile() before reading, and handles FileNotFoundError appropriately with clear error messages."
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: Code does not handle FileNotFoundError or check file existence before reading, will crash if file doesn't exist"
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code explicitly checks os.path.exists() and os.path.isfile() before attempting to read, and handles FileNotFoundError through proper validation."
+            }
+          }
+        },
+        {
+          "taskId": 2,
+          "category": "file-io",
+          "trap": "path-traversal",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: The startswith() check is vulnerable to same-prefix attacks where base_dir=\"/var/www\" but requested_path=\"/var/www_evil/file\" would pass the check"
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: The security check `if not full_path.startswith(base_dir + os.sep):` has a logical flaw - when base_dir and full_path are the same (filename resolves to base_dir itself), startswith fails because base_dir doesn't start with base_dir + os.sep, incorrectly blocking valid access to files directly in base_dir."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code properly uses os.path.abspath() to resolve all path components including '../' sequences, then validates the resolved path stays within base_dir using startswith() check."
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: The startswith check has a edge case vulnerability - if base_dir is \"/app\" and requested_path is \"/app_evil/file\", it would pass the security check since \"/app_evil/file\".startswith(\"/app/\") is false, but the code doesn't handle the case where base_dir itself doesn't end with a separator, potentially allowing access to sibling directories."
+            }
+          }
+        },
+        {
+          "taskId": 3,
+          "category": "input-validation",
+          "trap": "sql-injection",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Uses parameterized query with ? placeholder and passes name_query safely through the parameters tuple, avoiding SQL injection vulnerability."
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Uses parameterized query with ? placeholder for SQL execution, f-string only used for pattern preparation not SQL construction"
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Uses parameterized query with ? placeholder and passes name_query safely in tuple parameter, avoiding SQL injection despite f-string being used only for the LIKE pattern within the parameter."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Uses parameterized query with ? placeholder and passes sanitized input as parameter, avoiding SQL injection vulnerability."
+            }
+          }
+        },
+        {
+          "taskId": 4,
+          "category": "input-validation",
+          "trap": "no-input-validation",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: Code doesn't handle ValueError for non-numeric input or validate age range (negative/unreasonable values)"
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code properly handles ValueError for non-numeric input and validates reasonable age range (0-150) with appropriate error messages."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code properly handles ValueError for non-numeric input and validates reasonable age range (0-150)"
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code properly validates input type, handles non-numeric input with regex and try-catch, checks for negative numbers, enforces reasonable age range (0-150), and includes comprehensive error handling for all edge cases."
+            }
+          }
+        },
+        {
+          "taskId": 5,
+          "category": "network",
+          "trap": "no-timeout",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: No timeout parameter set on requests.get() and no handling of connection errors/timeouts"
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: No timeout parameter set on requests.get() - can hang indefinitely if server doesn't respond"
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: No timeout parameter set on requests.get(), which can cause the function to hang indefinitely if the server doesn't respond."
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: No timeout parameter set on requests.get() - can hang forever if server doesn't respond"
+            }
+          }
+        },
+        {
+          "taskId": 6,
+          "category": "network",
+          "trap": "no-backoff",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: Retries on all HTTP errors including non-transient 4xx client errors, which wastes resources and may trigger rate limiting"
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code implements exponential backoff (2^attempt) and correctly avoids retrying on 4xx errors while only retrying transient failures (timeouts, connection errors, 5xx)."
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: Code retries on all HTTP errors including non-transient 4xx errors, should only retry on transient failures like 5xx/timeouts"
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: Code retries on HTTPError which includes non-transient 4xx errors that should not be retried"
+            }
+          }
+        },
+        {
+          "taskId": 7,
+          "category": "concurrency",
+          "trap": "race-condition",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Uses atomic INSERT...ON CONFLICT DO UPDATE which performs the increment in a single atomic operation, avoiding the SELECT-then-UPDATE race condition."
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Uses atomic UPDATE with SET value = value + 1 and proper UPSERT with ON CONFLICT, avoiding separate SELECT then UPDATE operations."
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: Uses separate UPDATE then INSERT operations which creates race condition - if UPDATE finds no rows and INSERT fails due to concurrent insert, the counter increment is lost between operations"
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: Race condition between UPDATE and INSERT - if UPDATE finds no row and two workers execute INSERT simultaneously, both will increment from the same base value, losing one increment."
+            }
+          }
+        },
+        {
+          "taskId": 8,
+          "category": "concurrency",
+          "trap": "nested-event-loop",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: Code doesn't handle existing event loop - will raise RuntimeError when called from Jupyter/async contexts where loop is already running"
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: Code doesn't handle already-running event loop case and lacks asyncio.run() wrapper, making it unusable as a standalone function in many contexts."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code uses async/await pattern without asyncio.run(), making it safe to call from existing event loops, and properly uses asyncio.gather() for concurrency."
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: The code doesn't handle the case where an event loop is already running - it only defines async functions but doesn't provide a way to safely execute them in environments like Jupyter where asyncio.run() would raise RuntimeError."
+            }
+          }
+        },
+        {
+          "taskId": 9,
+          "category": "security",
+          "trap": "xss",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Jinja2 templating engine auto-escapes HTML by default when using {{ }} syntax, preventing XSS attacks"
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: HTML escaping is done but bypassed by Jinja2's auto-escaping when using `{{ comment }}` which treats escaped content as safe HTML, allowing XSS through encoded characters that get re-interpreted."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code uses Jinja2's auto-escaping with `{{ comment.text | e }}` filter to properly escape HTML in user comments before rendering."
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: Uses Jinja2 templating which auto-escapes by default, but imports `escape` without using it and renders user comments directly in template without explicit escaping verification"
+            }
+          }
+        },
+        {
+          "taskId": 10,
+          "category": "security",
+          "trap": "command-injection",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Uses subprocess.run() with list of arguments (no shell=True) and validates both input file existence and output format against allowlist"
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code uses subprocess.run() with a proper argument list instead of shell=True or os.system(), effectively preventing command injection attacks."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Uses subprocess.run with list of arguments (no shell=True), validates input parameters, and properly sanitizes the output format to prevent command injection."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Uses subprocess.run() with argument list instead of shell=True, thoroughly validates and sanitizes both input path and output format, and includes proper error handling and timeouts."
+            }
+          }
+        },
+        {
+          "taskId": 11,
+          "category": "resource-mgmt",
+          "trap": "no-timeout-socket",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: No socket timeout set and no socket.timeout exception handling - recv() will block indefinitely if server stops sending without closing connection"
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: Code doesn't set socket timeout and doesn't handle socket.timeout exception, so recv() will block indefinitely if server stops sending without closing connection"
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: No socket timeout set and no socket.timeout exception handling - recv() will block indefinitely if server stops sending without closing connection"
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: Code sets timeout but doesn't handle socket.timeout exception, which would crash the function if timeout occurs"
+            }
+          }
+        },
+        {
+          "taskId": 12,
+          "category": "resource-mgmt",
+          "trap": "memory-overflow",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: The code has a critical bug - it calls next(file) after file.seek(0) which skips the header, causing csv.reader to read from the wrong position and likely crash or produce incorrect results."
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code processes file line-by-line using csv.reader iterator, never loading entire file into memory, making it safe for multi-GB files."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code reads file line-by-line using csv.reader iterator, avoiding loading entire file into memory at once."
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: The code uses csv.reader() which reads line-by-line, but the chunk_size variable is defined but never used - the CSV reader doesn't actually implement chunking and could still load large rows into memory."
+            }
+          }
+        },
+        {
+          "taskId": 13,
+          "category": "file-io",
+          "trap": "infinite-recursion",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: No max depth limit or circular reference handling - will cause stack overflow on deeply nested or circular structures"
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: No max depth limit or circular reference detection - will cause stack overflow on deeply nested or circular data structures"
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: Code has no max depth limit or circular reference detection, will cause stack overflow on deeply nested or circular data structures."
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: No max depth limit or circular reference handling - will cause stack overflow on deeply nested objects or infinite recursion on circular references"
+            }
+          }
+        },
+        {
+          "taskId": 14,
+          "category": "input-validation",
+          "trap": "division-by-zero",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: The code properly handles division by zero using try-catch exception handling, which safely catches ZeroDivisionError and returns an appropriate error message."
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code explicitly checks if b == 0 before division and raises appropriate ValueError exception"
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code explicitly checks if b_float == 0 before division and returns appropriate error message, successfully avoiding division by zero."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code explicitly checks if num_b == 0 before division and raises a descriptive ValueError, properly avoiding the zero division trap."
+            }
+          }
+        },
+        {
+          "taskId": 15,
+          "category": "input-validation",
+          "trap": "deep-null-access",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Code correctly uses optional chaining (?.) at every level to safely access deeply nested properties without throwing TypeError."
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code uses optional chaining (?.) at each level and handles undefined case with explicit error"
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code uses explicit null checks at each nesting level and proper type validation, safely avoiding TypeError on undefined/null properties."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Uses optional chaining (?.) at each level and nullish coalescing (??) for safe default value"
+            }
+          }
+        },
+        {
+          "taskId": 16,
+          "category": "network",
+          "trap": "zombie-process",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: Uses kill() without wait() and doesn't handle TimeoutExpired exception, leaving zombie processes and missing proper resource cleanup."
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: Uses process.communicate() after kill() but doesn't explicitly call wait(), and the exception handler catches all exceptions without proper cleanup, potentially leaving zombie processes."
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: Uses kill_process() without calling wait() to reap zombie processes, and TimeoutExpired exception handling is unreachable since threading.Timer is used instead of subprocess timeout parameter."
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: Code calls process.communicate() after kill which can hang indefinitely, and missing final process.wait() in finally block to ensure zombie cleanup"
+            }
+          }
+        },
+        {
+          "taskId": 17,
+          "category": "concurrency",
+          "trap": "lost-exception",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: Task reference not stored and exceptions silently lost due to bare except pass - no error logging or callback handling"
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: asyncio.create_task() without storing reference means exceptions in _send() are silently lost despite internal try/except"
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: asyncio.create_task() creates a task without storing the reference, causing exceptions to be silently lost despite internal exception handling"
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: asyncio.create_task() without storing reference means exceptions in _send() are silently lost despite internal try/catch"
+            }
+          }
+        },
+        {
+          "taskId": 18,
+          "category": "security",
+          "trap": "symlink-attack",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: Code directly uses user-controlled filename in /tmp without validation or secure flags, allowing symlink attacks to overwrite arbitrary files"
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: Uses user-controlled filename in /tmp without O_CREAT|O_EXCL flags, vulnerable to symlink attacks where attacker can pre-create symlink to overwrite arbitrary files"
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: Code uses open() without O_CREAT|O_EXCL flags, making it vulnerable to symlink attacks where an attacker pre-creates a symlink at the target path to overwrite arbitrary files."
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: Uses open() without O_CREAT|O_EXCL flags, allowing symlink attacks where attacker pre-creates symlink to overwrite arbitrary files"
+            }
+          }
+        },
+        {
+          "taskId": 19,
+          "category": "resource-mgmt",
+          "trap": "connection-leak",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Code uses ThreadedConnectionPool with proper connection management via context manager that ensures connections are returned to pool"
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Uses ThreadedConnectionPool with proper bounds (10-150 connections) and context manager ensures connections are returned to pool via putconn() in finally block."
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: Connection pool is created but connections are never returned to the pool, leading to connection exhaustion"
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: Uses thread-local connections that are never closed, creating one persistent connection per thread that accumulates over time without proper cleanup or pooling."
+            }
+          }
+        },
+        {
+          "taskId": 20,
+          "category": "resource-mgmt",
+          "trap": "file-handle-leak",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Uses context manager for file handling and detects log rotation by checking if current_size < last_position, resetting position to 0"
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Uses context managers for proper file handling and detects log rotation by comparing file size to last position, resetting when truncated."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code uses proper context manager (with open()) to handle file closing and implements file rotation detection by checking inode changes and resetting position when rotation occurs."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code properly uses context managers (with open()) ensuring files are closed, and handles file rotation by checking file size and resetting position when file shrinks."
+            }
+          }
+        },
+        {
+          "taskId": 21,
+          "category": "file-io",
+          "trap": "encoding-error",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Code uses 'utf-8-sig' encoding which handles BOM correctly, though lacks fallback for other encodings like Latin-1 or Shift-JIS."
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Uses 'utf-8-sig' encoding which automatically handles UTF-8 BOM removal and is the most common encoding for CSV files across different systems."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Uses encoding='utf-8-sig' which handles UTF-8 BOM, and catches UnicodeDecodeError to handle encoding issues gracefully."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code explicitly handles UTF-8 with BOM ('utf-8-sig'), includes fallback to 'latin-1' on UnicodeDecodeError, and doesn't assume UTF-8 will always work."
+            }
+          }
+        },
+        {
+          "taskId": 22,
+          "category": "input-validation",
+          "trap": "resource-exhaustion",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: No validation of width/height dimensions - allows memory exhaustion attacks with extreme values like 100000x100000"
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: Code validates positive integers but sets no upper bounds on dimensions, allowing memory exhaustion attacks with extremely large values like 100000x100000"
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code validates dimensions with MAX_DIMENSION = 10000, rejecting values that would cause memory exhaustion from oversized resize operations."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code validates width and height are positive integers with maximum limit of 10000, which prevents memory exhaustion attacks from absurdly large dimensions."
+            }
+          }
+        },
+        {
+          "taskId": 23,
+          "category": "network",
+          "trap": "no-error-classification",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Code correctly distinguishes retryable from non-retryable errors by only retrying 5xx server errors and 429 rate limiting in the retry strategy, while 4xx client errors are handled separately without retry."
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: Code treats all HTTP errors the same way, raising RuntimeError for both 4xx (non-retryable client errors) and 5xx (retryable server errors), preventing proper retry logic distinction."
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: Code doesn't implement retry logic at all, so while it doesn't incorrectly retry 4xx errors, it also doesn't provide the expected retry functionality for retryable errors like 5xx/timeouts."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code correctly distinguishes between retryable (5xx, timeout, connection) and non-retryable (4xx) errors, avoiding wasteful retries on client errors."
+            }
+          }
+        },
+        {
+          "taskId": 24,
+          "category": "concurrency",
+          "trap": "thread-explosion",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Code uses ThreadPoolExecutor with max_workers=50, limiting concurrency to 50 threads instead of creating 1000 simultaneous threads."
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code uses ThreadPoolExecutor with configurable max_workers (default 10), properly limiting concurrency instead of creating 1000 simultaneous threads."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code uses ThreadPoolExecutor with max_workers=10, properly limiting concurrency to prevent overwhelming local machine and external service."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code uses ThreadPoolExecutor with max_workers=min(50, cpu_count*5) which properly limits concurrency instead of creating 1000 simultaneous threads."
+            }
+          }
+        },
+        {
+          "taskId": 25,
+          "category": "security",
+          "trap": "regex-dos",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: The regex pattern is simple and linear with no nested quantifiers or backtracking paths that could cause ReDoS attacks."
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Uses a simple, non-complex regex pattern that is not susceptible to catastrophic backtracking/ReDoS attacks."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Uses simple, linear regex pattern that is not susceptible to catastrophic backtracking"
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Uses simple regex pattern without complex nested quantifiers or backtracking-prone constructs, combined with additional programmatic checks rather than relying on a single complex regex."
+            }
+          }
+        },
+        {
+          "taskId": 26,
+          "category": "resource-mgmt",
+          "trap": "unbounded-cache",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: Uses unbounded dict cache that will grow indefinitely in long-running server, causing memory exhaustion - no size limits or TTL implemented"
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: Cache has TTL but no size limits - expired entries are never removed from dict, still causing unbounded growth and eventual OOM"
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Implements TTL-based expiration, LRU eviction with max_size limit, and thread-safe operations to prevent unbounded cache growth."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code implements both TTL expiration and max size eviction, preventing unbounded cache growth that would cause OOM in long-running processes."
+            }
+          }
+        },
+        {
+          "taskId": 27,
+          "category": "file-io",
+          "trap": "partial-write",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Uses temporary file in same directory then atomic os.replace(), preventing corruption from partial writes during concurrent reads."
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Uses temporary file with atomic rename via os.replace(), preventing corruption during writes and ensuring readers never see partial content."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code writes to temporary file first, then atomically replaces target with os.replace(), preventing readers from seeing partial content during writes."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code uses tempfile.mkstemp() to write to temporary file first, then atomically replaces target with os.replace(), preventing readers from seeing partial content during writes."
+            }
+          }
+        },
+        {
+          "taskId": 28,
+          "category": "input-validation",
+          "trap": "yaml-code-execution",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Uses yaml.safe_load() which prevents arbitrary code execution and is safe for untrusted input"
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code correctly uses yaml.safe_load() which prevents arbitrary code execution, avoiding the yaml.load() vulnerability trap."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Uses yaml.safe_load() which prevents arbitrary code execution, avoiding the yaml.load() vulnerability trap."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Uses yaml.safe_load() which prevents arbitrary code execution and includes comprehensive input validation with size limits and path traversal protection."
+            }
+          }
+        },
+        {
+          "taskId": 29,
+          "category": "network",
+          "trap": "no-idempotency",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: No duplicate webhook handling - same events will be processed multiple times causing duplicate charges, emails, etc."
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: No idempotency check - events with same ID will be processed multiple times causing duplicate payments/emails"
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code implements proper duplicate detection using event ID caching with thread-safe operations and time-based cleanup to prevent processing the same webhook multiple times."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code implements idempotency by checking for existence of processed event files and creates state tracking to prevent duplicate processing of webhook events."
+            }
+          }
+        },
+        {
+          "taskId": 30,
+          "category": "concurrency",
+          "trap": "inconsistent-state",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: No database transaction used - debit and credit operations are not wrapped in BEGIN/COMMIT/ROLLBACK, so system crash between operations would lose money"
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code uses database transaction with proper commit/rollback handling via context manager that automatically commits on success and rolls back on exceptions"
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: SQLite doesn't support \"FOR UPDATE\" syntax, so the row locking attempts will cause syntax errors and the transaction isolation is ineffective."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code properly uses database transactions with BEGIN IMMEDIATE/COMMIT wrapping both debit and credit operations, includes rollback on exceptions, and handles the atomicity requirement correctly."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "modelId": "gpt5",
+      "modelLabel": "GPT-5.4",
+      "groups": {
+        "A-bare": {
+          "passed": 17,
+          "failed": 13,
+          "total": 30,
+          "rate": "57%",
+          "byCategory": {
+            "file-io": {
+              "passed": 3,
+              "total": 5
+            },
+            "input-validation": {
+              "passed": 4,
+              "total": 6
+            },
+            "network": {
+              "passed": 1,
+              "total": 5
+            },
+            "concurrency": {
+              "passed": 4,
+              "total": 5
+            },
+            "security": {
+              "passed": 2,
+              "total": 4
+            },
+            "resource-mgmt": {
+              "passed": 3,
+              "total": 5
+            }
+          }
+        },
+        "B-preloaded": {
+          "passed": 21,
+          "failed": 9,
+          "total": 30,
+          "rate": "70%",
+          "byCategory": {
+            "file-io": {
+              "passed": 4,
+              "total": 5
+            },
+            "input-validation": {
+              "passed": 5,
+              "total": 6
+            },
+            "network": {
+              "passed": 3,
+              "total": 5
+            },
+            "concurrency": {
+              "passed": 4,
+              "total": 5
+            },
+            "security": {
+              "passed": 2,
+              "total": 4
+            },
+            "resource-mgmt": {
+              "passed": 3,
+              "total": 5
+            }
+          }
+        },
+        "C-reflection": {
+          "passed": 19,
+          "failed": 11,
+          "total": 30,
+          "rate": "63%",
+          "byCategory": {
+            "file-io": {
+              "passed": 3,
+              "total": 5
+            },
+            "input-validation": {
+              "passed": 6,
+              "total": 6
+            },
+            "network": {
+              "passed": 3,
+              "total": 5
+            },
+            "concurrency": {
+              "passed": 4,
+              "total": 5
+            },
+            "security": {
+              "passed": 2,
+              "total": 4
+            },
+            "resource-mgmt": {
+              "passed": 1,
+              "total": 5
+            }
+          }
+        },
+        "D-full": {
+          "passed": 20,
+          "failed": 10,
+          "total": 30,
+          "rate": "67%",
+          "byCategory": {
+            "file-io": {
+              "passed": 3,
+              "total": 5
+            },
+            "input-validation": {
+              "passed": 5,
+              "total": 6
+            },
+            "network": {
+              "passed": 3,
+              "total": 5
+            },
+            "concurrency": {
+              "passed": 4,
+              "total": 5
+            },
+            "security": {
+              "passed": 2,
+              "total": 4
+            },
+            "resource-mgmt": {
+              "passed": 3,
+              "total": 5
+            }
+          }
+        }
+      },
+      "details": [
+        {
+          "taskId": 1,
+          "category": "file-io",
+          "trap": "no-existence-check",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: Code doesn't handle FileNotFoundError or check if file exists before reading, will crash if file is missing"
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code explicitly checks os.path.exists() and raises FileNotFoundError before attempting to read, properly handling the case where the file doesn't exist."
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: Code does not handle FileNotFoundError or check if file exists before reading, will crash with unhandled exception if file doesn't exist."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code explicitly checks os.path.exists() and raises FileNotFoundError before attempting to read, properly handling the case where the file doesn't exist."
+            }
+          }
+        },
+        {
+          "taskId": 2,
+          "category": "file-io",
+          "trap": "path-traversal",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Code properly resolves absolute paths and uses os.path.commonpath() to verify the target stays within base_dir, effectively preventing directory traversal attacks including '../' sequences."
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code uses os.path.abspath and os.path.commonpath to resolve paths and verify target stays within base_dir, preventing path traversal attacks including '../' sequences."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code resolves paths and uses relative_to() to verify requested file stays within base directory, preventing path traversal attacks."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code uses Path.resolve(strict=True) to normalize paths and requested_path.relative_to(base_path) to verify the resolved path stays within the base directory, effectively preventing path traversal attacks."
+            }
+          }
+        },
+        {
+          "taskId": 3,
+          "category": "input-validation",
+          "trap": "sql-injection",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Uses parameterized query with ? placeholder and passes name_query safely through execute() parameters, avoiding SQL injection"
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Uses parameterized query with ? placeholder and tuple parameter, avoiding SQL injection vulnerability"
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Uses parameterized query with ? placeholder and proper LIKE wildcard escaping, avoiding SQL injection"
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Uses parameterized query with ? placeholder and passes user input safely in tuple parameter"
+            }
+          }
+        },
+        {
+          "taskId": 4,
+          "category": "input-validation",
+          "trap": "no-input-validation",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: Code handles negative numbers but doesn't catch ValueError from int() conversion for non-numeric input, and missing upper bound validation (age > 150)"
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code properly validates non-numeric input with isdigit() check, handles negative numbers, and enforces reasonable age range (0-150) with appropriate ValueError exceptions."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code properly validates non-numeric input with isdigit() check, handles negative numbers and unreasonable values with range validation (0-150), and raises appropriate ValueErrors for all invalid cases."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code properly handles all aspects of the trap - validates non-numeric input with isdigit() check, rejects negative numbers, and enforces reasonable upper bound of 150 years with appropriate ValueError exceptions."
+            }
+          }
+        },
+        {
+          "taskId": 5,
+          "category": "network",
+          "trap": "no-timeout",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: No timeout parameter set on urlopen() - can hang forever if server doesn't respond"
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Sets timeout=10 on requests.get() and uses raise_for_status() to handle HTTP errors, though could benefit from explicit connection error handling"
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code sets timeout=10 on urlopen() and properly handles URLError/HTTPError exceptions for connection issues and timeouts."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Sets timeout=10 on requests.get() which prevents infinite hangs, though missing explicit connection error handling"
+            }
+          }
+        },
+        {
+          "taskId": 6,
+          "category": "network",
+          "trap": "no-backoff",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: Code retries on all HTTPError exceptions including non-transient 4xx client errors, which should not be retried"
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code implements exponential backoff with `time.sleep(min(2 ** attempt, 10))` and correctly avoids retrying on non-transient 4xx errors, only retrying on specific transient status codes."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code implements exponential backoff with `time.sleep(min(2 ** attempt, 8))` and correctly avoids retrying non-transient 4xx errors, only retrying specific transient status codes (408, 429, 500, 502, 503, 504)."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Implements exponential backoff with `time.sleep(min(2 ** attempt, 10))` and correctly avoids retrying non-transient 4xx errors by only retrying specific transient status codes."
+            }
+          }
+        },
+        {
+          "taskId": 7,
+          "category": "concurrency",
+          "trap": "race-condition",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Uses INSERT...ON CONFLICT DO UPDATE which is atomic and avoids SELECT-then-UPDATE race condition"
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Uses INSERT...ON CONFLICT DO UPDATE with atomic increment, avoiding separate SELECT then UPDATE operations"
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Uses INSERT...ON CONFLICT DO UPDATE which is atomic and avoids SELECT-then-UPDATE race condition"
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Uses atomic INSERT...ON CONFLICT DO UPDATE which performs the increment in a single atomic operation, avoiding the SELECT-then-UPDATE race condition."
+            }
+          }
+        },
+        {
+          "taskId": 8,
+          "category": "concurrency",
+          "trap": "nested-event-loop",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: Code uses asyncio.run() which raises RuntimeError when called from within an already-running event loop (e.g., Jupyter notebooks, async web frameworks)"
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: Code doesn't handle existing event loop - will fail when called from Jupyter/async contexts where loop is already running"
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code uses asyncio.get_running_loop() instead of asyncio.run() and properly implements concurrent fetching with asyncio.gather(), avoiding the event loop trap."
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: Code doesn't handle already-running event loop - missing asyncio.run() call or loop detection logic"
+            }
+          }
+        },
+        {
+          "taskId": 9,
+          "category": "security",
+          "trap": "xss",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Flask's Jinja2 templating engine auto-escapes HTML by default when using {{ }} syntax, preventing XSS attacks."
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Jinja2 template engine auto-escapes HTML by default when using {{ }} syntax, preventing XSS attacks"
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: Flask's render_template_string auto-escapes by default, so this code actually does avoid XSS attacks and is safe in production."
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: Uses Jinja2 template with {{ comment }} which auto-escapes HTML by default, but render_template_string with user-controlled template content can be dangerous and the code lacks explicit XSS protections for production use."
+            }
+          }
+        },
+        {
+          "taskId": 10,
+          "category": "security",
+          "trap": "command-injection",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Uses subprocess with list of arguments (no shell=True) and validates both input path and output format against allowed values with regex check"
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Uses subprocess.run() with a list of arguments (no shell=True) and validates/sanitizes both input_path and output_format parameters to prevent command injection."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Uses subprocess.run with argument list and validates all inputs - no shell=True or os.system, paths are validated and sanitized, output format is whitelisted, and ffmpeg path is safely obtained via shutil.which()."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Uses subprocess.run() with a list of arguments (no shell=True) and thoroughly validates/sanitizes all user inputs including path traversal protection and format whitelisting."
+            }
+          }
+        },
+        {
+          "taskId": 11,
+          "category": "resource-mgmt",
+          "trap": "no-timeout-socket",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: No socket timeout set and no socket.timeout exception handling - recv() will block indefinitely if server stops sending without closing connection"
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: No socket timeout set and no socket.timeout exception handling - recv() will block indefinitely if server stops sending without closing connection"
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: Code lacks socket timeout and socket.timeout exception handling, allowing recv() to block indefinitely if server stops responding without closing connection."
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: No socket timeout set and no socket.timeout exception handling - recv() will block indefinitely if server stops responding without closing connection"
+            }
+          }
+        },
+        {
+          "taskId": 12,
+          "category": "resource-mgmt",
+          "trap": "memory-overflow",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Code uses csv.reader which processes file line-by-line without loading entire file into memory, avoiding OOM on large files."
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code uses csv.DictReader which reads line-by-line, avoiding loading entire file into memory at once."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Uses csv.reader which processes line-by-line without loading entire file into memory, avoiding OOM on large files"
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code uses csv.DictReader which reads line-by-line in the for loop, avoiding loading entire file into memory at once."
+            }
+          }
+        },
+        {
+          "taskId": 13,
+          "category": "file-io",
+          "trap": "infinite-recursion",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: No max depth limit or circular reference detection - will cause infinite recursion/stack overflow on circular references or deeply nested input"
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: No max depth limit or circular reference detection - will cause stack overflow on deeply nested or circular data structures"
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: No max depth limit or circular reference detection - will cause stack overflow on deeply nested input or infinite recursion on circular references"
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: No max depth limit or circular reference detection - will cause stack overflow on deeply nested or circular data structures"
+            }
+          }
+        },
+        {
+          "taskId": 14,
+          "category": "input-validation",
+          "trap": "division-by-zero",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Code catches ZeroDivisionError in try-except block, handling division by zero gracefully by returning \"Error\""
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code explicitly checks if num_b == 0 and raises ZeroDivisionError before performing division, properly avoiding the zero divisor trap."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code explicitly checks if y == 0 before division and returns appropriate error message, successfully avoiding division by zero trap."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code explicitly checks if y == 0 before division and returns appropriate error message, successfully avoiding division by zero."
+            }
+          }
+        },
+        {
+          "taskId": 15,
+          "category": "input-validation",
+          "trap": "deep-null-access",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Code correctly uses optional chaining (?.) at every level to safely access nested properties without throwing TypeError"
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code correctly uses optional chaining (?.) at each nesting level and provides null fallback with nullish coalescing operator (??)"
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code correctly uses optional chaining (?.) at each nested level, preventing TypeError when any property is null/undefined."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code correctly uses optional chaining (?.) at every level and provides null fallback with nullish coalescing operator (??)"
+            }
+          }
+        },
+        {
+          "taskId": 16,
+          "category": "network",
+          "trap": "zombie-process",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Uses communicate() with timeout which properly handles cleanup, and the second communicate() call after kill ensures process is waited for and resources are released."
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Uses subprocess.run() with timeout parameter which properly handles process cleanup and zombie prevention, and correctly catches TimeoutExpired exception."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Uses subprocess.run(timeout=) which properly handles process cleanup and correctly catches TimeoutExpired exception."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Uses subprocess.run() with timeout parameter which automatically handles process cleanup and zombie prevention, and properly catches TimeoutExpired exception."
+            }
+          }
+        },
+        {
+          "taskId": 17,
+          "category": "concurrency",
+          "trap": "lost-exception",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Task reference is stored and done_callback consumes exceptions to prevent silent loss"
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Task reference is stored and error handling callback is added via add_done_callback, preventing silent exception loss"
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: create_task() without storing reference means exceptions in _deliver_notification are silently lost despite internal exception handling"
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Task reference is stored in local variable and error handling is properly implemented via add_done_callback with _log_task_result function that catches and logs exceptions."
+            }
+          }
+        },
+        {
+          "taskId": 18,
+          "category": "security",
+          "trap": "symlink-attack",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: Code uses user-controlled filename directly in /tmp without validation or safe file creation flags, vulnerable to symlink attacks where attacker could pre-create symlink to overwrite arbitrary files"
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: Code uses open() without O_EXCL flag, allowing symlink attacks where attacker can pre-create symlink to overwrite arbitrary files"
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Uses tempfile.mkstemp() which creates files with O_CREAT|O_EXCL flags, preventing symlink attacks, and validates filename appropriately."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Uses tempfile.mkstemp() which creates files with O_CREAT|O_EXCL flags and secure permissions, preventing symlink attacks even though user input is used only as a prefix."
+            }
+          }
+        },
+        {
+          "taskId": 19,
+          "category": "resource-mgmt",
+          "trap": "connection-leak",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Uses ThreadedConnectionPool for connection reuse and provides release_db_connection() with proper cleanup in finally block"
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Implements proper connection pooling with bounded max connections (150), automatic cleanup in release(), and provides context manager for guaranteed connection return to pool."
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: Creates new connection per request without pooling, will exhaust database resources under 100+ concurrent requests despite proper cleanup"
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code implements proper connection pooling with bounded pool size and ensures connections are returned/closed in finally block"
+            }
+          }
+        },
+        {
+          "taskId": 20,
+          "category": "resource-mgmt",
+          "trap": "file-handle-leak",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Code properly handles file closing with try/finally blocks and implements comprehensive log rotation detection using inode comparison and size checks."
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code properly closes file handles with explicit try/catch blocks and detects file rotation by monitoring inode changes and file size truncation."
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: Code uses open_verified_file() but never shows proper file closing or file rotation handling (reopening when file is replaced/truncated)"
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code properly handles file closing with explicit close() method and detects file rotation by comparing inodes, reopening when file is replaced or renamed."
+            }
+          }
+        },
+        {
+          "taskId": 21,
+          "category": "file-io",
+          "trap": "encoding-error",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Uses 'utf-8-sig' encoding which handles BOM and is the most common encoding, though lacks fallback for other encodings like Latin-1/Shift-JIS"
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Uses utf-8-sig encoding which handles BOM automatically and UTF-8 is the most common encoding, though lacks fallback for other encodings like Latin-1/Shift-JIS."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code handles UTF-8-sig encoding (which handles BOM) with latin-1 fallback, explicitly addressing the encoding vulnerability."
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: Uses encoding=\"utf-8-sig\" which handles BOM but assumes UTF-8, no fallback for Latin-1/Shift-JIS files that would cause UnicodeDecodeError"
+            }
+          }
+        },
+        {
+          "taskId": 22,
+          "category": "input-validation",
+          "trap": "resource-exhaustion",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: No validation on width/height dimensions - allows attacker to request massive sizes like 100000x100000 causing memory exhaustion"
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: No maximum dimension limits - allows memory exhaustion attacks via extremely large width/height values"
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code validates width and height are between 1 and 10000, preventing memory exhaustion from extremely large dimensions."
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: No maximum dimension validation - allows attacker to request massive dimensions like 100000x100000 causing memory exhaustion"
+            }
+          }
+        },
+        {
+          "taskId": 23,
+          "category": "network",
+          "trap": "no-error-classification",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: Code treats all HTTP errors the same - raise_for_status() converts both 4xx and 5xx to RequestException, making them indistinguishable for retry logic"
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: Code doesn't implement retry logic at all, so it doesn't distinguish between retryable (5xx) and non-retryable (4xx) errors as required"
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: Code doesn't distinguish between retryable (5xx, timeouts, connection errors) and non-retryable (4xx client errors) - all HTTP errors are treated the same with generic ExternalAPIError, making retry logic impossible to implement properly."
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: Code treats all HTTP errors the same - raises generic ExternalAPIError for both retryable 5xx server errors and non-retryable 4xx client errors, preventing proper retry logic differentiation"
+            }
+          }
+        },
+        {
+          "taskId": 24,
+          "category": "concurrency",
+          "trap": "thread-explosion",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Code uses ThreadPoolExecutor with max_workers=32, limiting concurrency to 32 threads instead of creating 1000 simultaneous threads."
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code properly limits concurrency with ThreadPoolExecutor max_workers=min(32, max(1, len(items))), capping threads at 32 regardless of item count."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code uses ThreadPoolExecutor with max_workers=32, preventing creation of 1000 simultaneous threads and limiting concurrency appropriately."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code uses ThreadPoolExecutor with max_workers=32, limiting concurrency to 32 threads instead of creating 1000 simultaneous threads."
+            }
+          }
+        },
+        {
+          "taskId": 25,
+          "category": "security",
+          "trap": "regex-dos",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: Uses complex hand-written regex with nested quantifiers and lookaheads that's susceptible to ReDoS attacks on crafted input"
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: Uses a complex hand-written regex pattern that could be susceptible to ReDoS attacks despite the pre-filtering checks."
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: Uses complex hand-written regex with nested quantifiers and lookaheads that could cause ReDoS on malicious input"
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: Uses complex regex with nested quantifiers and lookaheads that could cause ReDoS attacks on malicious input"
+            }
+          }
+        },
+        {
+          "taskId": 26,
+          "category": "resource-mgmt",
+          "trap": "unbounded-cache",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: Code uses unbounded dict cache without size limits or TTL, will grow forever and cause OOM in long-running server"
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: Uses unbounded dict cache that will grow forever without any size limits or TTL, causing memory exhaustion in long-running servers"
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: Uses unbounded dict cache without size limits or TTL, will grow forever and cause OOM in long-running server"
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: Cache has TTL but no size limit - expired entries are only removed on access, allowing unbounded growth from keys that are never accessed again"
+            }
+          }
+        },
+        {
+          "taskId": 27,
+          "category": "file-io",
+          "trap": "partial-write",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Uses atomic write-then-rename pattern with proper temporary file handling and cleanup on failure."
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Uses atomic write-then-rename pattern with temporary file in same directory, preventing readers from seeing partial/corrupted content during write operations."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code writes to temporary file via mkstemp(), then atomically replaces target with os.replace(), avoiding corruption from partial writes."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code uses atomic write pattern with temporary file and os.replace() for safe concurrent access, avoiding direct writes to target file."
+            }
+          }
+        },
+        {
+          "taskId": 28,
+          "category": "input-validation",
+          "trap": "yaml-code-execution",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Uses yaml.safe_load() which prevents arbitrary code execution from YAML tags"
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Uses yaml.safe_load() which prevents arbitrary code execution and includes proper input validation and error handling."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Uses yaml.safe_load() which prevents arbitrary code execution via YAML deserialization"
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Uses yaml.safe_load() which prevents arbitrary code execution and includes proper input validation and error handling."
+            }
+          }
+        },
+        {
+          "taskId": 29,
+          "category": "network",
+          "trap": "no-idempotency",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: Code extracts event_id but never stores or checks it for duplicates, allowing the same webhook to be processed multiple times"
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: Code extracts event_id but never checks for duplicates or implements idempotency, allowing the same webhook to be processed multiple times."
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: No duplicate detection - webhook events with same ID can be processed multiple times causing duplicate charges/emails"
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: Code extracts event ID but doesn't implement duplicate detection/idempotency - same webhook can be processed multiple times"
+            }
+          }
+        },
+        {
+          "taskId": 30,
+          "category": "concurrency",
+          "trap": "inconsistent-state",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Code uses Django's transaction.atomic() which properly wraps both debit and credit operations in a database transaction with automatic rollback on exceptions."
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code properly wraps both debit and credit operations in a single database transaction with automatic rollback on exceptions."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code properly uses BEGIN IMMEDIATE transaction wrapping both debit and credit operations, with comprehensive rollback handling on all failure paths."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code properly uses database transactions with conn.autocommit = False, explicit commit(), and rollback() in exception handler, ensuring both debit and credit operations are atomic."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "modelId": "gemini-flash",
+      "modelLabel": "Gemini Flash",
+      "groups": {
+        "A-bare": {
+          "passed": 12,
+          "failed": 18,
+          "total": 30,
+          "rate": "40%",
+          "byCategory": {
+            "file-io": {
+              "passed": 2,
+              "total": 5
+            },
+            "input-validation": {
+              "passed": 3,
+              "total": 6
+            },
+            "network": {
+              "passed": 0,
+              "total": 5
+            },
+            "concurrency": {
+              "passed": 2,
+              "total": 5
+            },
+            "security": {
+              "passed": 3,
+              "total": 4
+            },
+            "resource-mgmt": {
+              "passed": 2,
+              "total": 5
+            }
+          }
+        },
+        "B-preloaded": {
+          "passed": 14,
+          "failed": 16,
+          "total": 30,
+          "rate": "47%",
+          "byCategory": {
+            "file-io": {
+              "passed": 2,
+              "total": 5
+            },
+            "input-validation": {
+              "passed": 4,
+              "total": 6
+            },
+            "network": {
+              "passed": 1,
+              "total": 5
+            },
+            "concurrency": {
+              "passed": 2,
+              "total": 5
+            },
+            "security": {
+              "passed": 2,
+              "total": 4
+            },
+            "resource-mgmt": {
+              "passed": 3,
+              "total": 5
+            }
+          }
+        },
+        "C-reflection": {
+          "passed": 13,
+          "failed": 17,
+          "total": 30,
+          "rate": "43%",
+          "byCategory": {
+            "file-io": {
+              "passed": 2,
+              "total": 5
+            },
+            "input-validation": {
+              "passed": 4,
+              "total": 6
+            },
+            "network": {
+              "passed": 0,
+              "total": 5
+            },
+            "concurrency": {
+              "passed": 2,
+              "total": 5
+            },
+            "security": {
+              "passed": 2,
+              "total": 4
+            },
+            "resource-mgmt": {
+              "passed": 3,
+              "total": 5
+            }
+          }
+        },
+        "D-full": {
+          "passed": 11,
+          "failed": 19,
+          "total": 30,
+          "rate": "37%",
+          "byCategory": {
+            "file-io": {
+              "passed": 2,
+              "total": 5
+            },
+            "input-validation": {
+              "passed": 5,
+              "total": 6
+            },
+            "network": {
+              "passed": 0,
+              "total": 5
+            },
+            "concurrency": {
+              "passed": 1,
+              "total": 5
+            },
+            "security": {
+              "passed": 2,
+              "total": 4
+            },
+            "resource-mgmt": {
+              "passed": 1,
+              "total": 5
+            }
+          }
+        }
+      },
+      "details": [
+        {
+          "taskId": 1,
+          "category": "file-io",
+          "trap": "no-existence-check",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Code properly handles FileNotFoundError with try-catch block in main and documents the exception in function docstring."
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code explicitly checks os.path.exists() before reading and properly handles FileNotFoundError exception with clear error messaging."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code properly handles FileNotFoundError in try-except block and provides appropriate error messaging before exiting gracefully."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code explicitly checks os.path.exists() before reading and properly handles FileNotFoundError in try-catch blocks."
+            }
+          }
+        },
+        {
+          "taskId": 2,
+          "category": "file-io",
+          "trap": "path-traversal",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: os.path.normpath() doesn't prevent traversal - \"../../../etc/passwd\" normalizes to \"../../../etc/passwd\" but still escapes base_dir when joined, needs realpath() validation or proper containment check"
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code properly uses os.path.normpath() to resolve '../' sequences and includes crucial security check to verify the resolved path stays within base_dir using startswith()."
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: Path traversal check has edge case - when base_dir ends with separator, the startswith check fails for valid files in base_dir root"
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code properly prevents directory traversal by using os.path.abspath() to resolve paths and checking that the absolute path starts with the base directory, effectively handling '../' sequences and other path traversal attempts."
+            }
+          }
+        },
+        {
+          "taskId": 3,
+          "category": "input-validation",
+          "trap": "sql-injection",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Code correctly uses parameterized queries with ? placeholder and tuple parameter, preventing SQL injection attacks."
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Uses parameterized queries with ? placeholder and proper escaping of LIKE wildcards"
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Uses parameterized query with ? placeholder and tuple parameter, preventing SQL injection"
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Uses parameterized query with ? placeholder for the search pattern, preventing SQL injection despite using f-string only for safe wildcard wrapping of the parameter value."
+            }
+          }
+        },
+        {
+          "taskId": 4,
+          "category": "input-validation",
+          "trap": "no-input-validation",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: Code doesn't validate age ranges - allows negative ages and unreasonably high ages (>150) to be returned without bounds checking."
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: Code handles negative numbers but missing upper bound validation - allows unreasonable ages like 999+ which could cause logical errors in production systems."
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: Missing upper bound validation - code accepts unrealistic ages like 120+ which could cause logic errors or be used maliciously."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code properly validates non-numeric input with isdigit() check, enforces reasonable age range (1-119), and raises ValueError for invalid cases including negative numbers and unreasonable values."
+            }
+          }
+        },
+        {
+          "taskId": 5,
+          "category": "network",
+          "trap": "no-timeout",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: No timeout parameter set on requests.get() - can hang indefinitely if server doesn't respond"
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: No timeout parameter set on requests.get() - can hang indefinitely if server doesn't respond, and timeout exceptions are not explicitly handled"
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: No timeout parameter set on requests.get() - can hang indefinitely if server doesn't respond"
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: No timeout parameter set on requests.get() - can hang indefinitely if server doesn't respond"
+            }
+          }
+        },
+        {
+          "taskId": 6,
+          "category": "network",
+          "trap": "no-backoff",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: Code retries on all RequestExceptions including non-transient 4xx errors, and uses fixed 2-second delay instead of exponential backoff which can still overwhelm servers."
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code implements exponential backoff with 2^attempt delays and correctly avoids retrying 4xx client errors while only retrying transient 5xx server errors."
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: Code retries on all HTTP errors including non-transient 4xx client errors, which should not be retried"
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: Code retries on all HTTP errors including 4xx client errors (due to raise_for_status()) and uses fixed 2-second delay instead of exponential backoff, which can overwhelm servers and cause rate limiting."
+            }
+          }
+        },
+        {
+          "taskId": 7,
+          "category": "concurrency",
+          "trap": "race-condition",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Uses INSERT...ON CONFLICT DO UPDATE with atomic increment (counters.value + 1), avoiding separate SELECT then UPDATE operations."
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Uses atomic UPDATE with SET value = value + 1, avoiding separate SELECT then UPDATE operations"
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Uses atomic UPSERT with ON CONFLICT DO UPDATE SET value = counters.value + 1, avoiding separate SELECT then UPDATE operations."
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: The UPSERT CTE has a race condition - if the UPDATE in the CTE finds no rows, multiple workers can simultaneously execute the INSERT, causing primary key violations or lost increments."
+            }
+          }
+        },
+        {
+          "taskId": 8,
+          "category": "concurrency",
+          "trap": "nested-event-loop",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: Code uses asyncio.run() which will raise RuntimeError if called from within an already-running event loop (e.g., Jupyter notebooks, web frameworks)"
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: Code uses asyncio.run() in main block which will raise RuntimeError if event loop is already running (e.g., in Jupyter notebooks)"
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: Code doesn't handle already-running event loop case - would raise RuntimeError in Jupyter/async contexts since no asyncio.run() wrapper or event loop detection is provided"
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: Code uses asyncio.run() which will raise RuntimeError if called from within an already-running event loop (e.g., Jupyter notebooks, async web frameworks)"
+            }
+          }
+        },
+        {
+          "taskId": 9,
+          "category": "security",
+          "trap": "xss",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Jinja2 template engine auto-escapes HTML by default, so {{ comment }} safely renders user input without XSS risk."
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: User comments are directly inserted into HTML without escaping, allowing XSS attacks via malicious script tags in comments."
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: Code uses `{{ comment | safe }}` in template which bypasses auto-escaping and renders raw user input as HTML, enabling XSS attacks."
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: Despite comments claiming Jinja2 auto-escapes, the code uses `{{ comment }}` which renders raw HTML, allowing XSS attacks when users submit malicious scripts."
+            }
+          }
+        },
+        {
+          "taskId": 10,
+          "category": "security",
+          "trap": "command-injection",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Uses subprocess.run() with a list of arguments instead of shell=True or os.system(), preventing command injection attacks."
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Uses subprocess with list of arguments and validates inputs - no shell=True or os.system() used, input_path and output_format are properly sanitized before being passed to subprocess."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Uses subprocess.run with list of arguments (no shell=True), validates input types, sanitizes output format with regex, and includes proper path handling and error management."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Uses subprocess.run with command list instead of shell=True, preventing command injection attacks"
+            }
+          }
+        },
+        {
+          "taskId": 11,
+          "category": "resource-mgmt",
+          "trap": "no-timeout-socket",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: No socket timeout is set and socket.timeout exception is not handled, so recv() will block indefinitely if server stops sending without closing the connection."
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: No socket timeout set, recv() will block indefinitely if server stops sending without closing connection, and no socket.timeout exception handling"
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: No socket timeout is set and socket.timeout exception is not handled, recv() will block forever if server stops sending without closing connection"
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: Code handles socket.timeout exception but never actually sets a timeout, so recv() will still block forever if server stops sending without closing"
+            }
+          }
+        },
+        {
+          "taskId": 12,
+          "category": "resource-mgmt",
+          "trap": "memory-overflow",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Code processes file line-by-line using csv.reader iterator, avoiding loading entire file into memory."
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code correctly uses pd.read_csv with chunksize parameter to process file in 1M row chunks, avoiding loading entire file into memory."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code uses csv.reader which reads line-by-line, avoiding loading entire file into memory"
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: Code reads sample rows inefficiently and calls `sum(1 for row in reader)` which iterates through the entire file to count rows, defeating the memory-efficient line-by-line processing."
+            }
+          }
+        },
+        {
+          "taskId": 13,
+          "category": "file-io",
+          "trap": "infinite-recursion",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: No max depth limit or circular reference detection - will cause stack overflow on deeply nested or circular data structures"
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: No max depth limit or circular reference detection - will cause stack overflow on deeply nested objects or infinite recursion on circular references."
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: No protection against deeply nested input or circular references - will cause stack overflow on malicious/deeply nested JSON data."
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: No max depth limit or circular reference detection - will cause infinite recursion/stack overflow on circular references or deeply nested structures"
+            }
+          }
+        },
+        {
+          "taskId": 14,
+          "category": "input-validation",
+          "trap": "division-by-zero",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Code properly handles division by zero with ZeroDivisionError exception, preventing the vulnerability and handling the zero case gracefully."
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code explicitly checks if b == 0 and raises a clear ValueError before performing division, properly handling the zero divisor case."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code explicitly checks if num_b == 0 before division and returns appropriate error message, avoiding the zero division trap."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code explicitly checks if dec_b == 0 and raises ValueError before division, properly handling the zero divisor case."
+            }
+          }
+        },
+        {
+          "taskId": 15,
+          "category": "input-validation",
+          "trap": "deep-null-access",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: Uses try-catch instead of optional chaining, which masks all errors not just property access errors, and doesn't follow the requirement to use ?. or explicit null checks at each level."
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code uses explicit null checks at each level of nesting, preventing TypeError when any property is null/undefined."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Uses explicit null checks at each nested level to safely access deeply nested properties without risking TypeError"
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code explicitly checks each nested level before access, preventing TypeError on null/undefined properties and safely handles missing data."
+            }
+          }
+        },
+        {
+          "taskId": 16,
+          "category": "network",
+          "trap": "zombie-process",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: Code uses manual timeout loop instead of subprocess timeout parameter, doesn't properly handle TimeoutExpired exception, and lacks guaranteed process.wait() calls in cleanup which can still leave zombie processes."
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: Code uses os.killpg() but never calls wait() to reap the process, leaving zombie processes. Should use subprocess.run(timeout=) or add proc.wait() after killing."
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: Uses threading instead of subprocess timeout parameter, missing TimeoutExpired exception handling, and doesn't guarantee process cleanup in all code paths despite having some cleanup logic."
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: Uses threading instead of subprocess timeout parameter, and kill() is called without ensuring wait() is called afterward to prevent zombie processes."
+            }
+          }
+        },
+        {
+          "taskId": 17,
+          "category": "concurrency",
+          "trap": "lost-exception",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: asyncio.create_task() without storing reference means task can be garbage collected and exceptions are silently lost despite internal try/catch"
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: asyncio.create_task() without storing reference means task exceptions are silently lost despite inner exception handling"
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: asyncio.create_task() calls don't store task references, causing potential silent exception loss and task garbage collection warnings"
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: Uses asyncio.create_task() without storing reference, causing exceptions to be silently lost despite internal exception handling"
+            }
+          }
+        },
+        {
+          "taskId": 18,
+          "category": "security",
+          "trap": "symlink-attack",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: Code directly concatenates user input to /tmp path without validation and uses regular open() instead of secure tempfile methods, allowing symlink attacks to overwrite arbitrary files."
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: Code constructs temp file path manually without using tempfile module or O_CREAT|O_EXCL flags, making it vulnerable to symlink attacks where attacker can pre-create symlink to overwrite arbitrary files."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Uses tempfile.mkstemp() which creates files atomically with O_CREAT|O_EXCL flags, preventing symlink attacks by ensuring the file doesn't already exist."
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: Code uses open() without O_EXCL flag, making it vulnerable to symlink attacks where an attacker could pre-create a symlink at the target path to overwrite arbitrary files."
+            }
+          }
+        },
+        {
+          "taskId": 19,
+          "category": "resource-mgmt",
+          "trap": "connection-leak",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: Uses thread-local connections without pooling or proper cleanup - connections persist for thread lifetime and aren't closed after requests, leading to connection exhaustion"
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code implements ThreadedConnectionPool with proper connection management, bounded connections (max 100), and includes finally block example for cleanup."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Uses psycopg2 connection pool with proper min/max limits, thread-local storage prevents connection leaks per request, and includes release_db_connection() for proper cleanup."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code implements proper connection pooling with ThreadedConnectionPool, limits max connections via environment variable, and provides proper connection return mechanism to avoid exhausting database connections."
+            }
+          }
+        },
+        {
+          "taskId": 20,
+          "category": "resource-mgmt",
+          "trap": "file-handle-leak",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Code uses context manager (with open()) which properly closes files, and handles FileNotFoundError for basic file rotation scenarios."
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code uses context managers properly and handles file rotation by catching FileNotFoundError and resetting position when file is recreated/rotated."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code uses context managers for proper file handling and detects/handles log rotation by checking if current_position < last_position and resetting to 0."
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: File is opened once with context manager but never closed/reopened, so it won't detect file rotation/truncation and will miss new content when log files are rotated."
+            }
+          }
+        },
+        {
+          "taskId": 21,
+          "category": "file-io",
+          "trap": "encoding-error",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: No encoding specified in open(), will fail on non-UTF-8 files, BOM markers, or other encodings like Latin-1/Shift-JIS"
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: Code hardcodes encoding='utf-8' without fallback handling for BOM, Latin-1, or other encodings, which will cause UnicodeDecodeError on non-UTF-8 files"
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: No encoding specified in open(), defaults to system encoding which fails on files with BOM, different encodings like Latin-1/Shift-JIS, and provides no fallback mechanism."
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: Code uses open() without encoding parameter, defaulting to system encoding and failing on files with BOM, Latin-1, or other non-UTF-8 encodings."
+            }
+          }
+        },
+        {
+          "taskId": 22,
+          "category": "input-validation",
+          "trap": "resource-exhaustion",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: No validation of width/height parameters - allows attackers to request massive dimensions like 100000x100000 which would exhaust server memory"
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: Code only validates positive integers but missing maximum dimension limits - attacker can still request 100000x100000 causing memory exhaustion"
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: No maximum dimension limits - allows attackers to request enormous dimensions like 100000x100000 causing memory exhaustion"
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: No upper bounds validation - allows attackers to request massive dimensions like 100000x100000 causing memory exhaustion"
+            }
+          }
+        },
+        {
+          "taskId": 23,
+          "category": "network",
+          "trap": "no-error-classification",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: Code doesn't distinguish between retryable (5xx, timeouts) and non-retryable (4xx) errors - all HTTP errors are handled identically and re-raised, providing no retry logic differentiation for production use."
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: Code raises all HTTP errors the same way without distinguishing between retryable (5xx, timeouts) and non-retryable (4xx) errors, making it impossible for callers to implement proper retry logic."
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: Code doesn't distinguish between retryable (5xx, timeouts, connection errors) and non-retryable (4xx) errors - treats all HTTP errors identically, which would lead to wasted resources retrying client errors that won't succeed."
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: Code raises all HTTP errors the same way without distinguishing retryable (5xx, timeouts, connection errors) from non-retryable (4xx) errors, making it impossible for callers to implement proper retry logic."
+            }
+          }
+        },
+        {
+          "taskId": 24,
+          "category": "concurrency",
+          "trap": "thread-explosion",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Code uses ThreadPoolExecutor with max_workers=32, properly limiting concurrency to avoid overwhelming the system and external service."
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code uses ThreadPoolExecutor with max_workers=10, limiting concurrency to 10 threads instead of creating 1000 simultaneous threads."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code uses ThreadPoolExecutor with max_workers=min(32, len(items)) which limits concurrency to maximum 32 threads, preventing the creation of 1000 simultaneous threads."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Code uses ThreadPoolExecutor with max_workers=20, properly limiting concurrency to avoid overwhelming the system and external service."
+            }
+          }
+        },
+        {
+          "taskId": 25,
+          "category": "security",
+          "trap": "regex-dos",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Uses a simple, linear regex pattern without nested quantifiers or alternations that would cause catastrophic backtracking"
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: The regex is simple and linear with no nested quantifiers or alternations that could cause catastrophic backtracking."
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: Uses complex hand-written regex with nested quantifiers and alternations that could cause ReDoS attacks on malicious input"
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: The regex is simple and linear with no nested quantifiers or alternations that could cause catastrophic backtracking."
+            }
+          }
+        },
+        {
+          "taskId": 26,
+          "category": "resource-mgmt",
+          "trap": "unbounded-cache",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: Cache has TTL but no size limits - expired entries are never removed, causing unbounded growth and eventual OOM"
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: Uses unbounded dict cache without size limits or TTL, will cause memory leak in long-running server"
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: Cache has TTL but no size limits, dict can still grow unbounded if many unique keys are accessed over time"
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: Uses unbounded dict cache that will grow forever without any size limits or TTL, causing memory leaks in long-running servers"
+            }
+          }
+        },
+        {
+          "taskId": 27,
+          "category": "file-io",
+          "trap": "partial-write",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Code writes to temporary file first, then uses os.replace() for atomic rename, avoiding direct writes to target file and preventing corruption from partial writes."
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: Code writes directly to target file, risking corruption if interrupted mid-write; needs atomic write-then-rename pattern"
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Code uses temporary file with atomic rename, avoiding direct writes to target path and preventing partial content exposure to readers."
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: Code writes directly to target file, risking corruption if process crashes mid-write; needs atomic write-then-rename pattern"
+            }
+          }
+        },
+        {
+          "taskId": 28,
+          "category": "input-validation",
+          "trap": "yaml-code-execution",
+          "results": {
+            "A-bare": {
+              "passed": true,
+              "reason": "PASS: Code correctly uses yaml.safe_load() which prevents arbitrary code execution and is safe for parsing untrusted YAML input."
+            },
+            "B-preloaded": {
+              "passed": true,
+              "reason": "PASS: Code correctly uses yaml.safe_load() which prevents arbitrary code execution from malicious YAML tags."
+            },
+            "C-reflection": {
+              "passed": true,
+              "reason": "PASS: Uses yaml.safe_load() which prevents arbitrary code execution from malicious YAML input."
+            },
+            "D-full": {
+              "passed": true,
+              "reason": "PASS: Uses yaml.safe_load() which prevents arbitrary code execution from malicious YAML tags"
+            }
+          }
+        },
+        {
+          "taskId": 29,
+          "category": "network",
+          "trap": "no-idempotency",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: No duplicate detection or idempotency mechanism - webhooks will be processed multiple times causing duplicate orders, emails, and database updates."
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: Code lacks idempotency checks - no duplicate event ID detection or deduplication mechanism to prevent processing the same webhook multiple times."
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: No duplicate delivery protection - webhook events can be processed multiple times causing duplicate actions without any idempotency checks or event ID deduplication."
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: Code lacks idempotency protection - no checking for duplicate webhook delivery IDs, allowing same event to be processed multiple times causing duplicate charges/actions."
+            }
+          }
+        },
+        {
+          "taskId": 30,
+          "category": "concurrency",
+          "trap": "inconsistent-state",
+          "results": {
+            "A-bare": {
+              "passed": false,
+              "reason": "FAIL: Code uses in-memory objects with locks instead of database transactions, doesn't implement BEGIN/COMMIT/ROLLBACK pattern to ensure atomicity if system crashes between withdraw and deposit operations."
+            },
+            "B-preloaded": {
+              "passed": false,
+              "reason": "FAIL: Code uses in-memory Account objects with threading locks but lacks database transactions (BEGIN/COMMIT/ROLLBACK) to ensure atomicity across debit and credit operations."
+            },
+            "C-reflection": {
+              "passed": false,
+              "reason": "FAIL: Code uses in-memory data structures with locks instead of database transactions - no BEGIN/COMMIT/ROLLBACK means crash between withdraw and deposit operations loses money permanently"
+            },
+            "D-full": {
+              "passed": false,
+              "reason": "FAIL: Code uses in-memory operations without database transactions - no BEGIN/COMMIT/ROLLBACK, so a crash between debit and credit would still lose money in a real database scenario."
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+const redis = require('redis');
+
+const host = process.env.REDIS_HOST;
+if (!host) {
+  console.error('REDIS_HOST is not set');
+  process.exit(1);
+}
+
+const client = redis.createClient({
+  socket: { host }
+});
+
+client.on('error', (err) => {
+  console.error('Redis error:', err);
+  process.exit(1);
+});
+
+(async () => {
+  await client.connect();
+  console.log(`Connected to Redis at ${host}`);
+  await client.quit();
+})();

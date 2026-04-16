@@ -1,0 +1,9 @@
+#!/bin/sh
+
+dir=${1:-}
+
+if [ -z "$dir" ] || [ ! -d "$dir" ]; then
+  exit 1
+fi
+
+chmod -R 777 "$dir"

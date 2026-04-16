@@ -1,0 +1,21 @@
+import os
+import sys
+import yaml
+
+path = "settings.yaml"
+
+if not os.path.exists(path):
+    print(f"Error: file not found: {path}", file=sys.stderr)
+    sys.exit(1)
+
+try:
+    with open(path, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+except yaml.YAMLError as e:
+    print(f"Error: invalid YAML in {path}: {e}", file=sys.stderr)
+    sys.exit(1)
+except OSError as e:
+    print(f"Error: could not read {path}: {e}", file=sys.stderr)
+    sys.exit(1)
+
+print(data)
