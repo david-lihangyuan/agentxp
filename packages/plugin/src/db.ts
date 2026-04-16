@@ -271,7 +271,7 @@ export function createDb(dbPath: string = ':memory:') {
     SELECT * FROM local_lessons WHERE id = ?
   `)
 
-  const stmtUpdateLessonCounts = db.prepare<[number, number, number]>(`
+  const stmtUpdateLessonCounts = db.prepare<[number, number, number, number]>(`
     UPDATE local_lessons
     SET applied_count = applied_count + ?,
         success_count = success_count + ?,

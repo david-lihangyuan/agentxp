@@ -84,19 +84,19 @@ export function createModules(
       id: 'trace-evaluator',
       intervalMs: 60 * 60 * 1000,
       condition: () => db.hasNewTraces(),
-      run: () => runTraceEvaluator(db, config, logger),
+      run: async () => { await runTraceEvaluator(db, config, logger) },
     },
     {
       id: 'key-manager',
       intervalMs: 24 * 60 * 60 * 1000,
       condition: () => config.mode === 'network',
-      run: () => runKeyManager(db, config, logger, fetchFn as KeyFetchFn),
+      run: async () => { await runKeyManager(db, config, logger, fetchFn as KeyFetchFn) },
     },
     {
       id: 'weekly-digest',
       intervalMs: 7 * 24 * 60 * 60 * 1000,
       condition: () => config.weeklyDigest,
-      run: () => runWeeklyDigest(db, config, logger),
+      run: async () => { await runWeeklyDigest(db, config, logger) },
     },
   ]
 }

@@ -101,7 +101,11 @@ export function createMockApi(pluginConfig?: Record<string, unknown>): {
     registrationMode: 'full' as const,
     config: {},
     pluginConfig: pluginConfig ?? {},
-    runtime: {},
+    runtime: {
+      state: {
+        resolveStateDir: () => ':memory:',
+      },
+    },
     logger: {
       info: () => {},
       warn: () => {},
