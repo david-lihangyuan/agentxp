@@ -80,6 +80,122 @@ export interface IntentPayload {
 // AgentXP application-layer types (experience)
 // ─────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────
+// L2 Reasoning Trace types
+// ─────────────────────────────────────────────────────────────
+
+/** Standard action labels for reasoning steps (#18). */
+export type TraceAction =
+  | 'observe'
+  | 'hypothesize'
+  | 'investigate'
+  | 'decide'
+  | 'verify'
+  | 'backtrack'
+  | 'delegate'
+  | 'conclude'
+
+/** Significance level of a reasoning step (#13). */
+export type StepSignificance = 'key' | 'routine' | 'context'
+
+/** A single reasoning step within a trace. */
+export interface TraceStep {
+  action: TraceAction
+  /** Raw free-text action label preserved from the original input. */
+  action_raw?: string
+  content: string
+  significance: StepSignificance
+  /** Experience IDs referenced in this step (#25). */
+  references?: string[]
+}
+
+/** Record of an abandoned investigation path (#2, #22). */
+export interface DeadEnd {
+  step_index: number
+  tried: string
+  why_abandoned: string
+  /** Controls whether this dead-end is shared publicly (#2). */
+  sensitivity_class: 'public' | 'restricted'
+}
+
+/** Before/after difficulty comparison for a task (#11). */
+export interface DifficultyAssessment {
+  estimated: 'trivial' | 'easy' | 'medium' | 'hard' | 'extreme'
+  actual: 'trivial' | 'easy' | 'medium' | 'hard' | 'extreme'
+  /** How surprising the actual difficulty was. Range: 0.0–1.0. */
+  surprise_factor: number
+}
+
+/** Domain fingerprint for retrieval and security filtering (#4). */
+export interface DomainFingerprint {
+  ecosystem: string
+  layer: 'infra' | 'api' | 'ui' | 'config' | 'security' | 'other'
+  languages: string[]
+  frameworks: string[]
+  error_class?: 'compile' | 'runtime' | 'config' | 'logic' | 'security'
+}
+
+/** Tool and environment prerequisites needed to reproduce a trace (#14). */
+export interface Prerequisites {
+  /** Generalised tool categories, e.g. shell, network, file_ops, code_edit, browser. */
+  tools_required: string[]
+  access_level: 'none' | 'user' | 'admin' | 'server_admin'
+  environment: string[]
+}
+
+/** Software version window in which an experience applies (#15). */
+export interface VersionContext {
+  software: string
+  /** Inclusive range string, e.g. "4.11-4.13". */
+  version_range: string
+}
+
+/** Complete reasoning trace attached to an experience. */
+export interface ReasoningTrace {
+  steps: TraceStep[]
+  dead_ends: DeadEnd[]
+  /** One-sentence summary of the trace (#16). */
+  trace_summary: string
+  /** Solver confidence. Range: 0.0–1.0 (#6). */
+  confidence: number
+  /** Coarse time bucket for how long the task took (#7). */
+  duration_bucket: 'under_1min' | '1_to_5min' | '5_to_15min' | 'over_15min'
+  /** Generalised tool categories used (#8). */
+  tools_used_category: string[]
+  /** Snapshot of the situation at trace start (#9). */
+  context_at_start: string
+  prerequisites: Prerequisites
+  version_context?: VersionContext
+  difficulty: DifficultyAssessment
+  domain_fingerprint: DomainFingerprint
+  /** Whether this trace is worth storing and propagating (#22). */
+  trace_worthiness: 'low' | 'high'
+  /** How reproducible the outcome is (#20). */
+  reproducibility: 'deterministic' | 'env_dependent' | 'state_dependent'
+  /** Parent trace ID for hierarchical traces (#12). */
+  parent_trace_id?: string
+  /** Question/task this trace was created in response to (#19). */
+  question_id?: string
+  /** ISO date hint for when this experience may expire (#15). */
+  expires_hint?: string
+}
+
+/** Consumer feedback on a propagated trace (#17). */
+export interface TraceFeedback {
+  trace_id: string
+  consumer_pubkey: string
+  applied: boolean
+  outcome: 'success' | 'partial' | 'failed'
+  notes?: string
+  /** Perceived cross-context transferability. Range: 0.0–1.0 (#23). */
+  transferability_perceived?: number
+  created_at: number
+}
+
+// ─────────────────────────────────────────────────────────────
+// AgentXP application-layer types (experience)
+// ─────────────────────────────────────────────────────────────
+
 /** Optional validity scope for an experience. */
 export interface ExperienceScope {
   /** Version constraints, e.g. ['docker>=24', 'bun>=1.0']. */

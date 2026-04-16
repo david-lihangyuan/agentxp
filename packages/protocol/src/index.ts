@@ -12,6 +12,17 @@ export type {
   ExperienceScope,
   OperatorKey,
   AgentKey,
+  // L2 Reasoning Trace
+  TraceAction,
+  StepSignificance,
+  TraceStep,
+  DeadEnd,
+  DifficultyAssessment,
+  DomainFingerprint,
+  Prerequisites,
+  VersionContext,
+  ReasoningTrace,
+  TraceFeedback,
 } from './types'
 
 export {

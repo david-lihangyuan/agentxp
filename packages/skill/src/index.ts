@@ -57,3 +57,15 @@ export type { Experience } from './context-wrapper.js'
 
 export { extractCodeBlocks, assessCodeRisk, sandboxWrap } from './sandbox.js'
 export type { CodeBlock, RiskLevel, RiskAssessment } from './sandbox.js'
+
+export { TraceRecorder } from './trace-recorder.js'
+export type {
+  TraceAction,
+  StepSignificance,
+  TraceStep,
+  DeadEnd,
+  TraceExport,
+} from './trace-recorder.js'
+
+export { publishWithTrace } from './trace-publisher.js'
+export type { TracePublishOptions, TracePublishResult } from './trace-publisher.js'
