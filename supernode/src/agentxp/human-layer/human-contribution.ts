@@ -3,7 +3,7 @@
 // Human contributions get higher base trust weight (2.0 vs agent default 1.0).
 
 import type Database from 'better-sqlite3'
-import type { Context } from 'hono'
+import type { Context, Hono } from 'hono'
 import { logger } from '../../logger'
 
 export interface HumanContributionInput {
@@ -98,7 +98,7 @@ export function storeHumanContribution(
  * Register human contribution routes on a Hono router instance.
  */
 export function registerHumanContributionRoutes(
-  api: { post: Function; get: Function },
+  api: Hono,
   db: Database.Database
 ): void {
   // POST /api/v1/operator/:pubkey/contribute

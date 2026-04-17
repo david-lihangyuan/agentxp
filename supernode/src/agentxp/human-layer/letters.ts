@@ -4,7 +4,7 @@
 // POST /api/v1/operator/:pubkey/letter
 
 import type Database from 'better-sqlite3'
-import type { Context } from 'hono'
+import type { Context, Hono } from 'hono'
 
 export interface OperatorLetter {
   id: number
@@ -62,7 +62,7 @@ export function getLatestLetter(
  * Register letter routes on a Hono router instance.
  * Call from app.ts: registerLetterRoutes(api, db)
  */
-export function registerLetterRoutes(api: { post: Function; get: Function }, db: Database.Database): void {
+export function registerLetterRoutes(api: Hono, db: Database.Database): void {
   // POST /api/v1/operator/:pubkey/letter
   api.post('/operator/:pubkey/letter', async (c: Context) => {
     const operatorPubkey = c.req.param('pubkey')

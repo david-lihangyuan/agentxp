@@ -80,7 +80,7 @@ export function getLegacyView(db: Database.Database, operatorPubkey: string): Le
 /**
  * Register legacy routes on a Hono router instance.
  */
-export function registerLegacyRoutes(api: { get: Function }, db: Database.Database): void {
+export function registerLegacyRoutes(api: Hono, db: Database.Database): void {
   // GET /api/v1/operator/:pubkey/legacy
   api.get('/operator/:pubkey/legacy', (c: Context) => {
     const operatorPubkey = c.req.param('pubkey')
