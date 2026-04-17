@@ -5,6 +5,7 @@
 import type Database from 'better-sqlite3'
 import type { Context, Hono } from 'hono'
 import { logger } from '../../logger'
+import { parseBody, HumanContributionBody } from '../../schemas'
 
 export interface HumanContributionInput {
   content?: string  // alternative to what/tried/outcome/learned
@@ -106,16 +107,10 @@ export function registerHumanContributionRoutes(
     const operatorPubkey = c.req.param('pubkey')
     if (!operatorPubkey) return c.json({ error: 'pubkey required' }, 400)
 
-    let body: unknown
-    try {
-      body = await c.req.json()
-    } catch {
-      return c.json({ error: 'invalid JSON' }, 400)
-    }
+    const parsed = await parseBody(c, HumanContributionBody)
+    if (!parsed.ok) return parsed.response
 
-    const input = body as HumanContributionInput
-
-    const result = storeHumanContribution(db, operatorPubkey, input)
+    const result = storeHumanContribution(db, operatorPubkey, parsed.data)
     if (!result.ok) {
       return c.json({ error: result.error }, 400)
     }

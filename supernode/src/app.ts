@@ -41,6 +41,17 @@ import {
   parseLimit,
   parseNonNegInt,
 } from './validate'
+import {
+  parseBody,
+  SubscriptionBody,
+  RegisterNodeBody,
+  PulseOutcomeBody,
+  ExperienceRelationBody,
+  VisibilityBody,
+  ColdStartStatusBody,
+  ColdStartClaimBody,
+  ColdStartVerifyBody,
+} from './schemas'
 
 export interface AppOptions {
   /** SQLite database path. Use ':memory:' for tests. */
@@ -234,28 +245,14 @@ export function createApp(opts: AppOptions = {}): Hono {
 
   // --- POST /api/v1/subscriptions ---
   api.post('/subscriptions', async (c) => {
-    let body: unknown
-    try {
-      body = await c.req.json()
-    } catch {
-      return c.json({ error: 'invalid JSON' }, 400)
-    }
-
-    const input = body as Record<string, unknown>
-    if (!input['pubkey'] || !input['query']) {
-      return c.json({ error: 'pubkey and query are required' }, 400)
-    }
-
-    const pubkeyValidation = validatePubkey(input['pubkey'])
-    if (!pubkeyValidation.valid) {
-      return c.json({ error: pubkeyValidation.error }, 400)
-    }
+    const parsed = await parseBody(c, SubscriptionBody)
+    if (!parsed.ok) return parsed.response
 
     const result = subscriptionManager.subscribe({
-      pubkey: input['pubkey'] as string,
-      operatorPubkey: (input['operator_pubkey'] as string) ?? (input['pubkey'] as string),
-      query: input['query'] as string,
-      tags: input['tags'] as string[] | undefined,
+      pubkey: parsed.data.pubkey,
+      operatorPubkey: parsed.data.operator_pubkey ?? parsed.data.pubkey,
+      query: parsed.data.query,
+      tags: parsed.data.tags,
     })
 
     if (!result.ok) {
@@ -303,30 +300,15 @@ export function createApp(opts: AppOptions = {}): Hono {
   })
 
   // POST /api/v1/nodes/register — register with challenge-response proof
+  // Supports both the challenge-response interface (relay_pubkey/challenge/
+  // signature/url) and the legacy interface (pubkey/url/challengeSignature).
   api.post('/nodes/register', async (c) => {
-    let body: unknown
-    try {
-      body = await c.req.json()
-    } catch {
-      return c.json({ error: 'invalid JSON' }, 400)
-    }
+    const parsed = await parseBody(c, RegisterNodeBody)
+    if (!parsed.ok) return parsed.response
 
-    const input = body as Record<string, unknown>
-
-    // Support both old interface (pubkey/url/challengeSignature)
-    // and new interface (relay_pubkey/challenge/signature/url)
-    const result = input['relay_pubkey']
-      ? await nodeRegistry.registerWithProof({
-          relay_pubkey: input['relay_pubkey'] as string,
-          challenge: input['challenge'] as string,
-          signature: input['signature'] as string,
-          url: input['url'] as string,
-        })
-      : await nodeRegistry.register({
-          pubkey: input['pubkey'] as string,
-          url: input['url'] as string,
-          challengeSignature: input['challengeSignature'] as string,
-        })
+    const result = 'relay_pubkey' in parsed.data
+      ? await nodeRegistry.registerWithProof(parsed.data)
+      : await nodeRegistry.register(parsed.data)
 
     if (!result.ok) {
       return c.json({ error: result.error }, 400)
@@ -388,23 +370,14 @@ export function createApp(opts: AppOptions = {}): Hono {
   })
 
   api.post('/pulse/outcome', async (c) => {
-    let body: unknown
-    try {
-      body = await c.req.json()
-    } catch {
-      return c.json({ error: 'invalid JSON' }, 400)
-    }
-
-    const input = body as Record<string, unknown>
-    if (!input['experience_id'] || !input['reporter_pubkey'] || !input['outcome']) {
-      return c.json({ error: 'experience_id, reporter_pubkey, and outcome are required' }, 400)
-    }
+    const parsed = await parseBody(c, PulseOutcomeBody)
+    if (!parsed.ok) return parsed.response
 
     const result = pulseAPI.reportOutcome({
-      experienceId: input['experience_id'] as number,
-      reporterPubkey: input['reporter_pubkey'] as string,
-      outcome: input['outcome'] as string,
-      context: input['context'] as Record<string, unknown> | undefined,
+      experienceId: parsed.data.experience_id,
+      reporterPubkey: parsed.data.reporter_pubkey,
+      outcome: parsed.data.outcome,
+      context: parsed.data.context,
     })
 
     if (!result.ok) {
@@ -435,24 +408,14 @@ export function createApp(opts: AppOptions = {}): Hono {
     const fromId = Number(c.req.param('id'))
     if (!Number.isFinite(fromId)) return c.json({ error: 'invalid experience id' }, 400)
 
-    let body: unknown
-    try {
-      body = await c.req.json()
-    } catch {
-      return c.json({ error: 'invalid JSON' }, 400)
-    }
+    const parsed = await parseBody(c, ExperienceRelationBody)
+    if (!parsed.ok) return parsed.response
 
-    const input = body as Record<string, unknown>
-    if (!input['target_id'] || !input['relation_type']) {
-      return c.json({ error: 'target_id and relation_type are required' }, 400)
-    }
-
-    const pubkey = (input['pubkey'] as string) ?? 'unknown'
     const result = experienceRelations.addRelation(
       fromId,
-      Number(input['target_id']),
-      input['relation_type'] as 'extends' | 'qualifies' | 'supersedes',
-      pubkey
+      parsed.data.target_id,
+      parsed.data.relation_type,
+      parsed.data.pubkey ?? 'unknown'
     )
 
     if (!result.ok) {
@@ -483,19 +446,10 @@ export function createApp(opts: AppOptions = {}): Hono {
   // PATCH /api/v1/visibility/:operator_pubkey { default_visibility }
   api.patch('/visibility/:operator_pubkey', validatePubkeyMiddleware('operator_pubkey'), async (c) => {
     const operatorPubkey = c.req.param('operator_pubkey')
-    let body: unknown
-    try {
-      body = await c.req.json()
-    } catch {
-      return c.json({ error: 'invalid JSON' }, 400)
-    }
-    const input = body as Record<string, unknown>
-    const defaultVisibility = input['default_visibility']
-    if (defaultVisibility !== 'public' && defaultVisibility !== 'private') {
-      return c.json({ error: 'default_visibility must be public or private' }, 400)
-    }
-    visibilityManager.setOperatorVisibility(operatorPubkey, defaultVisibility)
-    return c.json({ ok: true, default_visibility: defaultVisibility })
+    const parsed = await parseBody(c, VisibilityBody)
+    if (!parsed.ok) return parsed.response
+    visibilityManager.setOperatorVisibility(operatorPubkey, parsed.data.default_visibility)
+    return c.json({ ok: true, default_visibility: parsed.data.default_visibility })
   })
 
   // --- Relay Sync: expose identity events for bootstrap ---
@@ -676,16 +630,9 @@ export function createApp(opts: AppOptions = {}): Hono {
 
   // POST /api/cold-start/events/status — update event status
   app.post('/api/cold-start/events/status', async (c) => {
-    let body: { event_id?: string; status?: string }
-    try {
-      body = await c.req.json()
-    } catch {
-      return c.json({ error: 'invalid JSON' }, 400)
-    }
-    if (!body.event_id || !body.status) {
-      return c.json({ error: 'missing event_id or status' }, 400)
-    }
-    const result = coldStartStore.updateStatus(body.event_id, body.status)
+    const parsed = await parseBody(c, ColdStartStatusBody)
+    if (!parsed.ok) return parsed.response
+    const result = coldStartStore.updateStatus(parsed.data.event_id, parsed.data.status)
     if (!result.ok) {
       return c.json({ error: result.error }, 400)
     }
@@ -715,12 +662,9 @@ export function createApp(opts: AppOptions = {}): Hono {
 
   // POST /api/cold-start/claim — claim a question for solving (prevents duplicate work)
   app.post('/api/cold-start/claim', async (c) => {
-    let body: { event_id?: string; solver_pubkey?: string }
-    try { body = await c.req.json() } catch { return c.json({ error: 'invalid JSON' }, 400) }
-    if (!body.event_id || !body.solver_pubkey) {
-      return c.json({ error: 'missing event_id or solver_pubkey' }, 400)
-    }
-    const claimed = coldStartStore.claimForSolving(body.event_id, body.solver_pubkey)
+    const parsed = await parseBody(c, ColdStartClaimBody)
+    if (!parsed.ok) return parsed.response
+    const claimed = coldStartStore.claimForSolving(parsed.data.event_id, parsed.data.solver_pubkey)
     if (!claimed) {
       return c.json({ error: 'question not available (already claimed or not pending)' }, 409)
     }
@@ -730,23 +674,21 @@ export function createApp(opts: AppOptions = {}): Hono {
   // POST /api/cold-start/verify — process verification result (updates question + solution status)
   // When verification passes, automatically publish the solution as an experience.
   app.post('/api/cold-start/verify', async (c) => {
-    let body: { solution_event_id?: string; passed?: boolean }
-    try { body = await c.req.json() } catch { return c.json({ error: 'invalid JSON' }, 400) }
-    if (!body.solution_event_id || body.passed === undefined) {
-      return c.json({ error: 'missing solution_event_id or passed' }, 400)
-    }
-    const result = coldStartStore.processVerification(body.solution_event_id, body.passed)
+    const parsed = await parseBody(c, ColdStartVerifyBody)
+    if (!parsed.ok) return parsed.response
+    const { solution_event_id, passed } = parsed.data
+    const result = coldStartStore.processVerification(solution_event_id, passed)
     if (!result.ok) return c.json({ error: result.error }, 400)
 
     // Auto-publish verified solutions as experiences
     let experienceId: number | undefined
-    if (body.passed) {
+    if (passed) {
       try {
         const solution = coldStartStore.listSolutions({ limit: 1 })
           .length ? undefined : undefined // unused, fetch directly below
         const solRow = db
           .prepare('SELECT * FROM cold_start_events WHERE event_id = ?')
-          .get(body.solution_event_id) as { payload: string; pubkey: string; created_at: number; tags: string; sig: string; event_id: string } | undefined
+          .get(solution_event_id) as { payload: string; pubkey: string; created_at: number; tags: string; sig: string; event_id: string } | undefined
         if (solRow) {
           const solPayload = JSON.parse(solRow.payload)
           const solData = solPayload?.data ?? {}
@@ -781,22 +723,22 @@ export function createApp(opts: AppOptions = {}): Hono {
           if (storeResult.ok) {
             experienceId = storeResult.experienceId
             logger.info('Cold-start solution auto-published as experience', {
-              solution_event_id: body.solution_event_id,
+              solution_event_id,
               experience_id: experienceId,
             })
             // Mark solution as 'published' to prevent double-publish
             db.prepare("UPDATE cold_start_events SET status = 'published' WHERE event_id = ?")
-              .run(body.solution_event_id)
+              .run(solution_event_id)
           } else {
             logger.warn('Cold-start auto-publish failed', {
-              solution_event_id: body.solution_event_id,
+              solution_event_id,
               error: storeResult.error,
             })
           }
         }
       } catch (err) {
         logger.error('Cold-start auto-publish error', {
-          solution_event_id: body.solution_event_id,
+          solution_event_id,
           error: err instanceof Error ? err.message : String(err),
         })
       }

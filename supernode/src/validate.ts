@@ -7,10 +7,10 @@
 import type { MiddlewareHandler } from 'hono'
 
 /** Tag validation: [a-zA-Z0-9-_.] only */
-const TAG_PATTERN = /^[a-zA-Z0-9\-_.]+$/
+export const TAG_PATTERN = /^[a-zA-Z0-9\-_.]+$/
 
 /** Pubkey validation: exactly 64 hex characters */
-const PUBKEY_PATTERN = /^[0-9a-f]{64}$/
+export const PUBKEY_PATTERN = /^[0-9a-f]{64}$/
 
 /** Max payload size: 64KB */
 export const MAX_PAYLOAD_BYTES = 64 * 1024
