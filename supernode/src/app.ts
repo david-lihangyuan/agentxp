@@ -151,7 +151,7 @@ export function createApp(opts: AppOptions = {}): Hono {
   app.route('/api/v1', api)
 
   // --- Cold-start + dashboard static assets (outside /api/v1) ---
-  registerColdStartRoutes(app, { db, coldStartStore, experienceStore, logger })
+  registerColdStartRoutes(app, { coldStartStore })
   registerDashboardStaticRoutes(app, { dashboardDir })
 
   // --- 404 for unversioned /api/ paths (must come AFTER /api/v1 mount) ---

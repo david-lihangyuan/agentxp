@@ -1,13 +1,12 @@
 // Cold-start pipeline routes — /api/cold-start/*
-// Bootstrap-era routes for harvesting Stack Overflow questions, recording
-// AI-generated solutions, and auto-publishing verified solutions as
-// experiences. Mounted directly on `app` (not under /api/v1/).
+// Bootstrap-era routes for harvesting Stack Overflow questions and
+// recording AI-generated solutions. Mounted directly on `app` (not under
+// /api/v1/). Verified solutions are surfaced via /api/cold-start/solutions
+// for an operator to review and submit through the signed /contribute
+// endpoint; the relay itself never synthesizes events.
 
 import type { Hono } from 'hono'
-import type Database from 'better-sqlite3'
 import type { ColdStartStore } from '../agentxp/cold-start-store'
-import type { ExperienceStore } from '../agentxp/experience-store'
-import type { Logger } from '../logger'
 import { parseLimit } from '../validate'
 import {
   parseBody,
@@ -17,14 +16,11 @@ import {
 } from '../schemas'
 
 export interface ColdStartDeps {
-  db: Database.Database
   coldStartStore: ColdStartStore
-  experienceStore: ExperienceStore
-  logger: Logger
 }
 
 export function registerColdStartRoutes(app: Hono, deps: ColdStartDeps): void {
-  const { db, coldStartStore, experienceStore, logger } = deps
+  const { coldStartStore } = deps
 
   // POST /api/cold-start/events — receive a cold-start protocol event
   app.post('/api/cold-start/events', async (c) => {
@@ -101,20 +97,17 @@ export function registerColdStartRoutes(app: Hono, deps: ColdStartDeps): void {
     return c.json({ ok: true, claimed: true })
   })
 
-  // POST /api/cold-start/verify — process verification result (updates question + solution status)
-  // When verification passes, automatically publish the solution as an experience.
+  // POST /api/cold-start/verify — process verification result (updates
+  // question + solution status). Verified solutions are surfaced via
+  // /api/cold-start/solutions?status=verified; operators republish them
+  // through the signed /operator/:pubkey/contribute endpoint.
   app.post('/api/cold-start/verify', async (c) => {
     const parsed = await parseBody(c, ColdStartVerifyBody)
     if (!parsed.ok) return parsed.response
     const { solution_event_id, passed } = parsed.data
     const result = coldStartStore.processVerification(solution_event_id, passed)
     if (!result.ok) return c.json({ error: result.error }, 400)
-
-    let experienceId: number | undefined
-    if (passed) {
-      experienceId = await autoPublishSolution(db, experienceStore, logger, solution_event_id)
-    }
-    return c.json({ ok: true, experience_id: experienceId })
+    return c.json({ ok: true })
   })
 
   // GET /api/cold-start/stats — pipeline statistics
@@ -122,72 +115,4 @@ export function registerColdStartRoutes(app: Hono, deps: ColdStartDeps): void {
     const stats = coldStartStore.getStats()
     return c.json(stats)
   })
-}
-
-// Auto-publish a verified cold-start solution as an experience. Builds a
-// synthetic intent.broadcast event from the solution payload and runs it
-// through the normal experience-store pipeline. On success, marks the
-// solution row as 'published' to prevent double-publish.
-async function autoPublishSolution(
-  db: Database.Database,
-  experienceStore: ExperienceStore,
-  logger: Logger,
-  solution_event_id: string,
-): Promise<number | undefined> {
-  try {
-    const solRow = db
-      .prepare('SELECT * FROM cold_start_events WHERE event_id = ?')
-      .get(solution_event_id) as { payload: string; pubkey: string; created_at: number; tags: string; sig: string; event_id: string } | undefined
-    if (!solRow) return undefined
-
-    const solPayload = JSON.parse(solRow.payload)
-    const solData = solPayload?.data ?? {}
-    const what = solData.title
-      ? `${solData.title} — ${(solData.root_cause || solData.approach || '').slice(0, 200)}`
-      : solData.solution?.slice(0, 300) || 'Cold-start verified solution'
-    const tried = Array.isArray(solData.tried) ? solData.tried.join('\n') : (solData.tried || solData.approach || '')
-    const learned = solData.learned || solData.root_cause || ''
-    const outcome = 'succeeded'
-
-    const { createHash, randomBytes } = await import('node:crypto')
-    const syntheticId = createHash('sha256')
-      .update(`cold-start-publish:${solRow.event_id}:${Date.now()}`)
-      .digest('hex')
-    const syntheticEvent = {
-      v: 1 as const,
-      id: syntheticId,
-      pubkey: solRow.pubkey,
-      operator_pubkey: solRow.pubkey,
-      created_at: Math.floor(Date.now() / 1000),
-      kind: 'intent.broadcast' as const,
-      payload: {
-        type: 'experience',
-        data: { what, tried, outcome, learned, scope: solData.tags || [] },
-      },
-      tags: JSON.parse(solRow.tags || '[]'),
-      visibility: 'public' as const,
-      sig: randomBytes(64).toString('hex'),
-    }
-    const storeResult = experienceStore.store(syntheticEvent)
-    if (storeResult.ok) {
-      logger.info('Cold-start solution auto-published as experience', {
-        solution_event_id,
-        experience_id: storeResult.experienceId,
-      })
-      db.prepare("UPDATE cold_start_events SET status = 'published' WHERE event_id = ?")
-        .run(solution_event_id)
-      return storeResult.experienceId
-    }
-    logger.warn('Cold-start auto-publish failed', {
-      solution_event_id,
-      error: storeResult.error,
-    })
-    return undefined
-  } catch (err) {
-    logger.error('Cold-start auto-publish error', {
-      solution_event_id,
-      error: err instanceof Error ? err.message : String(err),
-    })
-    return undefined
-  }
 }
