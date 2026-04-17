@@ -291,7 +291,7 @@ export async function proactiveRecall(
 
   if (keywords.length === 0) {
     return typeof options === 'object' && options?.relayUrl
-      ? { local: [], relay: null } as any
+      ? { local: [], relay: null }
       : []
   }
 
@@ -364,7 +364,7 @@ export async function proactiveRecall(
       // Relay search failure does not affect local results
     }
 
-    return { local: sortedMatches, relay: relayFormatted } as any
+    return { local: sortedMatches, relay: relayFormatted }
   }
 
   return sortedMatches

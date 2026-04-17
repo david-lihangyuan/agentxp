@@ -118,7 +118,7 @@ const pluginEntry = {
     // ─── HTTP Routes ───────────────────────────────────────────────────
 
     if (api.registerHttpRoute) {
-      registerRoutes(api, db, config)
+      registerRoutes({ registerHttpRoute: api.registerHttpRoute }, db, config)
     }
 
     logger.info(`[agentxp] plugin registered (mode: ${config.mode})`)
