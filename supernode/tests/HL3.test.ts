@@ -7,6 +7,28 @@ import { runMigrations } from '../src/db'
 import { createApp } from '../src/app'
 import { storeHumanContribution } from '../src/agentxp/human-layer/human-contribution'
 import { generateOperatorKey, delegateAgentKey, createEvent, signEvent } from '@serendip/protocol'
+import type { OperatorKey, AgentKey, SerendipEvent, SerendipKind } from '@serendip/protocol'
+
+// Build a SerendipEvent signed directly by the operator, as required by the
+// verifyOperatorEvent gate on POST /operator/:pubkey/contribute.
+async function signContributionEvent(
+  opKey: OperatorKey,
+  data: Record<string, unknown>,
+): Promise<SerendipEvent> {
+  const opAsAgent: AgentKey = {
+    publicKey: opKey.publicKey,
+    privateKey: opKey.privateKey,
+    delegatedBy: opKey.publicKey,
+    expiresAt: Math.floor(Date.now() / 1000) + 86400,
+  }
+  const unsigned = createEvent(
+    'operator.human_contribution' as SerendipKind,
+    { type: 'human_contribution', data },
+    [],
+  )
+  const withVis = { ...unsigned, visibility: 'private' as const }
+  return signEvent(withVis, opAsAgent)
+}
 
 describe('HL3: Human Direct Contribution', () => {
   let app: ReturnType<typeof createApp>
@@ -21,16 +43,17 @@ describe('HL3: Human Direct Contribution', () => {
   // Test 1: POST /api/v1/operator/:pubkey/contribute stores experience
   it('POST /api/v1/operator/:pubkey/contribute stores human contribution', async () => {
     const opKey = await generateOperatorKey()
+    const event = await signContributionEvent(opKey, {
+      what: '20 years of distributed systems: this failure pattern destroys startups',
+      tried: 'standard retry with exponential backoff',
+      outcome: 'failed',
+      learned: 'retry amplifies the problem during thundering herd — use circuit breaker first',
+      tags: ['distributed-systems', 'circuit-breaker'],
+    })
 
     const res = await app.request(`/api/v1/operator/${opKey.publicKey}/contribute`, {
       method: 'POST',
-      body: JSON.stringify({
-        what: '20 years of distributed systems: this failure pattern destroys startups',
-        tried: 'standard retry with exponential backoff',
-        outcome: 'failed',
-        learned: 'retry amplifies the problem during thundering herd — use circuit breaker first',
-        tags: ['distributed-systems', 'circuit-breaker'],
-      }),
+      body: JSON.stringify({ event }),
       headers: { 'Content-Type': 'application/json' },
     })
     expect(res.status).toBe(201)
@@ -139,9 +162,10 @@ describe('HL3: Human Direct Contribution', () => {
   // Test 6: POST with content field (simple form) works
   it('POST with content field stores human contribution', async () => {
     const opKey = await generateOperatorKey()
+    const event = await signContributionEvent(opKey, { content: 'Simple lesson from experience', tags: ['general'] })
     const res = await app.request(`/api/v1/operator/${opKey.publicKey}/contribute`, {
       method: 'POST',
-      body: JSON.stringify({ content: 'Simple lesson from experience', tags: ['general'] }),
+      body: JSON.stringify({ event }),
       headers: { 'Content-Type': 'application/json' },
     })
     expect(res.status).toBe(201)
@@ -150,11 +174,49 @@ describe('HL3: Human Direct Contribution', () => {
   // Test 7: POST with missing content returns 400
   it('POST contribute with no content returns 400', async () => {
     const opKey = await generateOperatorKey()
+    const event = await signContributionEvent(opKey, { tags: ['test'] })
     const res = await app.request(`/api/v1/operator/${opKey.publicKey}/contribute`, {
       method: 'POST',
-      body: JSON.stringify({ tags: ['test'] }),
+      body: JSON.stringify({ event }),
       headers: { 'Content-Type': 'application/json' },
     })
     expect(res.status).toBe(400)
+  })
+
+  // Test 8: POST without event envelope returns 400
+  it('POST without event envelope returns 400', async () => {
+    const opKey = await generateOperatorKey()
+    const res = await app.request(`/api/v1/operator/${opKey.publicKey}/contribute`, {
+      method: 'POST',
+      body: JSON.stringify({ what: 'unsigned', learned: 'unsigned' }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    expect(res.status).toBe(400)
+  })
+
+  // Test 9: POST with event signed by a different operator returns 401
+  it('POST with pubkey mismatch returns 401', async () => {
+    const opKey = await generateOperatorKey()
+    const otherKey = await generateOperatorKey()
+    const event = await signContributionEvent(otherKey, { what: 'forged', learned: 'forged' })
+    const res = await app.request(`/api/v1/operator/${opKey.publicKey}/contribute`, {
+      method: 'POST',
+      body: JSON.stringify({ event }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    expect(res.status).toBe(401)
+  })
+
+  // Test 10: POST with tampered signature returns 401
+  it('POST with tampered signature returns 401', async () => {
+    const opKey = await generateOperatorKey()
+    const event = await signContributionEvent(opKey, { what: 'original', learned: 'original' })
+    const tampered = { ...event, sig: event.sig.replace(/.$/, (c) => (c === '0' ? '1' : '0')) }
+    const res = await app.request(`/api/v1/operator/${opKey.publicKey}/contribute`, {
+      method: 'POST',
+      body: JSON.stringify({ event: tampered }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    expect(res.status).toBe(401)
   })
 })
