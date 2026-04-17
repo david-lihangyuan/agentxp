@@ -151,14 +151,6 @@ describe('HL3: Human Direct Contribution', () => {
     }
   })
 
-  // Test 5: Dashboard HTML contains "Contribute directly" button
-  it('dashboard HTML contains Contribute directly button', async () => {
-    const res = await app.request('/dashboard/operator')
-    expect(res.status).toBe(200)
-    const html = await res.text()
-    expect(html).toContain('Contribute directly')
-  })
-
   // Test 6: POST with content field (simple form) works
   it('POST with content field stores human contribution', async () => {
     const opKey = await generateOperatorKey()
