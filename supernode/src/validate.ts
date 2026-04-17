@@ -4,6 +4,8 @@
 // Pubkeys: 64-char hex only
 // Payload size: 64KB max
 
+import type { MiddlewareHandler } from 'hono'
+
 /** Tag validation: [a-zA-Z0-9-_.] only */
 const TAG_PATTERN = /^[a-zA-Z0-9\-_.]+$/
 
@@ -252,4 +254,45 @@ export function validateQueryTags(tagsParam: string | null): ValidationResult {
   if (!tagsParam) return { valid: true }
   const tags = tagsParam.split(',').map((t) => t.trim()).filter(Boolean)
   return validateTags(tags)
+}
+
+/**
+ * Hono middleware: reject the request with 400 if the named path parameter
+ * is not a valid 64-char hex pubkey.
+ */
+export function validatePubkeyMiddleware(paramName: string): MiddlewareHandler {
+  return async (c, next) => {
+    const value = c.req.param(paramName)
+    const result = validatePubkey(value)
+    if (!result.valid) {
+      return c.json({ error: result.error }, 400)
+    }
+    await next()
+  }
+}
+
+/**
+ * Parse a 'limit' query parameter with a default and an upper bound.
+ * Returns defaultValue when the raw value is missing, non-numeric, or negative.
+ */
+export function parseLimit(
+  raw: string | undefined,
+  defaultValue = 20,
+  max = 100
+): number {
+  if (raw === undefined) return Math.min(defaultValue, max)
+  const n = Number(raw)
+  if (!Number.isFinite(n) || n < 0) return Math.min(defaultValue, max)
+  return Math.min(Math.floor(n), max)
+}
+
+/**
+ * Parse a non-negative integer query parameter (e.g. since, offset).
+ * Returns defaultValue on missing or invalid input.
+ */
+export function parseNonNegInt(raw: string | undefined, defaultValue = 0): number {
+  if (raw === undefined) return defaultValue
+  const n = Number(raw)
+  if (!Number.isFinite(n) || n < 0) return defaultValue
+  return Math.floor(n)
 }

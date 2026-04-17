@@ -34,7 +34,13 @@ import { registerLegacyRoutes } from './agentxp/human-layer/legacy'
 import { registerTrustRoutes } from './agentxp/human-layer/trust'
 import { ColdStartStore } from './agentxp/cold-start-store'
 import { createLogger } from './logger'
-import { validateQueryTags, validatePubkey } from './validate'
+import {
+  validateQueryTags,
+  validatePubkey,
+  validatePubkeyMiddleware,
+  parseLimit,
+  parseNonNegInt,
+} from './validate'
 
 export interface AppOptions {
   /** SQLite database path. Use ':memory:' for tests. */
@@ -141,7 +147,7 @@ export function createApp(opts: AppOptions = {}): Hono {
 
   // --- GET /api/v1/events — list recent events ---
   api.get('/events', (c) => {
-    const limit = Math.min(Number(c.req.query('limit') ?? 20), 100)
+    const limit = parseLimit(c.req.query('limit'), 20, 100)
     const events = db
       .prepare('SELECT id, pubkey, kind, created_at, tags, visibility FROM events ORDER BY created_at DESC LIMIT ?')
       .all(limit)
@@ -276,7 +282,7 @@ export function createApp(opts: AppOptions = {}): Hono {
   })
 
   // --- Identity Routes ---
-  api.get('/identities/:pubkey', (c) => {
+  api.get('/identities/:pubkey', validatePubkeyMiddleware('pubkey'), (c) => {
     const pubkey = c.req.param('pubkey')
     const identity = identityStore.get(pubkey)
     if (!identity) return c.json({ error: 'not found' }, 404)
@@ -330,7 +336,7 @@ export function createApp(opts: AppOptions = {}): Hono {
   })
 
   // POST /api/v1/nodes/:pubkey/heartbeat — update last_seen
-  api.post('/nodes/:pubkey/heartbeat', (c) => {
+  api.post('/nodes/:pubkey/heartbeat', validatePubkeyMiddleware('pubkey'), (c) => {
     const pubkey = c.req.param('pubkey')
     const result = nodeRegistry.heartbeat(pubkey)
     if (!result.ok) {
@@ -351,7 +357,7 @@ export function createApp(opts: AppOptions = {}): Hono {
       return c.json({ error: 'X-Relay-Pubkey and X-Relay-Signature headers are required' }, 401)
     }
 
-    const sinceMs = Number(c.req.query('since') ?? 0)
+    const sinceMs = parseNonNegInt(c.req.query('since'), 0)
     const kinds = c.req.query('kinds') ?? undefined
 
     const isRegistered = nodeRegistry.isRegistered(relayPubkey)
@@ -372,7 +378,11 @@ export function createApp(opts: AppOptions = {}): Hono {
     if (!pubkey) {
       return c.json({ error: 'pubkey is required' }, 400)
     }
-    const since = Number(c.req.query('since') ?? 0)
+    const pubkeyCheck = validatePubkey(pubkey)
+    if (!pubkeyCheck.valid) {
+      return c.json({ error: pubkeyCheck.error }, 400)
+    }
+    const since = parseNonNegInt(c.req.query('since'), 0)
     const result = pulseAPI.pull({ pubkey, since })
     return c.json(result)
   })
@@ -407,7 +417,7 @@ export function createApp(opts: AppOptions = {}): Hono {
   // --- Experience Impact Visibility (C2b) ---
   api.get('/experiences/:id/impact', (c) => {
     const id = Number(c.req.param('id'))
-    if (isNaN(id)) return c.json({ error: 'invalid experience id' }, 400)
+    if (!Number.isFinite(id)) return c.json({ error: 'invalid experience id' }, 400)
     const result = impactVisibility.getImpact(id)
     return c.json(result)
   })
@@ -415,7 +425,7 @@ export function createApp(opts: AppOptions = {}): Hono {
   // --- Experience Score (C3) ---
   api.get('/experiences/:id/score', (c) => {
     const id = Number(c.req.param('id'))
-    if (isNaN(id)) return c.json({ error: 'invalid experience id' }, 400)
+    if (!Number.isFinite(id)) return c.json({ error: 'invalid experience id' }, 400)
     const result = impactScoring.getScore(id)
     return c.json(result)
   })
@@ -423,7 +433,7 @@ export function createApp(opts: AppOptions = {}): Hono {
   // --- Experience Dialogue Relations (C3b) ---
   api.post('/experiences/:id/relations', async (c) => {
     const fromId = Number(c.req.param('id'))
-    if (isNaN(fromId)) return c.json({ error: 'invalid experience id' }, 400)
+    if (!Number.isFinite(fromId)) return c.json({ error: 'invalid experience id' }, 400)
 
     let body: unknown
     try {
@@ -454,14 +464,14 @@ export function createApp(opts: AppOptions = {}): Hono {
 
   api.get('/experiences/:id/relations', (c) => {
     const id = Number(c.req.param('id'))
-    if (isNaN(id)) return c.json({ error: 'invalid experience id' }, 400)
+    if (!Number.isFinite(id)) return c.json({ error: 'invalid experience id' }, 400)
     const relations = experienceRelations.getRelations(id)
     return c.json({ relations })
   })
 
   // --- D3: Operator Visibility API ---
   // GET /api/v1/visibility/:operator_pubkey → { default_visibility }
-  api.get('/visibility/:operator_pubkey', (c) => {
+  api.get('/visibility/:operator_pubkey', validatePubkeyMiddleware('operator_pubkey'), (c) => {
     const operatorPubkey = c.req.param('operator_pubkey')
     const visibility = visibilityManager.getOperatorVisibility(operatorPubkey)
     if (visibility === null) {
@@ -471,7 +481,7 @@ export function createApp(opts: AppOptions = {}): Hono {
   })
 
   // PATCH /api/v1/visibility/:operator_pubkey { default_visibility }
-  api.patch('/visibility/:operator_pubkey', async (c) => {
+  api.patch('/visibility/:operator_pubkey', validatePubkeyMiddleware('operator_pubkey'), async (c) => {
     const operatorPubkey = c.req.param('operator_pubkey')
     let body: unknown
     try {
@@ -514,7 +524,7 @@ export function createApp(opts: AppOptions = {}): Hono {
   const CSP_HEADER = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'"
 
   // GET /api/v1/dashboard/operator/:pubkey/summary
-  api.get('/dashboard/operator/:pubkey/summary', (c) => {
+  api.get('/dashboard/operator/:pubkey/summary', validatePubkeyMiddleware('pubkey'), (c) => {
     const pubkey = c.req.param('pubkey')
     if (!dashboardAPI.operatorExists(pubkey)) {
       return c.json({ error: 'operator not found' }, 404)
@@ -524,7 +534,7 @@ export function createApp(opts: AppOptions = {}): Hono {
   })
 
   // GET /api/v1/dashboard/operator/:pubkey/growth
-  api.get('/dashboard/operator/:pubkey/growth', (c) => {
+  api.get('/dashboard/operator/:pubkey/growth', validatePubkeyMiddleware('pubkey'), (c) => {
     const pubkey = c.req.param('pubkey')
     if (!dashboardAPI.operatorExists(pubkey)) {
       return c.json({ error: 'operator not found' }, 404)
@@ -534,7 +544,7 @@ export function createApp(opts: AppOptions = {}): Hono {
   })
 
   // GET /api/v1/dashboard/operator/:pubkey/failures
-  api.get('/dashboard/operator/:pubkey/failures', (c) => {
+  api.get('/dashboard/operator/:pubkey/failures', validatePubkeyMiddleware('pubkey'), (c) => {
     const pubkey = c.req.param('pubkey')
     if (!dashboardAPI.operatorExists(pubkey)) {
       return c.json({ error: 'operator not found' }, 404)
@@ -544,7 +554,7 @@ export function createApp(opts: AppOptions = {}): Hono {
   })
 
   // GET /api/v1/dashboard/operator/:pubkey/weekly-report
-  api.get('/dashboard/operator/:pubkey/weekly-report', (c) => {
+  api.get('/dashboard/operator/:pubkey/weekly-report', validatePubkeyMiddleware('pubkey'), (c) => {
     const pubkey = c.req.param('pubkey')
     if (!dashboardAPI.operatorExists(pubkey)) {
       return c.json({ error: 'operator not found' }, 404)
@@ -587,7 +597,7 @@ export function createApp(opts: AppOptions = {}): Hono {
   })
 
   // GET /api/v1/metrics/agent/:pubkey — single agent detailed
-  api.get('/metrics/agent/:pubkey', (c) => {
+  api.get('/metrics/agent/:pubkey', validatePubkeyMiddleware('pubkey'), (c) => {
     const pubkey = c.req.param('pubkey')
     const detail = metricsAPI.getAgentDetailedMetrics(pubkey)
     if (!detail) return c.json({ error: 'agent not found' }, 404)
@@ -651,7 +661,7 @@ export function createApp(opts: AppOptions = {}): Hono {
   // GET /api/cold-start/questions — list intent.question events
   app.get('/api/cold-start/questions', (c) => {
     const status = c.req.query('status')
-    const limit = c.req.query('limit') ? Math.min(Number(c.req.query('limit')), 100) : undefined
+    const limit = parseLimit(c.req.query('limit'), 50, 100)
     const questions = coldStartStore.listQuestions({ status, limit })
     return c.json({ questions })
   })
@@ -659,7 +669,7 @@ export function createApp(opts: AppOptions = {}): Hono {
   // GET /api/cold-start/solutions — list experience.solution events
   app.get('/api/cold-start/solutions', (c) => {
     const status = c.req.query('status')
-    const limit = c.req.query('limit') ? Math.min(Number(c.req.query('limit')), 100) : undefined
+    const limit = parseLimit(c.req.query('limit'), 50, 100)
     const solutions = coldStartStore.listSolutions({ status, limit })
     return c.json({ solutions })
   })
