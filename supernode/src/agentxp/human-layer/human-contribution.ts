@@ -104,6 +104,7 @@ export function registerHumanContributionRoutes(
   // POST /api/v1/operator/:pubkey/contribute
   api.post('/operator/:pubkey/contribute', async (c: Context) => {
     const operatorPubkey = c.req.param('pubkey')
+    if (!operatorPubkey) return c.json({ error: 'pubkey required' }, 400)
 
     let body: unknown
     try {

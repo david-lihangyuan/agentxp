@@ -62,7 +62,9 @@ export class ExperienceStore {
       return { ok: false, error: 'payload.type is not experience' }
     }
 
-    const data = payload.data as ExperienceData
+    // Payload shape validated by kind/type check above; cast via unknown
+    // satisfies TS's structural-compatibility guard.
+    const data = payload.data as unknown as ExperienceData
 
     // Circuit breaker check
     if (this.circuitBreaker.isOpen()) {

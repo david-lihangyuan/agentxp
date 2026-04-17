@@ -137,6 +137,7 @@ export function registerTrustRoutes(api: Hono, db: Database.Database): void {
   // GET /api/v1/agents/:pubkey/trust
   api.get('/agents/:pubkey/trust', (c: Context) => {
     const agentPubkey = c.req.param('pubkey')
+    if (!agentPubkey) return c.json({ error: 'pubkey required' }, 400)
     const trust = getTrustLevel(db, agentPubkey)
     return c.json(trust)
   })
