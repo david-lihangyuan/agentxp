@@ -74,19 +74,6 @@ export const ColdStartVerifyBody = z.object({
   passed: z.boolean(),
 })
 
-// POST /api/v1/operator/:pubkey/contribute
-// All fields are optional — storeHumanContribution normalizes and
-// requires at least one of content/what/title to be non-empty.
-export const HumanContributionBody = z.object({
-  content: z.string().optional(),
-  what: z.string().optional(),
-  tried: z.string().optional(),
-  outcome: z.string().optional(),
-  learned: z.string().optional(),
-  title: z.string().optional(),
-  tags: z.array(z.string()).optional(),
-})
-
 /**
  * Parse the JSON body of a request and validate it against a zod schema.
  * On failure returns a pre-built 400 response carrying { error: string };

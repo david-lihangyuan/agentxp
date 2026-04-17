@@ -1,10 +1,14 @@
 // Human Layer — HL1: Letters to Agent
 // Operators write private letters to their agent. Stored locally only, never published to network.
 // Letters are available via GET /api/v1/operator/:pubkey/letter
-// POST /api/v1/operator/:pubkey/letter
+// POST /api/v1/operator/:pubkey/letter — requires a SerendipEvent envelope
+// signed by the operator (kind='operator.letter').
 
 import type Database from 'better-sqlite3'
 import type { Context, Hono } from 'hono'
+import { verifyOperatorEvent } from './verify-operator-event'
+
+const LETTER_KIND = 'operator.letter'
 
 export interface OperatorLetter {
   id: number
@@ -75,8 +79,13 @@ export function registerLetterRoutes(api: Hono, db: Database.Database): void {
       return c.json({ error: 'invalid JSON' }, 400)
     }
 
-    const input = body as Record<string, unknown>
-    const content = input['content']
+    const verified = await verifyOperatorEvent(body, operatorPubkey, LETTER_KIND)
+    if (!verified.ok) {
+      return c.json({ error: verified.error }, verified.status)
+    }
+
+    const data = (verified.event.payload as { data?: unknown }).data
+    const content = data && typeof data === 'object' ? (data as Record<string, unknown>)['content'] : undefined
     if (typeof content !== 'string' || content.trim().length === 0) {
       return c.json({ error: 'content is required' }, 400)
     }

@@ -5,7 +5,9 @@
 import type Database from 'better-sqlite3'
 import type { Context, Hono } from 'hono'
 import { logger } from '../../logger'
-import { parseBody, HumanContributionBody } from '../../schemas'
+import { verifyOperatorEvent } from './verify-operator-event'
+
+const CONTRIBUTION_KIND = 'operator.human_contribution'
 
 export interface HumanContributionInput {
   content?: string  // alternative to what/tried/outcome/learned
@@ -107,10 +109,24 @@ export function registerHumanContributionRoutes(
     const operatorPubkey = c.req.param('pubkey')
     if (!operatorPubkey) return c.json({ error: 'pubkey required' }, 400)
 
-    const parsed = await parseBody(c, HumanContributionBody)
-    if (!parsed.ok) return parsed.response
+    let body: unknown
+    try {
+      body = await c.req.json()
+    } catch {
+      return c.json({ error: 'invalid JSON' }, 400)
+    }
 
-    const result = storeHumanContribution(db, operatorPubkey, parsed.data)
+    const verified = await verifyOperatorEvent(body, operatorPubkey, CONTRIBUTION_KIND)
+    if (!verified.ok) {
+      return c.json({ error: verified.error }, verified.status)
+    }
+
+    const data = (verified.event.payload as { data?: unknown }).data
+    const input: HumanContributionInput = data && typeof data === 'object'
+      ? (data as HumanContributionInput)
+      : {}
+
+    const result = storeHumanContribution(db, operatorPubkey, input)
     if (!result.ok) {
       return c.json({ error: result.error }, 400)
     }

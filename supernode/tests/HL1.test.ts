@@ -2,9 +2,28 @@
 // TDD: POST stores letter, GET returns latest, letter never appears in network events.
 import { describe, it, expect, beforeEach } from 'vitest'
 import Database from 'better-sqlite3'
+import { generateOperatorKey, createEvent, signEvent } from '@serendip/protocol'
+import type { OperatorKey, AgentKey, SerendipEvent, SerendipKind } from '@serendip/protocol'
 import { runMigrations } from '../src/db'
 import { createApp } from '../src/app'
 import { storeLetter, getLatestLetter } from '../src/agentxp/human-layer/letters'
+
+// Build a SerendipEvent signed directly by the operator, as required by the
+// verifyOperatorEvent gate on POST /operator/:pubkey/letter.
+async function signLetterEvent(
+  opKey: OperatorKey,
+  content: string,
+): Promise<SerendipEvent> {
+  const opAsAgent: AgentKey = {
+    publicKey: opKey.publicKey,
+    privateKey: opKey.privateKey,
+    delegatedBy: opKey.publicKey,
+    expiresAt: Math.floor(Date.now() / 1000) + 86400,
+  }
+  const unsigned = createEvent('operator.letter' as SerendipKind, { type: 'operator.letter', data: { content } }, [])
+  const withVis = { ...unsigned, visibility: 'private' as const }
+  return signEvent(withVis, opAsAgent)
+}
 
 describe('HL1: Letters to Agent', () => {
   let app: ReturnType<typeof createApp>
@@ -18,10 +37,11 @@ describe('HL1: Letters to Agent', () => {
 
   // Test 1: POST saves letter and returns 201
   it('POST /api/v1/operator/:pubkey/letter stores a letter', async () => {
-    const pubkey = 'op-pubkey-hl1-' + Date.now()
-    const res = await app.request(`/api/v1/operator/${pubkey}/letter`, {
+    const opKey = await generateOperatorKey()
+    const event = await signLetterEvent(opKey, 'Next week is important. Be extra careful with financials.')
+    const res = await app.request(`/api/v1/operator/${opKey.publicKey}/letter`, {
       method: 'POST',
-      body: JSON.stringify({ content: 'Next week is important. Be extra careful with financials.' }),
+      body: JSON.stringify({ event }),
       headers: { 'Content-Type': 'application/json' },
     })
     expect(res.status).toBe(201)
@@ -32,14 +52,15 @@ describe('HL1: Letters to Agent', () => {
 
   // Test 2: GET returns latest letter with content and written_at
   it('GET /api/v1/operator/:pubkey/letter returns latest letter', async () => {
-    const pubkey = 'op-pubkey-hl1b-' + Date.now()
-    await app.request(`/api/v1/operator/${pubkey}/letter`, {
+    const opKey = await generateOperatorKey()
+    const event = await signLetterEvent(opKey, 'This week is critical. Be careful with financials.')
+    await app.request(`/api/v1/operator/${opKey.publicKey}/letter`, {
       method: 'POST',
-      body: JSON.stringify({ content: 'This week is critical. Be careful with financials.' }),
+      body: JSON.stringify({ event }),
       headers: { 'Content-Type': 'application/json' },
     })
 
-    const get = await app.request(`/api/v1/operator/${pubkey}/letter`)
+    const get = await app.request(`/api/v1/operator/${opKey.publicKey}/letter`)
     expect(get.status).toBe(200)
     const body = await get.json() as { content: string; written_at: string }
     expect(body.content).toContain('financials')
@@ -56,10 +77,11 @@ describe('HL1: Letters to Agent', () => {
 
   // Test 4: Letter stored locally only — never appears in protocol events table
   it('letter content is never stored in protocol events table', async () => {
-    const pubkey = 'op-pubkey-hl1c-' + Date.now()
-    await app.request(`/api/v1/operator/${pubkey}/letter`, {
+    const opKey = await generateOperatorKey()
+    const event = await signLetterEvent(opKey, 'Secret financial instructions for agent.')
+    await app.request(`/api/v1/operator/${opKey.publicKey}/letter`, {
       method: 'POST',
-      body: JSON.stringify({ content: 'Secret financial instructions for agent.' }),
+      body: JSON.stringify({ event }),
       headers: { 'Content-Type': 'application/json' },
     })
 
@@ -93,10 +115,11 @@ describe('HL1: Letters to Agent', () => {
 
   // Test 6: POST with empty content returns 400
   it('POST with empty content returns 400', async () => {
-    const pubkey = 'op-pubkey-hl1e-' + Date.now()
-    const res = await app.request(`/api/v1/operator/${pubkey}/letter`, {
+    const opKey = await generateOperatorKey()
+    const event = await signLetterEvent(opKey, '')
+    const res = await app.request(`/api/v1/operator/${opKey.publicKey}/letter`, {
       method: 'POST',
-      body: JSON.stringify({ content: '' }),
+      body: JSON.stringify({ event }),
       headers: { 'Content-Type': 'application/json' },
     })
     expect(res.status).toBe(400)
@@ -116,5 +139,42 @@ describe('HL1: Letters to Agent', () => {
       .get(pubkey) as { content: string; operator_pubkey: string } | undefined
     expect(row).toBeDefined()
     expect(row!.content).toBe('Direct letter content')
+  })
+
+  // Test 8: POST without event envelope returns 400
+  it('POST without event envelope returns 400', async () => {
+    const opKey = await generateOperatorKey()
+    const res = await app.request(`/api/v1/operator/${opKey.publicKey}/letter`, {
+      method: 'POST',
+      body: JSON.stringify({ content: 'plain content, no envelope' }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    expect(res.status).toBe(400)
+  })
+
+  // Test 9: POST with event signed by a different operator returns 401
+  it('POST with pubkey mismatch returns 401', async () => {
+    const opKey = await generateOperatorKey()
+    const otherKey = await generateOperatorKey()
+    const event = await signLetterEvent(otherKey, 'forged letter')
+    const res = await app.request(`/api/v1/operator/${opKey.publicKey}/letter`, {
+      method: 'POST',
+      body: JSON.stringify({ event }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    expect(res.status).toBe(401)
+  })
+
+  // Test 10: POST with tampered signature returns 401
+  it('POST with tampered signature returns 401', async () => {
+    const opKey = await generateOperatorKey()
+    const event = await signLetterEvent(opKey, 'original content')
+    const tampered = { ...event, sig: event.sig.replace(/.$/, (c) => (c === '0' ? '1' : '0')) }
+    const res = await app.request(`/api/v1/operator/${opKey.publicKey}/letter`, {
+      method: 'POST',
+      body: JSON.stringify({ event: tampered }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    expect(res.status).toBe(401)
   })
 })
