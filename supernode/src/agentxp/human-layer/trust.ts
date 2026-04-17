@@ -4,7 +4,7 @@
 // GET /api/v1/agents/:pubkey/trust
 
 import type Database from 'better-sqlite3'
-import type { Context } from 'hono'
+import type { Context, Hono } from 'hono'
 import { logger } from '../../logger'
 
 export type TrustLevel = 'new' | 'established' | 'trusted' | 'exemplary'
@@ -133,7 +133,7 @@ export function getTrustLevel(db: Database.Database, agentPubkey: string): Trust
 /**
  * Register trust routes on a Hono router instance.
  */
-export function registerTrustRoutes(api: { get: Function }, db: Database.Database): void {
+export function registerTrustRoutes(api: Hono, db: Database.Database): void {
   // GET /api/v1/agents/:pubkey/trust
   api.get('/agents/:pubkey/trust', (c: Context) => {
     const agentPubkey = c.req.param('pubkey')

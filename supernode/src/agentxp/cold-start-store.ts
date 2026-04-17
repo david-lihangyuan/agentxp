@@ -231,7 +231,7 @@ export class ColdStartStore {
         (SELECT COUNT(*) FROM cold_start_events WHERE status = 'verified') as verified,
         (SELECT COUNT(*) FROM cold_start_events WHERE kind = 'experience.solution' AND status = 'failed') as failed,
         (SELECT COUNT(*) FROM cold_start_events WHERE kind = 'intent.question' AND status = 'pending') as pending_questions
-    `).get() as any
+    `).get() as { questions: number; solutions: number; verified: number; failed: number; pending_questions: number }
     return row
   }
 }

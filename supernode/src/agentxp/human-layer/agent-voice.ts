@@ -3,7 +3,7 @@
 // Pattern threshold: same pattern 3+ times in 7 days.
 
 import type Database from 'better-sqlite3'
-import type { Context } from 'hono'
+import type { Context, Hono } from 'hono'
 
 export interface PatternMatch {
   pattern: string
@@ -77,7 +77,7 @@ export function deliverNotification(
 /**
  * Register agent-voice routes on a Hono router instance.
  */
-export function registerAgentVoiceRoutes(api: { get: Function; post: Function }, db: Database.Database): void {
+export function registerAgentVoiceRoutes(api: Hono, db: Database.Database): void {
   // GET /api/v1/operator/:pubkey/notifications — returns unread notifications
   api.get('/operator/:pubkey/notifications', (c: Context) => {
     const operatorPubkey = c.req.param('pubkey')

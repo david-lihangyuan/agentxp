@@ -116,7 +116,13 @@ export function createRouteHandlers(db: Db, _config: PluginConfig) {
 
 // ─── Registration ──────────────────────────────────────────────────────────
 
-export function registerRoutes(api: any, db: Db, config: PluginConfig): void {
+// OpenClaw plugin host exposes registerHttpRoute with a loose signature;
+// mirror it here so we accept the same shape without `any`.
+interface PluginApi {
+  registerHttpRoute: (params: unknown) => void
+}
+
+export function registerRoutes(api: PluginApi, db: Db, config: PluginConfig): void {
   const handlers = createRouteHandlers(db, config)
 
   api.registerHttpRoute({

@@ -171,19 +171,22 @@ describe('F1: Dashboard Data API', () => {
 
   // Test 8: Unknown operator returns 404
   it('unknown operator pubkey returns 404 on summary', async () => {
-    const res = await app.request('/api/v1/dashboard/operator/nonexistentpubkey0000000000000000000000000000000000000000000000000000/summary')
+    const unknownPubkey = 'f'.repeat(64)
+    const res = await app.request(`/api/v1/dashboard/operator/${unknownPubkey}/summary`)
     expect(res.status).toBe(404)
   })
 
   // Test 9: Unknown operator returns 404 on growth
   it('unknown operator pubkey returns 404 on growth', async () => {
-    const res = await app.request('/api/v1/dashboard/operator/nonexistentpubkey0000000000000000000000000000000000000000000000000000/growth')
+    const unknownPubkey = 'f'.repeat(64)
+    const res = await app.request(`/api/v1/dashboard/operator/${unknownPubkey}/growth`)
     expect(res.status).toBe(404)
   })
 
   // Test 10: Unknown operator returns 404 on failures
   it('unknown operator pubkey returns 404 on failures', async () => {
-    const res = await app.request('/api/v1/dashboard/operator/nonexistentpubkey0000000000000000000000000000000000000000000000000000/failures')
+    const unknownPubkey = 'f'.repeat(64)
+    const res = await app.request(`/api/v1/dashboard/operator/${unknownPubkey}/failures`)
     expect(res.status).toBe(404)
   })
 })

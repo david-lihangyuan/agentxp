@@ -154,7 +154,8 @@ describe('G1: Node Registration & Discovery', () => {
   })
 
   it('POST /api/v1/nodes/:pubkey/heartbeat returns 404 for unknown pubkey', async () => {
-    const res = await app.request('/api/v1/nodes/unknownpubkey/heartbeat', {
+    const unknownPubkey = 'f'.repeat(64)
+    const res = await app.request(`/api/v1/nodes/${unknownPubkey}/heartbeat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),

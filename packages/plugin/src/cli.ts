@@ -467,8 +467,15 @@ export async function cliExport(db: Db, format: 'json' | 'jsonl' = 'json'): Prom
 /**
  * Registrar wrapper for OpenClaw CLI framework.
  */
+interface CliCommand {
+  command(name: string): CliCommand
+  description(text: string): CliCommand
+  option(flags: string, description?: string, defaultValue?: unknown): CliCommand
+  action(fn: (...args: unknown[]) => void | Promise<void>): CliCommand
+}
+
 export function createCliRegistrar(db: Db, config: PluginConfig) {
-  return (ctx: { program: any }) => {
+  return (ctx: { program: CliCommand }) => {
     const { program } = ctx
 
     const agentxp = program.command('agentxp').description('AgentXP experience learning management')
@@ -495,7 +502,8 @@ export function createCliRegistrar(db: Db, config: PluginConfig) {
     agentxp.command('export')
       .description('Export lessons as JSON or JSONL')
       .option('--format <format>', 'json or jsonl', 'json')
-      .action(async (opts: { format?: string }) => {
+      .action(async (...args: unknown[]) => {
+        const opts = (args[0] as { format?: string } | undefined) ?? {}
         const fmt = opts.format === 'jsonl' ? 'jsonl' : 'json'
         console.log(await cliExport(db, fmt))
       })
