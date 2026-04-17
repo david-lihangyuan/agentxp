@@ -25,6 +25,7 @@ import { DashboardAPI } from './agentxp/dashboard-api'
 import { MetricsAPI } from './agentxp/metrics-api'
 import { ColdStartStore } from './agentxp/cold-start-store'
 import { createLogger } from './logger'
+import { loadABGroups } from './ab-groups'
 
 import { registerLetterRoutes } from './agentxp/human-layer/letters'
 import { registerAgentVoiceRoutes } from './agentxp/human-layer/agent-voice'
@@ -62,17 +63,6 @@ export interface AppOptions {
   generateEmbedding?: (text: string) => Promise<number[]>
 }
 
-// A/B experiment groups (H9). Hardcoded pubkeys for the initial cohort —
-// a future change should move these to config.
-const AB_GROUPS: ReadonlyArray<{ label: string; pubkey: string }> = [
-  { label: 'curiosity-opus', pubkey: '52f44025f7094129959c5d67d9042359e38e677802ab3564d82fb0bcdd43de63' },
-  { label: 'curiosity-opus', pubkey: 'beb1ba732652fdc4cfea6e2e42836814a4652670ab30eb07a60580f58981e787' },
-  { label: 'reward-gpt5', pubkey: '0d4bd5a6077bb5c88a60c8b085549b8c29f6bfeb5dac05b408bccc0d65aa8fa8' },
-  { label: 'reward-gpt5', pubkey: '0de23c09c5dc6f6645741c33c2878d0c4946bd85bc88fb8e65f207a38dfbf287' },
-  { label: 'seeker-gpt5', pubkey: '544de8ac97e56d5cd0ef3d0cbf1d453eec92a4749ec123673002ce7f1b4fb3ec' },
-  { label: 'seeker-gpt5', pubkey: '76816215292f4f9102143ac656c0675022a2c10338bd57e19bcb12f65e4ee58d' },
-]
-
 /** Create and configure the Hono application. */
 export function createApp(opts: AppOptions = {}): Hono {
   const app = new Hono()
@@ -107,7 +97,7 @@ export function createApp(opts: AppOptions = {}): Hono {
   const dashboardAPI = new DashboardAPI(db)
   const metricsAPI = new MetricsAPI(db)
   const coldStartStore = new ColdStartStore(db)
-  metricsAPI.registerABGroups([...AB_GROUPS])
+  metricsAPI.registerABGroups(loadABGroups(process.env['AB_GROUPS_PATH']))
 
   const __dirname = dirname(fileURLToPath(import.meta.url))
   const dashboardDir = join(__dirname, '..', 'dashboard')
