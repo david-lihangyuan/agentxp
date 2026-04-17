@@ -166,7 +166,8 @@ describe('F3: Weekly Report Generator', () => {
   // Test 7: Weekly report API returns 404 for unknown operator
   it('GET weekly-report returns 404 for unknown operator', async () => {
     const app = createApp({ db })
-    const res = await app.request('/api/v1/dashboard/operator/nonexistentpubkey0000000000000000000000000000000000000000000000000000/weekly-report')
+    const unknownPubkey = 'f'.repeat(64)
+    const res = await app.request(`/api/v1/dashboard/operator/${unknownPubkey}/weekly-report`)
     expect(res.status).toBe(404)
   })
 

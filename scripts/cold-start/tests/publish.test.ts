@@ -52,11 +52,12 @@ describe('publishEvent', () => {
       ok: false,
       status: 500,
       statusText: 'Internal Server Error',
+      text: async () => 'relay crashed',
     }));
 
     const result = await publishEvent(mockEvent, RELAY_URL);
 
-    expect(result).toEqual({ ok: false, error: 'HTTP 500: Internal Server Error' });
+    expect(result).toEqual({ ok: false, error: 'HTTP 500: Internal Server Error — relay crashed' });
   });
 
   it('returns ok:false with error message on network error', async () => {
