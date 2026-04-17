@@ -108,17 +108,21 @@ agentxp/                          Monorepo root
 
 ## 分支策略
 
+采用简化版 GitHub Flow（单人/小团队友好）：
+
 | 分支 | 用途 | 合入 |
 |------|------|------|
-| `main` | 生产发布，打 semver tag | — |
-| `develop` | 集成分支，feature 合入这里 | `main` (via release) |
-| `feature/<name>` | 新功能，从 `develop` 分出 | `develop` |
-| `fix/<name>` | Bug 修复，从 `develop` 分出 | `develop` |
-| `hotfix/<name>` | 紧急修复，从 `main` 分出 | `main` + `develop` |
+| `main` | 稳定分支，永远可发布、永远绿，打 semver tag | — |
+| `feature/<name>` | 新功能，从 `main` 分出 | `main`（通过 PR） |
+| `fix/<name>` | Bug 修复，从 `main` 分出 | `main`（通过 PR） |
+| `refactor/<name>` | 重构，从 `main` 分出 | `main`（通过 PR） |
+| `chore/<name>` | 构建/依赖/文档杂项 | `main`（通过 PR） |
 
-- **绝不直接提交到 `main`**
+- **绝不直接提交到 `main`** — 所有改动必须经 PR
 - 分支名用 `kebab-case`
 - Feature 分支生命周期 < 2 周
+- PR 合并前必须：测试全绿（`npx vitest run`）、类型检查通过（`tsc --noEmit`）
+- 合并策略推荐 **squash merge**，保持 `main` 历史线性
 
 ---
 

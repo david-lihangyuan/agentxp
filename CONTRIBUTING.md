@@ -19,22 +19,23 @@ Thank you for your interest in contributing! This document covers everything you
 
 ## Branch Strategy
 
-We use a **GitFlow-inspired** branching model:
+We use a simplified **GitHub Flow** model:
 
 | Branch | Purpose | Merges into |
 |--------|---------|-------------|
-| `main` | Production releases only. Tagged with semver. | — |
-| `develop` | Integration branch. All feature branches target here. | `main` (via release) |
-| `feature/<name>` | New features. Branch from `develop`. | `develop` |
-| `fix/<name>` | Non-critical bug fixes. Branch from `develop`. | `develop` |
-| `hotfix/<name>` | Critical production fixes. Branch from `main`. | `main` + `develop` |
+| `main` | Stable branch. Always releasable, always green. Tagged with semver. | — |
+| `feature/<name>` | New features. Branch from `main`. | `main` (via PR) |
+| `fix/<name>` | Bug fixes. Branch from `main`. | `main` (via PR) |
+| `refactor/<name>` | Refactors. Branch from `main`. | `main` (via PR) |
+| `chore/<name>` | Build, deps, docs, or tooling chores. Branch from `main`. | `main` (via PR) |
 
 ### Rules
 
-- **Never commit directly to `main`.**
-- `develop` should always be in a releasable state.
-- Feature branches must be short-lived (< 2 weeks). Prefer small, frequent PRs.
+- **Never commit directly to `main`.** All changes must go through a PR.
+- `main` must stay green: tests pass, type-checks pass.
+- Feature branches should be short-lived (< 2 weeks). Prefer small, frequent PRs.
 - Branch names use `kebab-case`: `feature/kind-registry-validation`, `fix/relay-timeout`.
+- Prefer **squash merge** to keep `main` history linear and readable.
 
 ---
 
@@ -57,7 +58,7 @@ All pull requests must satisfy the following before merge:
 
 - At least **1 approving review** required before merge.
 - Reviewers must check: correctness, test coverage, and backward compatibility.
-- Self-review is not sufficient for `develop → main` merges.
+- For solo-maintainer projects, self-review plus green CI is acceptable; larger / breaking changes should still wait for a second pair of eyes when possible.
 
 ### PR Size Guidelines
 
@@ -68,32 +69,25 @@ All pull requests must satisfy the following before merge:
 
 ## Hotfix Process
 
-For critical production bugs that cannot wait for the normal release cycle:
+For critical production bugs that cannot wait for a batched release:
 
 1. **Branch from `main`**:
    ```bash
    git checkout main
    git pull origin main
-   git checkout -b hotfix/describe-the-fix
+   git checkout -b fix/describe-the-fix
    ```
 
 2. **Apply the fix** with a minimal, focused change. Include a regression test.
 
 3. **Update CHANGELOG.md**: add an entry under the current version (not `[Unreleased]`).
 
-4. **Open a PR targeting `main`** with the `hotfix` label.
+4. **Open a PR targeting `main`** with the `hotfix` label; merge once CI is green.
 
 5. After merge to `main`, **tag the release**:
    ```bash
    git tag -a v4.0.1 -m "Hotfix: describe the fix"
    git push origin v4.0.1
-   ```
-
-6. **Backport to `develop`**:
-   ```bash
-   git checkout develop
-   git merge main
-   git push origin develop
    ```
 
 > ⚠️ **Critical**: hotfix branches must only contain the minimum change needed. Do not bundle unrelated fixes.
@@ -121,7 +115,7 @@ AgentXP supports extensible experience kinds following a reverse-DNS naming conv
 
 4. **§10 is immutable**: The core fields defined in §10 of the AgentXP spec (`id`, `kind`, `agent_key`, `operator_key`, `signature`, `timestamp`) must not be modified or omitted. Custom kinds may extend the payload but must not conflict with §10 fields.
 
-5. **Open a PR** targeting `develop` with the `kind-registration` label.
+5. **Open a PR** targeting `main` with the `kind-registration` label.
 
 > See `kind-registry/README.md` for the full naming convention and schema requirements.
 
