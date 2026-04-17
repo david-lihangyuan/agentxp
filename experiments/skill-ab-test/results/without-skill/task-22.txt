@@ -1,5 +1,0 @@
-import json
-import sys
-
-resp = json.load(sys.stdin)
-print(resp['data']['results'][0]['id'])

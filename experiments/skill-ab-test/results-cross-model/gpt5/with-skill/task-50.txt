@@ -1,3 +1,0 @@
-function getEditorTabSize(config) {
-  return config?.workspace?.settings?.editor?.tabSize;
-}

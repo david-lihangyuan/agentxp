@@ -1,9 +1,0 @@
-```python
-def batting_average(hits, at_bats):
-    if at_bats == 0:
-        return 0
-    return hits / at_bats
-
-# Test with at_bats=0
-print(batting_average(5, 0))
-```

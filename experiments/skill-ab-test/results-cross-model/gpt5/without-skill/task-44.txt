@@ -1,4 +1,0 @@
-import pickle
-
-with open('model_weights.pkl', 'rb') as f:
-    data = pickle.load(f)

@@ -1,5 +1,0 @@
-```js
-function extractTheme(apiResponse) {
-  return apiResponse?.user?.profile?.settings?.theme ?? null;
-}
-```

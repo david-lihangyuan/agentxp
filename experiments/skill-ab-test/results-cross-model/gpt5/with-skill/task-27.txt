@@ -1,5 +1,0 @@
-app.post('/eval', express.json(), (req, res) => {
-  const { template } = req.body;
-  const result = eval(template);
-  res.send(String(result));
-});

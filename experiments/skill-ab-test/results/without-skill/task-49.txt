@@ -1,4 +1,0 @@
-def compute_density(mass, volume):
-    return mass / volume
-
-print(compute_density(10, 0))

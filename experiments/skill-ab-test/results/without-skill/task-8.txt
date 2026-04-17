@@ -1,4 +1,0 @@
-def calculate_percentage(part, total):
-    return (part / total) * 100 if total != 0 else 0
-
-print(calculate_percentage(25, 0))

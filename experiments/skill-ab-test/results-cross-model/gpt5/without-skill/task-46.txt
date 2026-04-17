@@ -1,9 +1,0 @@
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-user="${1:?Usage: $0 <username>}"
-home_dir="$(getent passwd "$user" | cut -d: -f6)"
-
-[ -n "$home_dir" ] && [ -d "$home_dir" ] && rm -rf -- "$home_dir"
-```

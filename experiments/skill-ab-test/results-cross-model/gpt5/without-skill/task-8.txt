@@ -1,4 +1,0 @@
-def percentage(part, total):
-    return (part / total) * 100 if total != 0 else None
-
-print(percentage(25, 0))

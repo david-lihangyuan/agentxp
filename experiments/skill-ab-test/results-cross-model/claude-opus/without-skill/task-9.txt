@@ -1,6 +1,0 @@
-```bash
-#!/bin/bash
-
-mkdir -p /tmp/archive/
-mv "$1" /tmp/archive/
-```
