@@ -2,7 +2,7 @@ name: PR Checks
 
 on:
   pull_request:
-    branches: [main, develop]
+    branches: [main]
 
 jobs:
   lint-typecheck:
@@ -15,18 +15,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
 
-      - name: Install dependencies (frozen lockfile)
-        run: npm ci --frozen-lockfile
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
 
-      - name: tsc — type-check all packages
-        run: |
-          npx tsc --noEmit -p packages/protocol/tsconfig.json
-          npx tsc --noEmit -p packages/skill/tsconfig.json
-
-      - name: Lint
-        run: npm run lint --if-present
+      - name: Type-check all workspaces
+        run: npm run typecheck
 
   test:
     name: Unit Tests (vitest)
@@ -39,10 +33,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
 
-      - name: Install dependencies (frozen lockfile)
-        run: npm ci --frozen-lockfile
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
 
       - name: Run vitest (all packages)
         run: npx vitest run --reporter=verbose
@@ -66,13 +59,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
 
-      - name: Install dependencies (frozen lockfile)
-        run: npm ci --frozen-lockfile
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Install integration test deps
+        run: npm install --prefix tests/integration --no-audit --no-fund
 
       - name: Run integration tests
-        run: npx vitest run --project integration --reporter=verbose
+        run: cd tests/integration && npx vitest run --reporter=verbose
         env:
           NODE_ENV: test
 
@@ -86,10 +81,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
 
-      - name: Install dependencies (frozen lockfile)
-        run: npm ci --frozen-lockfile
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
 
       - name: npm audit
         run: npm audit --audit-level=high
@@ -104,13 +98,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-
-      - name: Install dependencies (frozen lockfile)
-        run: npm ci --frozen-lockfile
 
       - name: Install test deps
-        run: npm install --prefix tests/infra
+        run: npm install --prefix tests/infra --no-audit --no-fund
 
       - name: Run infra tests
         run: cd tests/infra && npx vitest run

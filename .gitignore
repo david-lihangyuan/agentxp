@@ -6,6 +6,9 @@ dist/
 .bun/
 supernode/node_modules/
 
+# Lockfiles (repo uses bun.lock as source of truth; npm install locally generates this)
+package-lock.json
+
 # Experience contribution bots — not for public release
 agents/
 
@@ -13,3 +16,6 @@ agents/
 .relay.pid
 supernode.log
 *.log
+
+# Test-generated bundles
+tests/infra/.tmp-bundle/

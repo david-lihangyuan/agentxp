@@ -66,6 +66,7 @@ export function registerLetterRoutes(api: Hono, db: Database.Database): void {
   // POST /api/v1/operator/:pubkey/letter
   api.post('/operator/:pubkey/letter', async (c: Context) => {
     const operatorPubkey = c.req.param('pubkey')
+    if (!operatorPubkey) return c.json({ error: 'pubkey required' }, 400)
 
     let body: unknown
     try {
@@ -91,6 +92,7 @@ export function registerLetterRoutes(api: Hono, db: Database.Database): void {
   // GET /api/v1/operator/:pubkey/letter
   api.get('/operator/:pubkey/letter', (c: Context) => {
     const operatorPubkey = c.req.param('pubkey')
+    if (!operatorPubkey) return c.json({ error: 'pubkey required' }, 400)
     const letter = getLatestLetter(db, operatorPubkey)
     if (!letter) {
       return c.json({ error: 'no letter found' }, 404)

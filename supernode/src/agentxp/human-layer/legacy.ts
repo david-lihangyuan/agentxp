@@ -3,7 +3,7 @@
 // GET /api/v1/operator/:pubkey/legacy
 
 import type Database from 'better-sqlite3'
-import type { Context } from 'hono'
+import type { Context, Hono } from 'hono'
 
 export interface LegacyView {
   still_active_count: number       // experiences not dormant, verified within 180 days
@@ -84,6 +84,7 @@ export function registerLegacyRoutes(api: Hono, db: Database.Database): void {
   // GET /api/v1/operator/:pubkey/legacy
   api.get('/operator/:pubkey/legacy', (c: Context) => {
     const operatorPubkey = c.req.param('pubkey')
+    if (!operatorPubkey) return c.json({ error: 'pubkey required' }, 400)
     const legacy = getLegacyView(db, operatorPubkey)
     return c.json(legacy)
   })

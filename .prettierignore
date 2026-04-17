@@ -1,0 +1,21 @@
+# Dependency / build output
+node_modules
+dist
+coverage
+
+# Lockfiles
+bun.lock
+package-lock.json
+
+# Documentation is hand-formatted (markdown tables, spec prose)
+*.md
+
+# Databases and logs
+*.db
+*.sqlite
+*.sqlite-*
+*.log
+
+# Untracked / generated
+.bun
+data

@@ -57,8 +57,8 @@ describe('I4: CI Pipeline', () => {
       expect(existsSync(PR_YML)).toBe(true)
     })
 
-    it('contains --frozen-lockfile (lockfile drift prevention)', () => {
-      expect(readFileSync(PR_YML, 'utf8')).toContain('--frozen-lockfile')
+    it('runs npm install for dependency installation', () => {
+      expect(readFileSync(PR_YML, 'utf8')).toContain('npm install')
     })
 
     it('contains tsc / typecheck step', () => {
@@ -111,10 +111,9 @@ describe('I5: CONTRIBUTING.md', () => {
     expect(existsSync(FILE)).toBe(true)
   })
 
-  it('contains branch strategy (main/develop/feature/fix/hotfix)', () => {
+  it('contains branch strategy (main/feature/fix/hotfix)', () => {
     const c = readFileSync(FILE, 'utf8')
     expect(c).toContain('main')
-    expect(c).toContain('develop')
     expect(c).toContain('feature')
     expect(c).toContain('fix')
     expect(c).toContain('hotfix')

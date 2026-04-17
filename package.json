@@ -2,10 +2,17 @@
   "name": "agentxp-monorepo",
   "version": "0.0.1",
   "private": true,
-  "workspaces": ["packages/*", "supernode"],
+  "workspaces": [
+    "packages/*",
+    "supernode"
+  ],
   "scripts": {
-    "test": "npx vitest run",
-    "test:protocol": "npx vitest run packages/protocol"
+    "test": "vitest run",
+    "test:protocol": "vitest run packages/protocol",
+    "test:supernode": "vitest run supernode",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

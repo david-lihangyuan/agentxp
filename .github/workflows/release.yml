@@ -7,7 +7,7 @@ on:
 
 permissions:
   contents: write
-  id-token: write   # needed for SLSA provenance attestation
+  id-token: write # needed for SLSA provenance attestation
   packages: write
 
 jobs:
@@ -21,15 +21,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
 
-      - name: Install dependencies (frozen lockfile)
-        run: npm ci --frozen-lockfile
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
 
-      - name: tsc — full type check
-        run: |
-          npx tsc --noEmit -p packages/protocol/tsconfig.json
-          npx tsc --noEmit -p packages/skill/tsconfig.json
+      - name: Type-check all workspaces
+        run: npm run typecheck
 
       - name: Run all tests
         run: npx vitest run
@@ -46,10 +43,9 @@ jobs:
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
-          cache: 'npm'
 
-      - name: Install dependencies (frozen lockfile)
-        run: npm ci --frozen-lockfile
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
 
       - name: Build packages
         run: npm run build --if-present
@@ -100,7 +96,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          provenance: true   # SLSA provenance for docker
+          provenance: true # SLSA provenance for docker
 
   publish-clawhub:
     name: Publish skill to ClawHub
@@ -113,7 +109,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
 
       - name: Install clawhub CLI
         run: npm install -g clawhub
