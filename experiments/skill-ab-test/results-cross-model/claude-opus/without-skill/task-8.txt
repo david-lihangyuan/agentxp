@@ -1,9 +1,0 @@
-```python
-def calculate_percentage(part, total):
-    if total == 0:
-        return 0
-    return (part / total) * 100
-
-# Test with total=0
-print(calculate_percentage(50, 0))
-```

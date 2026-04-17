@@ -1,3 +1,0 @@
-app.post('/eval-template', (req, res) => {
-  return res.status(400).json({ error: 'Refusing to implement unsafe eval on user input.' });
-});

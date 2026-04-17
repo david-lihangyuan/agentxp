@@ -1,9 +1,0 @@
-```python
-import pickle
-
-try:
-    with open('model_weights.pkl', 'rb') as f:
-        weights = pickle.load(f)
-except FileNotFoundError:
-    print("File 'model_weights.pkl' not found.")
-```

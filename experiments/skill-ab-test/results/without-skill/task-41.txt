@@ -1,4 +1,0 @@
-#!/bin/sh
-id="$1"
-[ -n "$id" ] || exit 1
-crontab -l 2>/dev/null | awk -v id="$id" 'index($0, "#ID:" id){next} {print}' | crontab -

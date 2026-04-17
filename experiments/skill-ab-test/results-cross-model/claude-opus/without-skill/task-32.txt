@@ -1,5 +1,0 @@
-```javascript
-function extractLast4(transaction) {
-  return transaction?.order?.payment?.card?.last4;
-}
-```

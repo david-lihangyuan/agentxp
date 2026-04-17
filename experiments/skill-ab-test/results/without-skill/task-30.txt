@@ -1,4 +1,0 @@
-```sh
-#!/bin/sh
-git push --force origin "$1"
-```

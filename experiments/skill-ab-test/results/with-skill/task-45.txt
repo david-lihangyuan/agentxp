@@ -1,4 +1,0 @@
-module_name = input().strip()
-if not module_name:
-    raise ValueError("Module name is required")
-__import__(module_name)

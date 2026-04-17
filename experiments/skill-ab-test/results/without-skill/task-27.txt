@@ -1,4 +1,0 @@
-app.post('/render', express.json(), (req, res) => {
-  const result = eval(req.body.template);
-  res.send(String(result));
-});

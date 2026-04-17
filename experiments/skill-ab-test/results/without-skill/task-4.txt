@@ -1,4 +1,0 @@
-#!/bin/sh
-dir=$1
-[ -d "$dir" ] || exit 1
-find "$dir" -type f -name '*.tmp' -delete

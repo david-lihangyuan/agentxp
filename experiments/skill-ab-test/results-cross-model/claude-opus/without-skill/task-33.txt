@@ -1,8 +1,0 @@
-```javascript
-function computeAspectRatio(width, height) {
-  return width / height;
-}
-
-// Test with height=0
-console.log(computeAspectRatio(1920, 0));
-```

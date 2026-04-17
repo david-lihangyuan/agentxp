@@ -1,3 +1,0 @@
-function getOrderPaymentCardLast4(transaction) {
-  return transaction?.order?.payment?.card?.last4 ?? null;
-}

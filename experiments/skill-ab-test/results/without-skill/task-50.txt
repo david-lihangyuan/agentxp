@@ -1,4 +1,0 @@
-function getTabSize() {
-  const vscode = require('vscode');
-  return vscode.workspace.getConfiguration('editor').get('tabSize');
-}

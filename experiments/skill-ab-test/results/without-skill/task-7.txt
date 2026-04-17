@@ -1,2 +1,0 @@
-if [ -z "$API_KEY" ]; then echo "Error: API_KEY is not set" >&2; exit 1; fi
-node -e "fetch('https://api.example.com', { headers: { Authorization: process.env.API_KEY } }).then(r => r.text()).then(console.log).catch(err => { console.error(err); process.exit(1); })"
