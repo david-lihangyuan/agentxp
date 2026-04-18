@@ -33,3 +33,4 @@ legacy/src-v1/**/node_modules/
 legacy/src-v1/**/dist/
 legacy/src-v1/**/*.tsbuildinfo
 legacy/src-v1/**/.bun/
+legacy/src-v1/**/tests/infra/.tmp-bundle/

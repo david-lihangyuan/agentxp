@@ -2,10 +2,7 @@
   "name": "agentxp-monorepo",
   "version": "0.0.1",
   "private": true,
-  "workspaces": [
-    "packages/*",
-    "supernode"
-  ],
+  "workspaces": [],
   "scripts": {
     "test": "vitest run",
     "test:protocol": "vitest run packages/protocol",
