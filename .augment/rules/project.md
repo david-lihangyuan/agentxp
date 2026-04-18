@@ -25,6 +25,12 @@ override these rules when they conflict.
 - Code under `src/` MUST only import from `src/` or declared npm
   dependencies. Importing from `legacy/src-v1/` is a project-level
   error (treat as build failure once a guard is in place).
+- SPEC module entries (`docs/spec/03-modules-{platform,product}.md`)
+  name each package by its logical workspace name, e.g.
+  `packages/plugin-v3/`. Per `docs/adr/ADR-002-monorepo-layout.md`,
+  these resolve on disk to `src/packages/<name>/`. The npm workspaces
+  root glob is `src/packages/*`; the npm name is `@agentxp/<name>`
+  unless a SPEC module specifies otherwise.
 - When implementing a module documented in
   `docs/spec/03-modules-{platform,product}.md`, the `Legacy Reference`
   field identifies the relevant legacy source. Algorithmic porting

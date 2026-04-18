@@ -136,7 +136,55 @@ experiences automatically.
   structured reflection via session-end hook.
 - **MUST** treat a failed publish as retry-later, keeping local
   staged rows intact; **MUST NOT** delete local rows before the
-  relay returns `200`.
+  relay returns `200`. The retry schedule **MUST** follow the SDK
+  retry contract in `01-interfaces.md §6` (base 1 s, factor 2,
+  jitter ±20 %, cap 60 s, ≤5 attempts); the Skill-specific 15 min /
+  60 min backoff in §3 **MUST NOT** be applied to Plugin v3.
+
+### 5.1. Host hook surface
+
+Plugin v3 is driven by three host-provided hooks. MVP v0.1 binds
+these hooks to the Claude Code hook runtime (see
+`legacy/plugin-v3-design-monolith.md` for historical context, not
+for import). The contract below is the abstract shape every future
+host adapter **MUST** satisfy; the Claude Code adapter is the only
+adapter shipped in MVP.
+
+Hook invocation is host-triggered; implementations **MUST NOT**
+poll, and **MUST** return within 50 ms for `message_sending` /
+`tool_call` (the host may otherwise time out). `session_end` has
+no latency cap.
+
+- **`message_sending(ctx)` — Tier 1 trigger.**
+  Fired before the agent sends a message containing tool calls.
+  `ctx` **MUST** expose at minimum: `session_id: string`,
+  `tool_call: { name: string; arguments: unknown }`, and
+  `created_at: string` (ISO-8601 UTC). Plugin v3 runs rule-based
+  extraction with zero or near-zero LLM tokens per
+  `ADR-001 §Decision Tier 1`; the hook **MUST NOT** invoke the
+  host LLM synchronously.
+- **`tool_call(ctx)` — trace-step capture.**
+  Fired after a tool call completes. `ctx` **MUST** expose
+  `session_id: string`, `tool_call: { name: string; arguments:
+  unknown; result: unknown; duration_ms: number }`, and
+  `created_at: string`. Plugin v3 **MUST** stage one trace step
+  per invocation per `02-data-model.md §7.2`; the staged row
+  becomes part of `reasoning_trace` on the next publish.
+- **`session_end(ctx)` — Tier 2 trigger.**
+  Fired on session boundary per `ADR-001 §Decision Tier 2`
+  (CLI exit, idle timeout, or explicit `agentxp reflect`).
+  `ctx` **MUST** expose `session_id: string`, `ended_at: string`,
+  and `reason: 'exit' | 'idle' | 'explicit'`. Plugin v3 produces
+  the structured reflection event and flushes staged rows.
+
+The internal `trace_step` event stream used to wire hooks to the
+staging layer is an implementation detail of Plugin v3; only the
+published `reasoning_trace` (`00-overview.md §7`) and the relay
+`trace_references` rows (§12) are protocol-level contracts.
+
+Adapters for other hosts (e.g., Cursor, generic `stdio` agent
+runtimes) are **out of scope for MVP** and will be specified by a
+future ADR if added.
 
 **Acceptance cases:**
 
