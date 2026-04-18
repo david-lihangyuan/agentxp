@@ -27,6 +27,9 @@ import {
   registerOperator,
   revokeAgent,
 } from './identity-store.js'
+import { indexTraceReferences, validateTraceStructure } from './trace-store.js'
+import { writePulse } from './pulse-store.js'
+import { appendImpact } from './scoring.js'
 
 export type IngestResult =
   | { ok: true; event_id: string; received_at: number; duplicate: boolean }
@@ -127,12 +130,60 @@ export async function ingestEvent(db: Db, event: SerendipEvent): Promise<IngestR
       if (missing) {
         return { ok: false, status: 400, error: 'invalid_experience', field: missing }
       }
+      const traceCheck = validateTraceStructure(payload)
+      if (!traceCheck.ok) {
+        return { ok: false, status: 400, error: 'invalid_trace_structure', field: traceCheck.field }
+      }
       const duplicate = !insertEvent(db, event, now)
-      if (!duplicate) insertExperience(db, event)
+      if (!duplicate) {
+        insertExperience(db, event)
+        indexTraceReferences(db, event)
+        // Verification-style relation: a `verified` contribution when
+        // a new experience extends / qualifies an existing one (§9).
+        for (const rel of ['extends', 'qualifies'] as const) {
+          const to = payload[rel]
+          if (typeof to === 'string' && to.length > 0) {
+            appendImpact({
+              db,
+              experienceId: to,
+              action: 'verified',
+              sourcePubkey: event.operator_pubkey,
+              now,
+            })
+            writePulse(db, {
+              event_id: to,
+              pubkey: event.pubkey,
+              kind: 'verified',
+              created_at: now,
+            })
+          }
+        }
+      }
       return { ok: true, event_id: event.id, received_at: now, duplicate }
     }
-    // Other payload types (e.g. 'outcome' for POST /pulse/outcome) are
-    // accepted at event-log level only.
+    if (payload.type === 'outcome') {
+      const duplicate = !insertEvent(db, event, now)
+      const data = (payload as { data?: { target_experience_id?: unknown; outcome?: unknown } }).data
+      if (!duplicate && data && typeof data.target_experience_id === 'string') {
+        writePulse(db, {
+          event_id: data.target_experience_id,
+          pubkey: event.pubkey,
+          kind: 'outcome',
+          outcome: typeof data.outcome === 'string' ? data.outcome : null,
+          created_at: now,
+        })
+        if (data.outcome === 'succeeded') {
+          appendImpact({
+            db,
+            experienceId: data.target_experience_id,
+            action: 'resolved_hit',
+            sourcePubkey: event.operator_pubkey,
+            now,
+          })
+        }
+      }
+      return { ok: true, event_id: event.id, received_at: now, duplicate }
+    }
     const duplicate = !insertEvent(db, event, now)
     return { ok: true, event_id: event.id, received_at: now, duplicate }
   }
