@@ -15,11 +15,14 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "allowSyntheticDefaultImports": true,
-    "paths": {
-      "openclaw/*": ["/usr/local/lib/node_modules/openclaw/dist/*"]
-    }
+    "allowSyntheticDefaultImports": true
   },
-  "include": ["*.ts", "hooks/**/*.ts", "service/**/*.ts", "protocol/**/*.ts"],
+  "include": [
+    "*.ts",
+    "hooks/**/*.ts",
+    "service/**/*.ts",
+    "protocol/**/*.ts",
+    "types/**/*.d.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }
