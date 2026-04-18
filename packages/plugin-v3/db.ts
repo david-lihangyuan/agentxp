@@ -362,6 +362,21 @@ export function createDb(dbPath: string): Db {
       value TEXT NOT NULL,
       updated_at INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS search_log (
+      reflection_id INTEGER PRIMARY KEY,
+      query TEXT NOT NULL,
+      hit_count INTEGER NOT NULL DEFAULT 0,
+      searched_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS verification_log (
+      target_event_id TEXT PRIMARY KEY,
+      outcome TEXT NOT NULL CHECK(outcome IN ('confirmed', 'refuted', 'partial')),
+      session_id TEXT NOT NULL,
+      verified_at INTEGER NOT NULL,
+      relay_event_id TEXT
+    );
   `);
   
   // Create FTS5 tables

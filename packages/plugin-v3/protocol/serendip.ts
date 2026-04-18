@@ -85,3 +85,49 @@ export async function toSerendipEvent(
 
   return signEvent(enriched, agentKey);
 }
+
+export type VerificationOutcome = 'confirmed' | 'refuted' | 'partial';
+
+/**
+ * Build and sign an `io.agentxp.verification` event. Outcome semantics:
+ * `confirmed` — target experience was applied and the session succeeded;
+ * `refuted` — target was applied and the session failed;
+ * `partial`  — mixed or inconclusive signal.
+ *
+ * Payload follows the `{ type, data }` envelope accepted by the relay's
+ * VerificationPayload schema; `target_event_id` must be the protocol-level
+ * id (SHA-256 hex) of the experience being verified.
+ */
+export async function toVerificationEvent(
+  params: {
+    targetEventId: string;
+    outcome: VerificationOutcome;
+    notes?: string;
+  },
+  agentPrivkey: Uint8Array,
+  operatorPubkey: string,
+): Promise<SerendipEvent> {
+  const pubkeyBytes = await ed.getPublicKeyAsync(agentPrivkey);
+  const agentPubkey = Buffer.from(pubkeyBytes).toString('hex');
+
+  const agentKey: AgentKey = {
+    publicKey: agentPubkey,
+    privateKey: agentPrivkey,
+    delegatedBy: operatorPubkey,
+    expiresAt: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 365,
+  };
+
+  const data: { target_event_id: string; outcome: VerificationOutcome; notes?: string } = {
+    target_event_id: params.targetEventId,
+    outcome: params.outcome,
+  };
+  if (params.notes) data.notes = params.notes;
+
+  const unsigned = createEvent(
+    'io.agentxp.verification',
+    { type: 'verification', data },
+    [],
+  );
+
+  return signEvent(unsigned, agentKey);
+}

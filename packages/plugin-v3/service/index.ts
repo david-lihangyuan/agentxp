@@ -16,8 +16,10 @@ import { distill } from './distiller.js'
 import { checkMilestones } from './milestone-tracker.js'
 import { detectRepeatedPatterns } from './agent-speaks.js'
 import { processNewFeedback } from './scoring.js'
-import { publishPending, type PluginConfig } from './publisher.js'
+import { publishPending, pullPulseEvents, type PluginConfig } from './publisher.js'
 import { pullNetworkExperiences, type PullConfig } from './network-puller.js'
+import { runSearchPulse } from './search-pulse.js'
+import { publishVerifications } from './verifier.js'
 
 export interface ServiceOptions {
   config?: PluginConfig
@@ -26,6 +28,8 @@ export interface ServiceOptions {
   skipAgentSpeaks?: boolean
   skipScoring?: boolean
   skipPublish?: boolean
+  skipSearchPulse?: boolean
+  skipVerifications?: boolean
 }
 
 export interface TickResult {
@@ -37,6 +41,8 @@ export interface TickResult {
   retried: number
   blocked: number
   pulled: number
+  searched: number
+  verified: number
 }
 
 /**
@@ -53,6 +59,8 @@ export async function tick(db: Db, opts: ServiceOptions = {}): Promise<TickResul
     retried: 0,
     blocked: 0,
     pulled: 0,
+    searched: 0,
+    verified: 0,
   }
 
   // 1. Distillation
@@ -82,7 +90,7 @@ export async function tick(db: Db, opts: ServiceOptions = {}): Promise<TickResul
     result.scored = scored.length
   }
 
-  // 5. Publisher
+  // 5. Publisher — outbound broadcast of reflections
   if (!opts.skipPublish && opts.config) {
     const publishResult = await publishPending(db, opts.config)
     result.published = publishResult.published
@@ -90,7 +98,24 @@ export async function tick(db: Db, opts: ServiceOptions = {}): Promise<TickResul
     result.blocked = publishResult.blocked
   }
 
-  // 6. Network puller — pull experiences from other agents
+  // 6. Search pulse — query relay on behalf of recent reflections so
+  //    matching cross-operator experiences transition on the relay side.
+  if (!opts.skipSearchPulse && opts.config?.relayUrl && opts.config?.operatorPubkey) {
+    const sp = await runSearchPulse(db, {
+      relayUrl: opts.config.relayUrl,
+      operatorPubkey: opts.config.operatorPubkey,
+    })
+    result.searched = sp.searched
+  }
+
+  // 7. Verifier — reflect session outcomes back to authors of injected
+  //    network experiences as signed verification events.
+  if (!opts.skipVerifications && opts.config) {
+    const vr = await publishVerifications(db, opts.config)
+    result.verified = vr.published
+  }
+
+  // 8. Network puller — pull experiences from other agents
   if (opts.config?.relayUrl && opts.config?.operatorPubkey) {
     const pullConfig: PullConfig = {
       relayUrl: opts.config.relayUrl,
@@ -98,6 +123,12 @@ export async function tick(db: Db, opts: ServiceOptions = {}): Promise<TickResul
     }
     const pullResult = await pullNetworkExperiences(db, pullConfig)
     result.pulled = pullResult.imported
+  }
+
+  // 9. Pulse pull — fold back all the state transitions that steps 5-7
+  //    triggered on the relay (discovered / verified / propagating).
+  if (opts.config) {
+    await pullPulseEvents(db, opts.config)
   }
 
   return result
@@ -108,5 +139,7 @@ export { distill } from './distiller.js'
 export { checkMilestones } from './milestone-tracker.js'
 export { detectRepeatedPatterns } from './agent-speaks.js'
 export { computeImpactScore, processNewFeedback } from './scoring.js'
-export { publishPending } from './publisher.js'
+export { publishPending, pullPulseEvents } from './publisher.js'
+export { runSearchPulse } from './search-pulse.js'
+export { publishVerifications, aggregateOutcome } from './verifier.js'
 export type { PluginConfig } from './publisher.js'

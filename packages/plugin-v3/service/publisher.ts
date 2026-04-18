@@ -187,9 +187,6 @@ export async function publishPending(db: Db, config: PluginConfig): Promise<Publ
     }
   }
 
-  // 6. Pull pulse events (best-effort)
-  await pullPulseEvents(db, config)
-
   return results
 }
 
