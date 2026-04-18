@@ -81,7 +81,7 @@ surface. No SPEC mapping is required.
 
 | Legacy path | Role |
 |---|---|
-| `legacy/CLAUDE.md` | Pre-SPEC working conventions for the AI assistant. The active ruleset now lives in the repo root `CLAUDE.md` and, post-Step 5, may migrate to `.augment/rules/`. |
+| `legacy/CLAUDE.md` | Pre-SPEC working conventions for the AI assistant. The active ruleset now lives in `.augment/rules/project.md` (BOOTSTRAP §5 graduation, commit see ADR-001 date). |
 | `legacy/README.md` | Pre-SPEC project README. The current `README.md` at repo root is the authoritative introduction. |
 
 ---
