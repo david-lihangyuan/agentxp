@@ -27,8 +27,8 @@ export interface PullPulseResponse {
 export class PulseAPI {
   private pulseStateMachine: PulseStateMachine
 
-  constructor(private db: Database.Database) {
-    this.pulseStateMachine = new PulseStateMachine(db)
+  constructor(private db: Database.Database, pulseStateMachine?: PulseStateMachine) {
+    this.pulseStateMachine = pulseStateMachine ?? new PulseStateMachine(db)
   }
 
   /**

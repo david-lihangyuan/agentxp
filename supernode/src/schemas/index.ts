@@ -12,6 +12,8 @@ export { RegisterNodeBody } from './nodes'
 export { PulseOutcomeBody } from './pulse'
 export { ExperienceRelationBody } from './experience'
 export { VisibilityBody } from './visibility'
+export { VerificationPayload, parseVerificationPayload } from './verification'
+export type { VerificationData } from './verification'
 export {
   ColdStartStatusBody,
   ColdStartClaimBody,

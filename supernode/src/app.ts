@@ -17,6 +17,7 @@ import { ExperienceStore } from './agentxp/experience-store'
 import { ExperienceSearch } from './agentxp/experience-search'
 import { SubscriptionManager } from './agentxp/subscriptions'
 import { PulseAPI } from './agentxp/pulse-api'
+import { PulseStateMachine } from './agentxp/pulse'
 import { ImpactScoring } from './agentxp/scoring'
 import { ImpactVisibility } from './agentxp/impact-visibility'
 import { ExperienceRelations } from './agentxp/relations'
@@ -89,7 +90,8 @@ export function createApp(opts: AppOptions = {}): Hono {
   })
   const experienceSearch = new ExperienceSearch(db, opts.generateEmbedding)
   const subscriptionManager = new SubscriptionManager(db)
-  const pulseAPI = new PulseAPI(db)
+  const pulseStateMachine = new PulseStateMachine(db)
+  const pulseAPI = new PulseAPI(db, pulseStateMachine)
   const impactScoring = new ImpactScoring(db)
   const impactVisibility = new ImpactVisibility(db)
   const experienceRelations = new ExperienceRelations(db)
@@ -123,7 +125,15 @@ export function createApp(opts: AppOptions = {}): Hono {
 
   // --- /api/v1/ Routes ---
   const api = new Hono()
-  registerEventsRoutes(api, { db, eventHandler, experienceStore, experienceSearch, circuitBreaker })
+  registerEventsRoutes(api, {
+    db,
+    eventHandler,
+    experienceStore,
+    experienceSearch,
+    circuitBreaker,
+    impactScoring,
+    pulseStateMachine,
+  })
   registerSubscriptionsRoutes(api, { subscriptionManager })
   registerIdentitiesRoutes(api, { db, identityStore })
   registerNodesRoutes(api, { nodeRegistry })
