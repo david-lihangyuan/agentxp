@@ -19,3 +19,17 @@ supernode.log
 
 # Test-generated bundles
 tests/infra/.tmp-bundle/
+
+# OS
+.DS_Store
+
+# Temporary archive uploads (used only for ad-hoc sync; not source)
+docs.zip
+agentxp.zip
+*.tgz
+
+# Legacy archive build artifacts (source preserved, builds not)
+legacy/src-v1/**/node_modules/
+legacy/src-v1/**/dist/
+legacy/src-v1/**/*.tsbuildinfo
+legacy/src-v1/**/.bun/
