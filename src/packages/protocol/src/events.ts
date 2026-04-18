@@ -38,11 +38,12 @@ export function createEvent(
   kind: SerendipKind,
   payload: IntentPayload,
   tags: string[],
+  createdAt?: number,
 ): Omit<SerendipEvent, 'sig' | 'id' | 'pubkey' | 'operator_pubkey'> {
   assertKind(kind)
   return {
     v: 1,
-    created_at: Math.floor(Date.now() / 1000),
+    created_at: createdAt ?? Math.floor(Date.now() / 1000),
     kind,
     payload,
     tags,
