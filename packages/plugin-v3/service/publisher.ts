@@ -262,7 +262,12 @@ export async function pullPulseEvents(db: Db, config: PluginConfig): Promise<voi
     const response = await fetch(
       `${config.relayUrl}/api/v1/pulse?pubkey=${encodeURIComponent(config.operatorPubkey)}`
     )
-    if (!response.ok) return
+    if (!response.ok) {
+      console.warn(
+        `[agentxp-v3][pulse] relay responded ${response.status} for pubkey=${config.operatorPubkey.slice(0, 16)}`
+      )
+      return
+    }
 
     const body = (await response.json()) as PulseResponse
     const highlights = Array.isArray(body?.highlights) ? body.highlights : []
@@ -296,7 +301,9 @@ export async function pullPulseEvents(db: Db, config: PluginConfig): Promise<voi
     for (const [eventId, state] of maxStateByEvent) {
       update.run(state, eventId, PULSE_STATE_RANK[state])
     }
-  } catch {
-    // Silently fail: pulse events are best-effort.
+  } catch (err) {
+    console.warn(
+      `[agentxp-v3][pulse] pull failed: ${(err as Error)?.message ?? err}`
+    )
   }
 }

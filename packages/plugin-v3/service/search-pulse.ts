@@ -90,6 +90,9 @@ export async function runSearchPulse(
     try {
       const resp = await fetch(url)
       if (!resp.ok) {
+        console.warn(
+          `[agentxp-v3][search-pulse] relay responded ${resp.status} reflection=${row.id}`
+        )
         result.errors++
         continue
       }
@@ -97,7 +100,10 @@ export async function runSearchPulse(
       const precision = Array.isArray(body.precision) ? body.precision.length : 0
       const serendipity = Array.isArray(body.serendipity) ? body.serendipity.length : 0
       hits = precision + serendipity
-    } catch {
+    } catch (err) {
+      console.warn(
+        `[agentxp-v3][search-pulse] fetch failed reflection=${row.id} err=${(err as Error)?.message ?? err}`
+      )
       result.errors++
       continue
     }

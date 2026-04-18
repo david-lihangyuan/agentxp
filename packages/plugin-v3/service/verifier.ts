@@ -138,7 +138,10 @@ export async function publishVerifications(
           privKey,
           config.operatorPubkey,
         )
-      } catch {
+      } catch (err) {
+        console.warn(
+          `[agentxp-v3][verifier] signing failed target=${row.relay_event_id.slice(0, 16)} err=${(err as Error)?.message ?? err}`
+        )
         result.errors++
         continue
       }
@@ -150,10 +153,20 @@ export async function publishVerifications(
           body: JSON.stringify(signedEvent),
         })
         if (!resp.ok) {
+          const body =
+            typeof resp.text === 'function'
+              ? await resp.text().catch(() => '')
+              : ''
+          console.warn(
+            `[agentxp-v3][verifier] relay responded ${resp.status} target=${row.relay_event_id.slice(0, 16)} body=${body.slice(0, 200)}`
+          )
           result.errors++
           continue
         }
-      } catch {
+      } catch (err) {
+        console.warn(
+          `[agentxp-v3][verifier] POST failed target=${row.relay_event_id.slice(0, 16)} err=${(err as Error)?.message ?? err}`
+        )
         result.errors++
         continue
       }
