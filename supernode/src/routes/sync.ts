@@ -25,13 +25,13 @@ export function registerSyncRoutes(api: Hono, deps: SyncDeps): void {
     const sinceMs = parseNonNegInt(c.req.query('since'), 0)
     const kinds = c.req.query('kinds') ?? undefined
 
-    const isRegistered = nodeRegistry.isRegistered(relayPubkey)
+    const isVerified = nodeRegistry.isVerified(relayPubkey)
 
     const result = syncManager.getEventsForSync({
       since: sinceMs,
       kinds,
       relayPubkey,
-      isRegistered,
+      isVerified,
     })
 
     return c.json(result)

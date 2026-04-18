@@ -113,24 +113,33 @@ describe('G2: Pull-Based Sync', () => {
     expect(body['data_scope']).toBe('public_only')
   })
 
-  it('GET /api/v1/sync for registered relay gets full public events', async () => {
+  it('GET /api/v1/sync for verified (trusted) relay gets full public events', async () => {
     const operatorKey = await generateOperatorKey()
     const headers = await makeRelayHeaders(operatorKey)
 
+    // Rebuild app with this relay on the admin trust list so registration
+    // marks it verified=1 and sync returns `full` scope.
+    const trustedDb = openDatabase(':memory:')
+    const trustedRegistry = new NodeRegistry(trustedDb, [operatorKey.publicKey])
+    const trustedApp = createApp({
+      db: trustedDb,
+      trustedNodePubkeys: [operatorKey.publicKey],
+    })
+
     const agentKey = await delegateAgentKey(operatorKey, 'relay-agent', 365)
-    await nodeRegistry.registerWithProof({
+    await trustedRegistry.registerWithProof({
       relay_pubkey: operatorKey.publicKey,
       challenge: 'test',
       signature: JSON.stringify(await signEvent(createEvent('intent.broadcast', { type: 'test', data: {} }, []), agentKey)),
       url: 'wss://relay2.example.com',
     })
 
-    const res = await app.request('/api/v1/sync?since=0', {
+    const res = await trustedApp.request('/api/v1/sync?since=0', {
       headers,
     })
     expect(res.status).toBe(200)
     const body = await res.json() as Record<string, unknown>
-    // Registered relays do not have the public_only restriction
+    // Verified (trusted) relays do not have the public_only restriction
     expect(body['data_scope']).not.toBe('public_only')
   })
 

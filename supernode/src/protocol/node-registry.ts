@@ -31,7 +31,31 @@ export function generateChallenge(): { challenge: string; expires_in: number } {
 }
 
 export class NodeRegistry {
-  constructor(private db: Database.Database) {}
+  private readonly trustedPubkeys: ReadonlySet<string>
+
+  /**
+   * @param db SQLite database handle.
+   * @param trustedPubkeys Optional set of relay pubkeys (hex, lower-case)
+   *   that are granted `verified=1` on registration. All other registering
+   *   relays are recorded with `verified=0` and only receive the
+   *   `public_only` sync scope. Source of truth in production is the
+   *   `RELAY_TRUSTED_NODES` environment variable (see app.ts).
+   */
+  constructor(
+    private db: Database.Database,
+    trustedPubkeys: Iterable<string> = [],
+  ) {
+    this.trustedPubkeys = new Set(
+      Array.from(trustedPubkeys)
+        .map((k) => k.trim().toLowerCase())
+        .filter((k) => k.length > 0),
+    )
+  }
+
+  /** Whether a given pubkey is on the admin-configured trusted list. */
+  isTrustedPubkey(pubkey: string): boolean {
+    return this.trustedPubkeys.has(pubkey.toLowerCase())
+  }
 
   /**
    * Store a pending challenge for a relay pubkey.
@@ -74,20 +98,25 @@ export class NodeRegistry {
     }
 
     const now = Math.floor(Date.now() / 1000)
+    const verified = this.isTrustedPubkey(input.relay_pubkey) ? 1 : 0
 
     try {
       this.db
         .prepare(`
           INSERT INTO relay_nodes (pubkey, url, registered_at, last_seen, verified)
-          VALUES (?, ?, ?, ?, 1)
+          VALUES (?, ?, ?, ?, ?)
           ON CONFLICT(pubkey) DO UPDATE SET
             url = excluded.url,
             last_seen = excluded.last_seen,
-            verified = 1
+            verified = excluded.verified
         `)
-        .run(input.relay_pubkey, input.url, now, now)
+        .run(input.relay_pubkey, input.url, now, now, verified)
 
-      logger.info('Node registered', { pubkey: input.relay_pubkey, url: input.url })
+      logger.info('Node registered', {
+        pubkey: input.relay_pubkey,
+        url: input.url,
+        verified: verified === 1,
+      })
       return { ok: true }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -113,8 +142,25 @@ export class NodeRegistry {
     })
   }
 
-  /** Check whether a relay pubkey is registered and verified. */
+  /**
+   * Whether a relay pubkey has a row in relay_nodes, regardless of
+   * `verified` status. Use isVerified() to gate access to the `full`
+   * sync scope; isRegistered() is only for "has this pubkey ever
+   * completed the challenge-response handshake".
+   */
   isRegistered(pubkey: string): boolean {
+    const row = this.db
+      .prepare('SELECT 1 FROM relay_nodes WHERE pubkey = ?')
+      .get(pubkey) as { 1: number } | undefined
+    return row !== undefined
+  }
+
+  /**
+   * Whether a relay pubkey is registered AND on the admin-configured
+   * trust list (relay_nodes.verified = 1). Only verified relays may
+   * receive the `full` sync scope.
+   */
+  isVerified(pubkey: string): boolean {
     const row = this.db
       .prepare('SELECT verified FROM relay_nodes WHERE pubkey = ?')
       .get(pubkey) as { verified: number } | undefined

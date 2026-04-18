@@ -104,15 +104,22 @@ describe('G1: Node Registration & Discovery', () => {
 
   it('GET /api/v1/nodes returns registered nodes with last_seen and status', async () => {
     const operatorKey = await generateOperatorKey()
-    // Register directly via NodeRegistry
-    await nodeRegistry.registerWithProof({
+    // listWithStatus() only surfaces verified relays; register via a
+    // registry that trusts this pubkey so it becomes visible.
+    const trustedDb = openDatabase(':memory:')
+    const trustedRegistry = new NodeRegistry(trustedDb, [operatorKey.publicKey])
+    const trustedApp = createApp({
+      db: trustedDb,
+      trustedNodePubkeys: [operatorKey.publicKey],
+    })
+    await trustedRegistry.registerWithProof({
       relay_pubkey: operatorKey.publicKey,
       challenge: 'test-challenge',
       signature: await signChallenge('test-challenge', operatorKey),
       url: 'wss://relay2.example.com',
     })
 
-    const res = await app.request('/api/v1/nodes')
+    const res = await trustedApp.request('/api/v1/nodes')
     expect(res.status).toBe(200)
     const body = await res.json() as Record<string, unknown>
     expect(Array.isArray(body['nodes'])).toBe(true)

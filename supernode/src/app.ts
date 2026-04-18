@@ -61,6 +61,22 @@ export interface AppOptions {
   db?: Database.Database
   /** Embedding generator function (for testing) */
   generateEmbedding?: (text: string) => Promise<number[]>
+  /**
+   * Admin-configured trusted relay pubkeys. Relays on this list are
+   * granted `verified=1` on registration and the `full` sync scope. In
+   * production this is populated from the RELAY_TRUSTED_NODES env var
+   * (comma-separated hex pubkeys).
+   */
+  trustedNodePubkeys?: string[]
+}
+
+/** Parse RELAY_TRUSTED_NODES env var into a deduplicated pubkey list. */
+function loadTrustedNodesFromEnv(): string[] {
+  const raw = process.env['RELAY_TRUSTED_NODES'] ?? ''
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
 }
 
 /** Create and configure the Hono application. */
@@ -81,7 +97,8 @@ export function createApp(opts: AppOptions = {}): Hono {
   // --- Domain Services ---
   const eventHandler = new EventHandler(db)
   const identityStore = new IdentityStore(db)
-  const nodeRegistry = new NodeRegistry(db)
+  const trustedNodePubkeys = opts.trustedNodePubkeys ?? loadTrustedNodesFromEnv()
+  const nodeRegistry = new NodeRegistry(db, trustedNodePubkeys)
   const syncManager = new SyncManager(db, nodeRegistry)
   const experienceStore = new ExperienceStore(db, circuitBreaker, {
     generateEmbedding: opts.generateEmbedding,

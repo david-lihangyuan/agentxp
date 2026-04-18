@@ -1,7 +1,7 @@
 // Supernode — Pull-Based Relay Sync
 // Handles GET /api/v1/sync endpoint and scheduled sync from known peers.
-// Registered relays: all public events.
-// Unregistered relays: public events only, strict rate limit.
+// Verified relays (admin-whitelisted via RELAY_TRUSTED_NODES): `full` scope.
+// Registered-but-unverified or unknown relays: `public_only` scope.
 
 import type Database from 'better-sqlite3'
 import { verifyEvent, type SerendipEvent } from '@serendip/protocol'
@@ -33,18 +33,18 @@ export class SyncManager {
 
   /**
    * Query the local events table for sync response.
-   * Registered relays get all public events; unregistered get public_only scope.
+   * Verified relays get `full` scope; everyone else gets `public_only`.
    *
    * @param since - Unix timestamp in milliseconds (since parameter from query)
    * @param kinds - Comma-separated list of kinds to filter (optional)
    * @param relayPubkey - The requesting relay's pubkey (from X-Relay-Pubkey header)
-   * @param isRegistered - Whether the requesting relay is registered
+   * @param isVerified - Whether the requesting relay is on the admin trust list
    */
   getEventsForSync(params: {
     since: number
     kinds?: string
     relayPubkey: string
-    isRegistered: boolean
+    isVerified: boolean
   }): { events: SerendipEvent[]; data_scope: 'full' | 'public_only' } {
     const sinceSec = Math.floor(params.since / 1000)
 
@@ -54,7 +54,7 @@ export class SyncManager {
     if (params.kinds) {
       const kindList = params.kinds.split(',').map((k) => k.trim()).filter(Boolean)
       if (kindList.length === 0) {
-        return { events: [], data_scope: params.isRegistered ? 'full' : 'public_only' }
+        return { events: [], data_scope: params.isVerified ? 'full' : 'public_only' }
       }
 
       const placeholders = kindList.map(() => '?').join(',')
@@ -107,7 +107,7 @@ export class SyncManager {
 
     return {
       events,
-      data_scope: params.isRegistered ? 'full' : 'public_only',
+      data_scope: params.isVerified ? 'full' : 'public_only',
     }
   }
 
