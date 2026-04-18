@@ -1,6 +1,11 @@
 // Supernode AgentXP — Cold Start Event Store
-// Receives and routes cold-start protocol events:
+// Backing store for the active seed pipeline. Receives and routes cold-start
+// protocol events:
 //   intent.question, experience.solution, verification.pass, verification.fail
+//
+// Driven by scripts/cold-start/pipeline.ts (harvest → solve → verify). The
+// store never synthesizes signed events; published solutions flow through
+// the operator-signed /contribute endpoint.
 
 import type Database from 'better-sqlite3'
 import type { SerendipEvent } from '@serendip/protocol'

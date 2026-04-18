@@ -1,9 +1,13 @@
 // Cold-start pipeline routes — /api/cold-start/*
-// Bootstrap-era routes for harvesting Stack Overflow questions and
+// Active seed-pipeline routes for harvesting Stack Overflow questions and
 // recording AI-generated solutions. Mounted directly on `app` (not under
 // /api/v1/). Verified solutions are surfaced via /api/cold-start/solutions
 // for an operator to review and submit through the signed /contribute
 // endpoint; the relay itself never synthesizes events.
+//
+// See scripts/cold-start/pipeline.ts for the harvest → solve → verify
+// driver that feeds these endpoints, and docs/plans/2026-04-12-cold-start-
+// pipeline-design.md for the design.
 
 import type { Hono } from 'hono'
 import type { ColdStartStore } from '../agentxp/cold-start-store'
