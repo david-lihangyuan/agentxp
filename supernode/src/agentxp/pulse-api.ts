@@ -9,7 +9,14 @@ import { PulseStateMachine } from './pulse'
 
 export interface PulseHighlight {
   id: number
+  /** Local DB autoincrement id of the experience on this relay. */
   experience_id: number
+  /**
+   * Protocol-level event id (SHA-256 hex) of the experience. Clients use
+   * this to match pulse events back to their own publish log, since the
+   * relay's local experience_id is opaque to them.
+   */
+  event_id: string
   type: string
   from_pubkey: string | null
   owner_pubkey: string | null
@@ -49,6 +56,7 @@ export class PulseAPI {
         SELECT
           pe.id,
           pe.experience_id,
+          e.event_id AS event_id,
           pe.type,
           pe.from_pubkey,
           e.operator_pubkey AS owner_pubkey,
@@ -65,6 +73,7 @@ export class PulseAPI {
       .all(ownerPubkey, since) as Array<{
         id: number
         experience_id: number
+        event_id: string
         type: string
         from_pubkey: string | null
         owner_pubkey: string
@@ -76,6 +85,7 @@ export class PulseAPI {
     const highlights: PulseHighlight[] = rows.map((row) => ({
       id: row.id,
       experience_id: row.experience_id,
+      event_id: row.event_id,
       type: row.type,
       from_pubkey: row.from_pubkey,
       owner_pubkey: row.owner_pubkey,

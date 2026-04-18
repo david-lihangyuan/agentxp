@@ -228,32 +228,78 @@ async function recordRetry(db: Db, reflectionId: number): Promise<void> {
   }
 }
 
+/** Pulse states tracked locally, in monotonic order. */
+const PULSE_STATE_RANK: Record<string, number> = {
+  dormant: 0,
+  discovered: 1,
+  verified: 2,
+  propagating: 3,
+}
+
+type TrackedPulseState = 'discovered' | 'verified' | 'propagating'
+
+interface PulseHighlight {
+  event_id?: string
+  type?: string
+}
+
+interface PulseResponse {
+  highlights?: PulseHighlight[]
+  summary?: string
+  total?: number
+}
+
 /**
- * Pull pulse events from relay for published experiences.
- * Updates pulse_state in published_log.
+ * Pull pulse events from relay for published experiences and advance
+ * published_log.pulse_state to the highest state seen, never downgrading.
  *
- * NOTE 2026-04-17: relay currently does not expose /api/v1/pulse. This is
- * a best-effort pull with silent failure; once Relay publishes pulse feed
- * the existing handler will just start working.
+ * Response shape is `{ highlights, summary, total }`; each highlight has
+ * `event_id` (protocol-level SHA-256 hex) which matches
+ * published_log.relay_event_id. Non-state highlights such as
+ * `resolved_hit` and `subscription_match` are ignored here.
+ *
+ * Exported for unit-testing.
  */
-async function pullPulseEvents(db: Db, config: PluginConfig): Promise<void> {
+export async function pullPulseEvents(db: Db, config: PluginConfig): Promise<void> {
   try {
-    const response = await fetch(`${config.relayUrl}/api/v1/pulse?pubkey=${config.operatorPubkey}`)
+    const response = await fetch(
+      `${config.relayUrl}/api/v1/pulse?pubkey=${encodeURIComponent(config.operatorPubkey)}`
+    )
     if (!response.ok) return
 
-    const events = await response.json()
-    if (!Array.isArray(events)) return
+    const body = (await response.json()) as PulseResponse
+    const highlights = Array.isArray(body?.highlights) ? body.highlights : []
+    if (highlights.length === 0) return
 
-    for (const event of events) {
-      if (event.type && event.experience_id) {
-        db.db.prepare(`
-          UPDATE published_log 
-          SET pulse_state = ? 
-          WHERE relay_event_id = ?
-        `).run(event.type, event.experience_id)
+    // Aggregate: for each event_id, keep the highest-ranked tracked state.
+    const maxStateByEvent = new Map<string, TrackedPulseState>()
+    for (const h of highlights) {
+      if (!h.event_id || typeof h.event_id !== 'string') continue
+      const t = h.type
+      if (t !== 'discovered' && t !== 'verified' && t !== 'propagating') continue
+      const prev = maxStateByEvent.get(h.event_id)
+      if (!prev || PULSE_STATE_RANK[t] > PULSE_STATE_RANK[prev]) {
+        maxStateByEvent.set(h.event_id, t)
       }
     }
-  } catch (err) {
-    // Silently fail: pulse events are best-effort
+
+    // Apply with no-downgrade guard (only advance if incoming rank is higher).
+    const update = db.db.prepare(
+      `UPDATE published_log
+         SET pulse_state = ?
+         WHERE relay_event_id = ?
+           AND CASE pulse_state
+                 WHEN 'dormant' THEN 0
+                 WHEN 'discovered' THEN 1
+                 WHEN 'verified' THEN 2
+                 WHEN 'propagating' THEN 3
+                 ELSE 0
+               END < ?`
+    )
+    for (const [eventId, state] of maxStateByEvent) {
+      update.run(state, eventId, PULSE_STATE_RANK[state])
+    }
+  } catch {
+    // Silently fail: pulse events are best-effort.
   }
 }

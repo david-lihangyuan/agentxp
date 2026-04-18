@@ -78,6 +78,31 @@ describe('C2: Pulse Events Pull API — Core', () => {
     expect(response.highlights.length).toBeGreaterThan(0)
   })
 
+  it('highlights expose the protocol event_id for client-side matching', async () => {
+    const { agentKey } = await makeAgent()
+    const expId = await publishExperience(db, store, agentKey)
+    const { agentKey: searcher } = await makeAgent()
+    pulseStateMachine.handleSearchHit(expId, searcher.publicKey, searcher.delegatedBy)
+
+    const expRow = db
+      .prepare('SELECT event_id FROM experiences WHERE id = ?')
+      .get(expId) as { event_id: string }
+    expect(expRow.event_id).toMatch(/^[0-9a-f]{64}$/)
+
+    const response = pulseAPI.pull({
+      pubkey: agentKey.publicKey,
+      operatorPubkey: agentKey.delegatedBy,
+      since: 0,
+    })
+
+    expect(response.highlights.length).toBeGreaterThan(0)
+    for (const h of response.highlights) {
+      expect(typeof h.event_id).toBe('string')
+      expect(h.event_id).toMatch(/^[0-9a-f]{64}$/)
+    }
+    expect(response.highlights.some((h) => h.event_id === expRow.event_id)).toBe(true)
+  })
+
   it('summary is structured string with counts', async () => {
     const { agentKey } = await makeAgent()
     const expId = await publishExperience(db, store, agentKey)
