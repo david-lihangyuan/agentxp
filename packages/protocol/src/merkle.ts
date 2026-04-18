@@ -2,8 +2,8 @@
 // Standard binary Merkle tree over event ids.
 // Used for cross-verifying relay data against local sovereign copies.
 import { sha256 } from '@noble/hashes/sha256'
-import type { SerendipEvent } from './types'
-import { bytesToHex, hexToBytes } from './utils'
+import type { SerendipEvent } from './types.js'
+import { bytesToHex, hexToBytes } from './utils.js'
 
 // ─────────────────────────────────────────────────────────────
 // Internal helpers

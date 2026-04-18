@@ -1,8 +1,8 @@
 // Serendip Protocol — Ed25519 Key Generation & Delegation
 import { ed25519 } from '@noble/curves/ed25519'
 import { randomBytes } from '@noble/hashes/utils'
-import type { OperatorKey, AgentKey, SerendipEvent } from './types'
-import { bytesToHex } from './utils'
+import type { OperatorKey, AgentKey, SerendipEvent } from './types.js'
+import { bytesToHex } from './utils.js'
 
 /**
  * Generate a new Operator master key pair (Ed25519).

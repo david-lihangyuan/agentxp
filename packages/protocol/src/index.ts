@@ -23,24 +23,24 @@ export type {
   VersionContext,
   ReasoningTrace,
   TraceFeedback,
-} from './types'
+} from './types.js'
 
 export {
   generateOperatorKey,
   delegateAgentKey,
   revokeAgentKey,
   createDelegateEvent,
-} from './keys'
+} from './keys.js'
 
 export {
   createEvent,
   signEvent,
   verifyEvent,
   canonicalize,
-} from './events'
+} from './events.js'
 
 export {
   buildMerkleRoot,
   getMerkleProof,
   verifyMerkleProof,
-} from './merkle'
+} from './merkle.js'

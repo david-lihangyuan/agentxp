@@ -1,8 +1,8 @@
 // Serendip Protocol — Event creation, signing, and verification
 import { ed25519 } from '@noble/curves/ed25519'
 import { sha256 } from '@noble/hashes/sha256'
-import type { SerendipEvent, SerendipKind, IntentPayload, AgentKey } from './types'
-import { bytesToHex, hexToBytes } from './utils'
+import type { SerendipEvent, SerendipKind, IntentPayload, AgentKey } from './types.js'
+import { bytesToHex, hexToBytes } from './utils.js'
 
 // ─────────────────────────────────────────────────────────────
 // Internal helpers
