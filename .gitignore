@@ -43,3 +43,10 @@ legacy/src-v1/**/dist/
 legacy/src-v1/**/*.tsbuildinfo
 legacy/src-v1/**/.bun/
 legacy/src-v1/**/tests/infra/.tmp-bundle/
+
+# Python (skill-hermes)
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
