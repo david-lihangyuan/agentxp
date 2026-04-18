@@ -1,0 +1,58 @@
+{
+  "name": "@agentxp/plugin-v3",
+  "version": "1.0.0",
+  "description": "AgentXP Plugin v3 for OpenClaw \u2014 agent experience learning through reflection, injection, and cross-agent knowledge sharing",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist/",
+    "openclaw.plugin.json",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "openclaw",
+    "plugin",
+    "agentxp",
+    "agent",
+    "experience",
+    "learning",
+    "reflection",
+    "serendip"
+  ],
+  "author": "AgentXP Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/david-lihangyuan/agentxp.git",
+    "directory": "packages/plugin-v3"
+  },
+  "dependencies": {
+    "@noble/ed25519": "^3.1.0",
+    "@agentxp/protocol": "^1.0.0",
+    "better-sqlite3": "^11.8.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  },
+  "peerDependencies": {
+    "openclaw": ">=4.15.0"
+  },
+  "peerDependenciesMeta": {
+    "openclaw": {
+      "optional": true
+    }
+  }
+}

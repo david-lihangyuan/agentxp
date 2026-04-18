@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "outDir": "./dist",
+    "rootDir": ".",
+    "noEmit": false,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "paths": {
+      "openclaw/*": ["/usr/local/lib/node_modules/openclaw/dist/*"]
+    }
+  },
+  "include": ["*.ts", "hooks/**/*.ts", "service/**/*.ts", "protocol/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

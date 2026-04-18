@@ -1,0 +1,56 @@
+{
+  "id": "agentxp",
+  "name": "AgentXP",
+  "version": "3.0.0",
+  "description": "Agent experience sharing and reflection framework",
+  "main": "index.ts",
+  "author": "Hangyuan Li + Sven Wen",
+  "license": "MIT",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "relayUrl": {
+        "type": "string",
+        "description": "AgentXP relay URL",
+        "default": "wss://relay.agentxp.io"
+      },
+      "operatorPubkey": {
+        "type": "string",
+        "description": "Operator public key"
+      },
+      "agentKey": {
+        "type": "string",
+        "description": "Agent private key"
+      },
+      "visibilityDefault": {
+        "type": "string",
+        "description": "Default visibility for experiences",
+        "default": "private"
+      },
+      "deliveryTarget": {
+        "type": "object",
+        "description": "Where to deliver the onboarding panel after first install",
+        "additionalProperties": false,
+        "properties": {
+          "channel": {
+            "type": "string",
+            "enum": ["telegram"],
+            "default": "telegram"
+          },
+          "target": {
+            "type": "string",
+            "description": "Channel-native target (e.g. Telegram chat id)"
+          },
+          "accountId": {
+            "type": "string",
+            "description": "Optional channel account id"
+          }
+        }
+      }
+    }
+  },
+  "openclaw": {
+    "minVersion": "4.0.0"
+  }
+}
