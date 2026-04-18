@@ -40,77 +40,6 @@ interface PluginConfig {
   operatorPubkey?: string;
   agentKey?: string;
   visibilityDefault?: 'public' | 'private' | 'auto';
-  /**
-   * Where the onboarding panel should be delivered after first install.
-   * If omitted, panel delivery is skipped silently.
-   */
-  deliveryTarget?: {
-    channel?: 'telegram';
-    target?: string;
-    accountId?: string;
-  };
-}
-
-// ─── Panel delivery helpers ────────────────────────────────────────────
-
-/** Chunk a long panel string into pieces safe for Telegram (<4096). */
-function splitPanel(text: string, maxLen: number): string[] {
-  if (text.length <= maxLen) return [text];
-  const chunks: string[] = [];
-  let remaining = text;
-  while (remaining.length > maxLen) {
-    let cut = remaining.lastIndexOf('\n\n', maxLen);
-    if (cut < maxLen * 0.5) cut = remaining.lastIndexOf('\n', maxLen);
-    if (cut < maxLen * 0.5) cut = maxLen;
-    chunks.push(remaining.slice(0, cut));
-    remaining = remaining.slice(cut).replace(/^\n+/, '');
-  }
-  if (remaining.length > 0) chunks.push(remaining);
-  return chunks;
-}
-
-async function deliverPanelToTelegram(params: {
-  api: OpenClawPluginApi;
-  logger: { info: (msg: string) => void; warn: (msg: string) => void };
-  target: string;
-  accountId?: string;
-  panel: string;
-}): Promise<boolean> {
-  const { api, logger, target, accountId, panel } = params;
-  try {
-    const runtime = (api as any).runtime;
-    const loadAdapter = runtime?.channel?.outbound?.loadAdapter;
-    if (typeof loadAdapter !== 'function') {
-      logger.warn('[agentxp-v3] channel.outbound.loadAdapter unavailable, cannot deliver panel');
-      return false;
-    }
-    const adapter = await loadAdapter('telegram');
-    const send = adapter?.sendText;
-    if (!send) {
-      logger.warn('[agentxp-v3] telegram outbound adapter unavailable, cannot deliver panel');
-      return false;
-    }
-
-    // Wrap in triple-backtick code block so Telegram preserves the box-drawing layout.
-    const wrap = (body: string) => '```\n' + body + '\n```';
-    const rawChunks = splitPanel(panel, 3800);
-    const chunks = rawChunks.map(wrap);
-
-    for (const chunk of chunks) {
-      await send({
-        cfg: api.config,
-        to: target,
-        text: chunk,
-        ...(accountId ? { accountId } : {}),
-      });
-      await new Promise((r) => setTimeout(r, 500));
-    }
-    logger.info(`[agentxp-v3] delivered onboarding panel to telegram:${target} (${chunks.length} chunk(s))`);
-    return true;
-  } catch (err) {
-    logger.warn(`[agentxp-v3] panel delivery failed: ${(err as Error)?.message ?? err}`);
-    return false;
-  }
 }
 
 // ─── Plugin entry ──────────────────────────────────────────────────────────
@@ -143,7 +72,6 @@ export default definePluginEntry({
       operatorPubkey: rawConfig.operatorPubkey ?? '',
       agentKey: rawConfig.agentKey ?? '',
       visibilityDefault: rawConfig.visibilityDefault ?? 'private',
-      deliveryTarget: rawConfig.deliveryTarget,
     };
 
     // ── Phase 2: Create DB ─────────────────────────────────────────────────
@@ -175,22 +103,6 @@ export default definePluginEntry({
           const result = await runOnboarding(db, workspaceDir, api);
           if (!result.skipped) {
             logger.info(`[agentxp-v3] onboarding complete:\n${result.fullPanel}`);
-
-            // Deliver panel to user via Telegram (best-effort, fail-safe).
-            const delivery = config.deliveryTarget;
-            const target = delivery?.target;
-            const channel = delivery?.channel ?? 'telegram';
-            if (target && channel === 'telegram') {
-              await deliverPanelToTelegram({
-                api,
-                logger,
-                target,
-                accountId: delivery?.accountId,
-                panel: result.fullPanel,
-              });
-            } else {
-              logger.info('[agentxp-v3] no deliveryTarget configured — skipping panel delivery');
-            }
           }
         } else {
           logger.warn('[agentxp-v3] no workspace directory found, skipping onboarding');

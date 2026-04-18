@@ -27,26 +27,6 @@
         "type": "string",
         "description": "Default visibility for experiences",
         "default": "private"
-      },
-      "deliveryTarget": {
-        "type": "object",
-        "description": "Where to deliver the onboarding panel after first install",
-        "additionalProperties": false,
-        "properties": {
-          "channel": {
-            "type": "string",
-            "enum": ["telegram"],
-            "default": "telegram"
-          },
-          "target": {
-            "type": "string",
-            "description": "Channel-native target (e.g. Telegram chat id)"
-          },
-          "accountId": {
-            "type": "string",
-            "description": "Optional channel account id"
-          }
-        }
       }
     }
   },
