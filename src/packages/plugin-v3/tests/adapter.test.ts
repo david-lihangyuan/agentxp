@@ -3,9 +3,16 @@
 // that captures hook registrations and allows the test to invoke any
 // registered handler with a synthetic event + ctx shaped like the real
 // OpenClaw host would fire.
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { existsSync, mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { openPluginDb } from '../src/db.js'
-import { createAgentxpPluginRegister, AGENTXP_PLUGIN_ID } from '../src/adapter.js'
+import {
+  agentxpPlugin,
+  createAgentxpPluginRegister,
+  AGENTXP_PLUGIN_ID,
+} from '../src/adapter.js'
 
 type Registration = { hook: string; handler: Function; opts?: { priority?: number } }
 
@@ -199,5 +206,65 @@ describe('OpenClaw adapter — createAgentxpPluginRegister', () => {
     } finally {
       db.close()
     }
+  })
+})
+
+// M7 Batch 2.5 — agentxpPlugin.register() reads pluginConfig and
+// wires everything itself. Earlier it threw; now it opens the DB at
+// the configured path and calls createAgentxpPluginRegister for us.
+describe('agentxpPlugin.register — pluginConfig wiring (M7 Batch 2.5)', () => {
+  const VALID_KEY = 'a'.repeat(64)
+  let tmp: string
+
+  function apiWithConfig(pluginConfig: Record<string, unknown>) {
+    const api = mockApi()
+    return {
+      ...api,
+      pluginConfig,
+      id: AGENTXP_PLUGIN_ID,
+      name: 'AgentXP',
+      source: 'test',
+      registrationMode: 'full' as const,
+      config: {},
+    }
+  }
+
+  beforeEach(() => {
+    tmp = mkdtempSync(join(tmpdir(), 'agentxp-register-'))
+  })
+
+  afterEach(() => {
+    rmSync(tmp, { recursive: true, force: true })
+  })
+
+  it('does not throw when pluginConfig supplies a valid operatorPublicKey', () => {
+    const dbPath = join(tmp, 'nested', 'sub', 'staging.db')
+    const api = apiWithConfig({ operatorPublicKey: VALID_KEY, stagingDbPath: dbPath })
+    expect(() => agentxpPlugin.register(api as never)).not.toThrow()
+    expect(existsSync(dbPath)).toBe(true)
+    // All six lifecycle hooks + two supplements were registered.
+    expect(api.registrations.length).toBe(6)
+    expect(api.corpusSupplements.length).toBe(1)
+    expect(api.promptSupplements.length).toBe(1)
+  })
+
+  it('creates missing parent directories for the staging DB', () => {
+    const dbPath = join(tmp, 'a', 'b', 'c', 'staging.db')
+    const api = apiWithConfig({ operatorPublicKey: VALID_KEY, stagingDbPath: dbPath })
+    agentxpPlugin.register(api as never)
+    expect(existsSync(dbPath)).toBe(true)
+  })
+
+  it('throws a readable error when operatorPublicKey is missing', () => {
+    const api = apiWithConfig({ stagingDbPath: join(tmp, 'x.db') })
+    expect(() => agentxpPlugin.register(api as never)).toThrowError(
+      /operatorPublicKey/,
+    )
+  })
+
+  it('throws when pluginConfig is missing entirely', () => {
+    const api = mockApi()
+    // Deliberately no pluginConfig field on the api object.
+    expect(() => agentxpPlugin.register(api as never)).toThrowError(/pluginConfig/i)
   })
 })

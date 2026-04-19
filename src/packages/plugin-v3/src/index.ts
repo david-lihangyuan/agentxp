@@ -26,10 +26,14 @@ export type { MessageSendingSignal, SessionSummaryInput } from './hooks.js'
 export {
   agentxpPlugin,
   createAgentxpPluginRegister,
+  openDbFromConfig,
   AGENTXP_PLUGIN_ID,
   AGENTXP_PLUGIN_NAME,
   AGENTXP_PLUGIN_DESCRIPTION,
 } from './adapter.js'
+
+export { resolvePluginConfig } from './config.js'
+export type { ResolvedPluginConfig, Visibility } from './config.js'
 
 export { openPluginDb } from './db.js'
 export type {

@@ -6,10 +6,14 @@
 // Six api.on(...) registrations across five OpenClaw hook names:
 //   session_start, before_tool_call (x2: block gate + tier-1 signal),
 //   after_tool_call, session_end, agent_end.
+import { mkdirSync } from 'node:fs'
+import { dirname } from 'node:path'
+
 import { definePluginEntry, emptyPluginConfigSchema } from 'openclaw/plugin-sdk/core'
 import type { OpenClawPluginApi } from 'openclaw/plugin-sdk/core'
 
-import type { PluginDb } from './db.js'
+import { resolvePluginConfig } from './config.js'
+import { openPluginDb, type PluginDb } from './db.js'
 import {
   onAgentEnd,
   onBeforeToolCall,
@@ -174,22 +178,34 @@ export function createAgentxpPluginRegister(
   }
 }
 
+// Opens the staging DB at the configured path, creating the parent
+// directory if necessary. Exported for tests that want to exercise
+// the register-flow without standing up the full OpenClawPluginApi.
+export function openDbFromConfig(stagingDbPath: string): PluginDb {
+  try {
+    mkdirSync(dirname(stagingDbPath), { recursive: true })
+  } catch (err) {
+    throw new Error(
+      `agentxp plugin: cannot create directory for stagingDbPath ` +
+        `(${stagingDbPath}): ${(err as Error).message}`,
+    )
+  }
+  return openPluginDb(stagingDbPath)
+}
+
 // Host-facing entry. OpenClaw loads this by importing the module and
 // looking for a default-shaped `definePluginEntry` return value. The
-// register() closure here is responsible for opening the staging DB
-// and wiring the adapter; for now we leave the DB open to the host's
-// integration layer (Batch 2 will source the path from api.config).
+// register() closure here resolves pluginConfig, opens the staging
+// DB, and hands the api off to createAgentxpPluginRegister.
 export const agentxpPlugin = definePluginEntry({
   id: AGENTXP_PLUGIN_ID,
   name: AGENTXP_PLUGIN_NAME,
   description: AGENTXP_PLUGIN_DESCRIPTION,
   configSchema: emptyPluginConfigSchema(),
-  register(_api) {
-    throw new Error(
-      'agentxpPlugin.register requires a PluginDb wired by the host loader; ' +
-        'call createAgentxpPluginRegister(db)(api) from the host entry instead. ' +
-        'Full wiring lands in Batch 2.',
-    )
+  register(api) {
+    const cfg = resolvePluginConfig(api.pluginConfig)
+    const db = openDbFromConfig(cfg.stagingDbPath)
+    createAgentxpPluginRegister(db)(api)
   },
 })
 
