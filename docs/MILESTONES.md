@@ -163,3 +163,79 @@ All of M0–M6 `DONE`, plus:
 
 Status: **DONE** on `f454845`. Tagged `mvp-v0.1.0`. Ready to open a
 PR from `feat/v0.1-impl` into `main`.
+
+
+---
+
+## M7 — Plugin v3 shippable as OpenClaw plugin (post-MVP)
+
+Scope: ship `@agentxp/plugin-v3` as a real OpenClaw plugin to npm
+public + GitHub. Decision recorded in `docs/adr/ADR-004`. Split into
+two batches; Batch 1 must land before Batch 2 begins.
+
+This milestone is **post-MVP**. Nothing under `mvp-v0.1.0` is
+changed; the MVP SPEC freeze (DP-4 T3=Y) holds for the tagged
+release and is superseded by ADR-004 only for subsequent work.
+
+### Batch 1 — adapter + manifest + full lifecycle hook surface
+
+Artefacts:
+- `src/packages/plugin-v3/openclaw.plugin.json` manifest with
+  `configSchema` (operator pubkey, agent key, relay URL,
+  visibility default)
+- `src/packages/plugin-v3/src/adapter.ts` exporting
+  `definePluginEntry({ id: 'agentxp', register(api) {...} })`
+- Three new hook handlers: `onSessionStart`, `onBeforeToolCall`,
+  `onAgentEnd`. The existing `onMessageSending` / `onToolCall` /
+  `onSessionEnd` are reused unchanged.
+- All six hooks registered via `api.on(...)` in the adapter
+- `package.json`: `"private": true` removed;
+  `publishConfig.access: "public"`; `files` includes
+  `openclaw.plugin.json`; optional peer dep
+  `"openclaw": ">=2026.4.15"`
+
+Checks:
+- [ ] `npm run build -w @agentxp/plugin-v3` produces `dist/` with
+      `adapter.js` and all six hook exports present
+- [ ] New Vitest suites cover `onSessionStart`,
+      `onBeforeToolCall`, `onAgentEnd` (each with happy / edge /
+      error cases) and an adapter integration test with a mocked
+      `OpenClawPluginApi`
+- [ ] `tsc --noEmit` green on both `tsconfig.json` and
+      `tsconfig.test.json`
+- [ ] `npm publish --dry-run -w @agentxp/plugin-v3` shows the
+      manifest file, `dist/`, and `README.md` in the tarball; no
+      test files, no SQLite DBs, no source maps
+
+### Batch 2 — memory supplement injection
+
+Artefacts:
+- `src/packages/plugin-v3/src/memory-corpus.ts` — re-implementation
+  of the legacy corpus supplement against the SPEC §5 contract
+- `src/packages/plugin-v3/src/memory-prompt.ts` — re-implementation
+  of phase-aware prompt supplement (stuck / evaluating / planning /
+  executing)
+- Adapter wires both via `api.registerMemoryCorpusSupplement(...)` /
+  `api.registerMemoryPromptSupplement(...)`
+
+Checks:
+- [ ] With a non-empty local DB, corpus supplement returns at least
+      one candidate for a context whose keywords intersect a staged
+      experience's tags
+- [ ] Empty local DB → zero injections (no errors, no default noise)
+- [ ] Visibility enforcement: private experiences are not returned
+      when the supplied scope is `public-only`
+
+### M7-DONE — Publish + verify
+
+- [ ] `npm publish --access public -w @agentxp/plugin-v3` succeeds
+      for prerelease tag `v0.2.0-rc.1`
+- [ ] A real OpenClaw host (v2026.4.15+) installs the published
+      tarball and the plugin loads without runtime errors
+- [ ] End-to-end smoke: one agent session on the OpenClaw host
+      produces at least one experience that reaches
+      `https://relay.agentxp.io` and shows up in the Dashboard
+- [ ] Stable `v0.2.0` tag cut after 72 h of clean operation
+
+Expected duration: 4–6 days for Batch 1, 3–4 days for Batch 2, plus
+the verify window.
