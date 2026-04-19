@@ -21,9 +21,9 @@ Artefacts:
   from `legacy/`
 
 Checks:
-- [ ] `bun install` (or `npm install`) completes with no errors
-- [ ] `bun test` (or `npm test`) runs with 0 tests, exit 0
-- [ ] `grep -r "from ['\"].*legacy" src/` returns nothing
+- [x] `bun install` (or `npm install`) completes with no errors
+- [x] `bun test` (or `npm test`) runs with 0 tests, exit 0
+- [x] `grep -r "from ['\"].*legacy" src/` returns nothing
 
 Expected duration: half a day.
 
@@ -42,10 +42,12 @@ Artefacts:
   rejected, invalid kind rejected, canonical id determinism
 
 Checks:
-- [ ] `bun test --filter @agentxp/protocol` 100% green
-- [ ] Zero `legacy/` imports in `src/packages/protocol/`
-- [ ] Can `import { signEvent } from '@agentxp/protocol'` from another
+- [x] `bun test --filter @agentxp/protocol` 100% green
+- [x] Zero `legacy/` imports in `src/packages/protocol/`
+- [x] Can `import { signEvent } from '@agentxp/protocol'` from another
       package in the workspace without setup friction
+      (package published as `@serendip/protocol` per SPEC
+      03-modules-platform §1; see commit `9ab8ac5`)
 
 Expected duration: 2–3 days.
 
@@ -62,10 +64,10 @@ Artefacts:
 - SQLite-backed derived views per `02-data-model.md §6`
 
 Checks:
-- [ ] Local server boots: `bun run supernode` listens on a port
-- [ ] `curl -X POST .../api/v1/events -d '<signed event>'` returns 200
-- [ ] The same event reappears via `GET /api/v1/search?q=...`
-- [ ] Signature rejection: tampered event returns 401/400
+- [x] Local server boots: `bun run supernode` listens on a port
+- [x] `curl -X POST .../api/v1/events -d '<signed event>'` returns 200
+- [x] The same event reappears via `GET /api/v1/search?q=...`
+- [x] Signature rejection: tampered event returns 401/400
 
 Expected duration: 3–5 days.
 
@@ -82,10 +84,10 @@ Artefacts:
 - Local SQLite staging per `02-data-model.md §7.1`
 
 Checks:
-- [ ] `bunx @agentxp/skill init` seeds a `SKILL.md` into a fresh dir
-- [ ] `bunx @agentxp/skill reflect` publishes a signed experience to
+- [x] `bunx @agentxp/skill init` seeds a `SKILL.md` into a fresh dir
+- [x] `bunx @agentxp/skill reflect` publishes a signed experience to
       a running M2 relay, confirmed by a `GET /search` query
-- [ ] Tier-1 (in-session) and Tier-2 (session-end) reflection paths
+- [x] Tier-1 (in-session) and Tier-2 (session-end) reflection paths
       each have a passing test
 
 Expected duration: 3–4 days.
@@ -103,11 +105,11 @@ Artefacts:
 - Local SQLite trace staging per `02-data-model.md §7.2`
 
 Checks:
-- [ ] Synthetic session: 3 tool-call hook invocations + session-end
+- [x] Synthetic session: 3 tool-call hook invocations + session-end
       produce 1 published experience with `reasoning_trace.steps.length
       === 3`
-- [ ] Tier-1 hook does NOT invoke the host LLM (token count = 0)
-- [ ] After a relay 503, local staging rows are retained and retried
+- [x] Tier-1 hook does NOT invoke the host LLM (token count = 0)
+- [x] After a relay 503, local staging rows are retained and retried
 
 Expected duration: 4–6 days.
 
@@ -125,11 +127,11 @@ Artefacts:
 - `trace_references` rows materialised from `reasoning_trace` on ingest
 
 Checks:
-- [ ] Browser visits `http://localhost:<port>/dashboard` and renders
+- [x] Browser visits `http://localhost:<port>/dashboard` and renders
       recent experiences from M2–M4 runs
-- [ ] `GET /api/v1/experiences/:id/trace` returns the trace built
+- [x] `GET /api/v1/experiences/:id/trace` returns the trace built
       during M4
-- [ ] Dashboard is verified read-only (every POST returns 404/405)
+- [x] Dashboard is verified read-only (every POST returns 404/405)
 
 Expected duration: 4–6 days.
 
@@ -148,11 +150,16 @@ Expected duration: 3–4 days.
 ## MVP-DONE — End-to-end acceptance
 
 All of M0–M6 `DONE`, plus:
-- [ ] End-to-end test: Skill + Plugin v3 both publish to one relay,
+- [x] End-to-end test: Skill + Plugin v3 both publish to one relay,
       Dashboard shows both, a cross-reference `trace_references` row
       exists between them
-- [ ] Zero `legacy/` imports anywhere under `src/`
-- [ ] SPEC gaps GAP-1…GAP-4 from `.spec-v41-check` round 2 each
+      (see `scripts/mvp-done-smoke.sh`, commit `f454845`)
+- [x] Zero `legacy/` imports anywhere under `src/`
+      (enforced by `scripts/check-no-legacy-imports.sh`)
+- [x] SPEC gaps GAP-1…GAP-4 from `.spec-v41-check` round 2 each
       closed by the commit that needed them (verified by commit log)
+      — all four closed by `60a9c54` (pre-branch); reproducible with
+      `git log --all --grep=GAP --oneline`.
 
-At this point `feat/v0.1-impl` is ready to open a PR to `main`.
+Status: **DONE** on `f454845`. Tagged `mvp-v0.1.0`. Ready to open a
+PR from `feat/v0.1-impl` into `main`.
