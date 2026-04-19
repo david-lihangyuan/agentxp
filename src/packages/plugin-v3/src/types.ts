@@ -31,6 +31,25 @@ export interface SessionEndCtx {
   reason: 'exit' | 'idle' | 'explicit'
 }
 
+export interface SessionStartCtx {
+  session_id: string
+  resumed_from?: string
+}
+
+export interface BeforeToolCallCtx {
+  session_id: string
+  tool_name: string
+  arguments: unknown
+  tool_call_id?: string
+}
+
+export interface AgentEndCtx {
+  session_id: string
+  success: boolean
+  duration_ms?: number
+  error?: string
+}
+
 // ReasoningTrace shape (02-data-model §4). Plugin v3 MUST populate
 // this on every published experience. Kept narrow to what the SKU
 // actually emits in MVP; the protocol layer treats it as `unknown`.

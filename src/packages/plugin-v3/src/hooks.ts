@@ -3,9 +3,12 @@
 // stages one trace step, session_end builds and stages an experience
 // for publication.
 import type {
+  AgentEndCtx,
+  BeforeToolCallCtx,
   MessageSendingCtx,
   PluginReasoningTrace,
   SessionEndCtx,
+  SessionStartCtx,
   ToolCallCtx,
 } from './types.js'
 import type { PluginDb, StagedTraceStep } from './db.js'
@@ -20,7 +23,11 @@ export interface MessageSendingSignal {
   llm_tokens: 0 // invariant: rule-based extraction only
 }
 
-const DESTRUCTIVE = /\b(rm\s+-rf|DROP\s+TABLE|TRUNCATE|force.push|--hard)\b/i
+// Each alternative self-anchors: flag tokens that begin with `-` do
+// not use a leading \b (word-boundary requires an adjacent word char
+// which `-` is not, so `\b--hard\b` never matched the legacy regex).
+const DESTRUCTIVE =
+  /(?:\brm\s+-rf\b|\bDROP\s+TABLE\b|\bTRUNCATE\b|\bforce\.push\b|--hard\b|--force\b)/i
 
 export function onMessageSending(ctx: MessageSendingCtx): MessageSendingSignal {
   const args = JSON.stringify(ctx.tool_call.arguments ?? '')
@@ -33,6 +40,69 @@ export function onMessageSending(ctx: MessageSendingCtx): MessageSendingSignal {
     }
   }
   return { session_id: ctx.session_id, flag: 'ok', reason: 'no rule matched', llm_tokens: 0 }
+}
+
+// M7 Batch 1 — OpenClaw-aligned lifecycle additions. Each handler
+// remains host-agnostic: the adapter maps the concrete OpenClaw event
+// shape onto these pure signatures.
+
+export interface SessionStartSignal {
+  session_id: string
+  resumed: boolean
+  cleared_steps: number
+}
+
+export function onSessionStart(db: PluginDb, ctx: SessionStartCtx): SessionStartSignal {
+  if (ctx.session_id.length === 0) {
+    throw new Error('onSessionStart: session_id must be non-empty')
+  }
+  if (ctx.resumed_from !== undefined) {
+    return { session_id: ctx.session_id, resumed: true, cleared_steps: 0 }
+  }
+  const existing = db.listTraceSteps(ctx.session_id).length
+  if (existing > 0) db.clearTraceSteps(ctx.session_id)
+  return { session_id: ctx.session_id, resumed: false, cleared_steps: existing }
+}
+
+export interface BeforeToolCallSignal {
+  session_id: string
+  blocked: boolean
+  block_reason?: string
+  llm_tokens: 0
+}
+
+export function onBeforeToolCall(ctx: BeforeToolCallCtx): BeforeToolCallSignal {
+  if (ctx.tool_name.length === 0) {
+    throw new Error('onBeforeToolCall: tool_name must be non-empty')
+  }
+  const args = JSON.stringify(ctx.arguments ?? '')
+  if (DESTRUCTIVE.test(args)) {
+    return {
+      session_id: ctx.session_id,
+      blocked: true,
+      block_reason: 'destructive keyword in tool-call arguments',
+      llm_tokens: 0,
+    }
+  }
+  return { session_id: ctx.session_id, blocked: false, llm_tokens: 0 }
+}
+
+export interface AgentEndSignal {
+  dropped_steps: number
+  staged_experiences_before: number
+}
+
+export function onAgentEnd(db: PluginDb, ctx: AgentEndCtx): AgentEndSignal {
+  if (ctx.session_id.length === 0) {
+    throw new Error('onAgentEnd: session_id must be non-empty')
+  }
+  const orphanSteps = db.listTraceSteps(ctx.session_id)
+  const stagedBefore = db.listAllExperiences().length
+  if (orphanSteps.length > 0) db.clearTraceSteps(ctx.session_id)
+  return {
+    dropped_steps: orphanSteps.length,
+    staged_experiences_before: stagedBefore,
+  }
 }
 
 function truncate(s: string, max: number): string {
@@ -132,5 +202,10 @@ export function onSessionEnd(
     created_at: now,
     next_attempt_at: now,
   })
+  // Trace steps are captured into the staged experience's trace_json;
+  // leaving them in place would re-appear in a later session with the
+  // same session_id and, more importantly, confuse agent_end's orphan
+  // sweep.
+  if (steps.length > 0) db.clearTraceSteps(ctx.session_id)
   return { staged: true, reason: 'session_ended' }
 }

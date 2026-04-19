@@ -1,4 +1,4 @@
-// Shared fixtures for @agentxp/plugin-v3. Reuses the in-memory M2
+// Shared fixtures for @agentxp/openclaw-plugin. Reuses the in-memory M2
 // relay (buildApp + :memory: SQLite) used by the Skill test suite so
 // plugin tests round-trip a real signed event against a real relay.
 import { createEvent, signEvent } from '@serendip/protocol'

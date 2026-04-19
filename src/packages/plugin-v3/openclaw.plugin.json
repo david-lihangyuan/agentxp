@@ -1,0 +1,51 @@
+{
+  "id": "agentxp",
+  "name": "AgentXP",
+  "description": "Capture agent reasoning traces and publish experiences to the AgentXP relay.",
+  "version": "0.1.0",
+  "enabledByDefault": false,
+  "activation": {
+    "onCapabilities": ["hook"]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "relayUrl": {
+        "type": "string",
+        "format": "uri",
+        "default": "https://relay.agentxp.io",
+        "description": "Base URL of the AgentXP relay that receives staged experiences."
+      },
+      "operatorPublicKey": {
+        "type": "string",
+        "pattern": "^[0-9a-fA-F]{64}$",
+        "description": "Ed25519 operator public key (hex) that owns the agent identity."
+      },
+      "agentKeyPath": {
+        "type": "string",
+        "default": "~/.agentxp/identity/agent.key",
+        "description": "Local filesystem path to the delegated agent Ed25519 secret key."
+      },
+      "defaultVisibility": {
+        "type": "string",
+        "enum": ["public", "unlisted", "private"],
+        "default": "unlisted",
+        "description": "Default visibility applied to published experiences."
+      },
+      "stagingDbPath": {
+        "type": "string",
+        "default": "~/.agentxp/plugin-v3/staging.db",
+        "description": "SQLite path where reasoning traces and staged experiences are persisted."
+      }
+    },
+    "required": ["operatorPublicKey"]
+  },
+  "uiHints": {
+    "relayUrl": { "widget": "url" },
+    "operatorPublicKey": { "widget": "text", "monospace": true },
+    "agentKeyPath": { "widget": "path" },
+    "defaultVisibility": { "widget": "select" },
+    "stagingDbPath": { "widget": "path" }
+  }
+}

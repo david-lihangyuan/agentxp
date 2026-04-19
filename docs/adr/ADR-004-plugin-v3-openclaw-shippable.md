@@ -64,9 +64,11 @@ for the Plugin v3 package only.
      three reuse the existing pure functions from M4.
    - Preserve the existing pure-function exports in `src/index.ts`
      for non-OpenClaw embedders; the adapter is additive.
-   - npm publish contract: `name: "@agentxp/plugin-v3"`,
-     `access: public`, `files: ["dist/", "openclaw.plugin.json",
-     "README.md"]`.
+   - npm publish contract: `name: "@agentxp/openclaw-plugin"`
+     (renamed from `@agentxp/plugin-v3` during Batch 1 execution
+     after a registry-name collision; the workspace directory stays
+     `src/packages/plugin-v3/`), `access: public`,
+     `files: ["dist/", "openclaw.plugin.json"]`.
 
    **Batch 2 — memory supplement injection.**
    - Port `legacy/src-v1/packages/plugin-v3/memory-corpus.ts` and

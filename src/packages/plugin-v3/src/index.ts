@@ -1,4 +1,4 @@
-// Public entry point for @agentxp/plugin-v3. Exports the three host
+// Public entry point for @agentxp/openclaw-plugin. Exports the three host
 // hook handlers (SPEC 03-modules-product §5.1), local staging, the
 // SDK-retry publisher, and shared types.
 export type {
@@ -15,10 +15,21 @@ export {
   onMessageSending,
   onToolCall,
   onSessionEnd,
+  onSessionStart,
+  onBeforeToolCall,
+  onAgentEnd,
   buildTrace,
   bucketize,
 } from './hooks.js'
 export type { MessageSendingSignal, SessionSummaryInput } from './hooks.js'
+
+export {
+  agentxpPlugin,
+  createAgentxpPluginRegister,
+  AGENTXP_PLUGIN_ID,
+  AGENTXP_PLUGIN_NAME,
+  AGENTXP_PLUGIN_DESCRIPTION,
+} from './adapter.js'
 
 export { openPluginDb } from './db.js'
 export type {

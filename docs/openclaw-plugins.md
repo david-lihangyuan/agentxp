@@ -11,7 +11,7 @@ host-facing identifier registered in the manifest.
 
 | OpenClaw id | npm name | Repo path | Status | Shipped as | Hooks registered |
 |---|---|---|---|---|---|
-| `agentxp` | `@agentxp/plugin-v3` | `src/packages/plugin-v3/` | **M7 Batch 1 planned** (ADR-004) | npm public + GitHub | `session_start`, `session_end`, `message_sending`, `before_tool_call`, `after_tool_call`, `agent_end` |
+| `agentxp` | `@agentxp/openclaw-plugin` (née `@agentxp/plugin-v3`; renamed in M7 Batch 1 to avoid a registry-name collision) | `src/packages/plugin-v3/` | **M7 Batch 1 landed** (ADR-004) | npm public + GitHub | `session_start`, `session_end`, `message_sending`, `before_tool_call`, `after_tool_call`, `agent_end` |
 
 ## Planned / reserved
 

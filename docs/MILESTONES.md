@@ -94,7 +94,7 @@ Expected duration: 3–4 days.
 
 ---
 
-## M4 — Plugin v3 SKU (`@agentxp/plugin-v3`)
+## M4 — Plugin v3 SKU (`@agentxp/openclaw-plugin`, internal path `src/packages/plugin-v3/`)
 
 Scope: SPEC module #5. Reference: `docs/spec/03-modules-product.md §5`
 (including the §5.1 Host hook surface added 2026-04-18).
@@ -169,9 +169,12 @@ PR from `feat/v0.1-impl` into `main`.
 
 ## M7 — Plugin v3 shippable as OpenClaw plugin (post-MVP)
 
-Scope: ship `@agentxp/plugin-v3` as a real OpenClaw plugin to npm
-public + GitHub. Decision recorded in `docs/adr/ADR-004`. Split into
-two batches; Batch 1 must land before Batch 2 begins.
+Scope: ship `@agentxp/openclaw-plugin` (renamed from the internal
+SKU `@agentxp/plugin-v3` in M7 Batch 1 after a registry-name
+collision) as a real OpenClaw plugin to npm public + GitHub. The
+workspace directory stays at `src/packages/plugin-v3/` for now.
+Decision recorded in `docs/adr/ADR-004`. Split into two batches;
+Batch 1 must land before Batch 2 begins.
 
 This milestone is **post-MVP**. Nothing under `mvp-v0.1.0` is
 changed; the MVP SPEC freeze (DP-4 T3=Y) holds for the tagged
@@ -195,17 +198,17 @@ Artefacts:
   `"openclaw": ">=2026.4.15"`
 
 Checks:
-- [ ] `npm run build -w @agentxp/plugin-v3` produces `dist/` with
-      `adapter.js` and all six hook exports present
+- [ ] `npm run build -w @agentxp/openclaw-plugin` produces `dist/`
+      with `adapter.js` and all six hook exports present
 - [ ] New Vitest suites cover `onSessionStart`,
       `onBeforeToolCall`, `onAgentEnd` (each with happy / edge /
       error cases) and an adapter integration test with a mocked
       `OpenClawPluginApi`
 - [ ] `tsc --noEmit` green on both `tsconfig.json` and
       `tsconfig.test.json`
-- [ ] `npm publish --dry-run -w @agentxp/plugin-v3` shows the
-      manifest file, `dist/`, and `README.md` in the tarball; no
-      test files, no SQLite DBs, no source maps
+- [ ] `npm publish --dry-run -w @agentxp/openclaw-plugin` shows the
+      manifest file and `dist/` in the tarball; no test files, no
+      SQLite DBs, no `src/`
 
 ### Batch 2 — memory supplement injection
 
@@ -228,8 +231,8 @@ Checks:
 
 ### M7-DONE — Publish + verify
 
-- [ ] `npm publish --access public -w @agentxp/plugin-v3` succeeds
-      for prerelease tag `v0.2.0-rc.1`
+- [ ] `npm publish --access public -w @agentxp/openclaw-plugin`
+      succeeds for prerelease tag `v0.2.0-rc.1`
 - [ ] A real OpenClaw host (v2026.4.15+) installs the published
       tarball and the plugin loads without runtime errors
 - [ ] End-to-end smoke: one agent session on the OpenClaw host
