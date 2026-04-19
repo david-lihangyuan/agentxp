@@ -222,11 +222,11 @@ Artefacts:
   `api.registerMemoryPromptSupplement(...)`
 
 Checks:
-- [ ] With a non-empty local DB, corpus supplement returns at least
+- [x] With a non-empty local DB, corpus supplement returns at least
       one candidate for a context whose keywords intersect a staged
       experience's tags
-- [ ] Empty local DB → zero injections (no errors, no default noise)
-- [ ] Visibility enforcement: private experiences are not returned
+- [x] Empty local DB → zero injections (no errors, no default noise)
+- [x] Visibility enforcement: private experiences are not returned
       when the supplied scope is `public-only`
 
 ### M7-DONE — Publish + verify

@@ -12,16 +12,24 @@ type Registration = { hook: string; handler: Function; opts?: { priority?: numbe
 interface MockApi {
   id: string
   registrations: Registration[]
+  corpusSupplements: unknown[]
+  promptSupplements: unknown[]
   on: (hook: string, handler: Function, opts?: { priority?: number }) => void
   invoke: (hook: string, event: unknown, ctx: unknown) => unknown
   invokeAll: (hook: string, event: unknown, ctx: unknown) => unknown[]
+  registerMemoryCorpusSupplement: (supplement: unknown) => void
+  registerMemoryPromptSupplement: (builder: unknown) => void
 }
 
 function mockApi(): MockApi {
   const registrations: Registration[] = []
+  const corpusSupplements: unknown[] = []
+  const promptSupplements: unknown[] = []
   return {
     id: AGENTXP_PLUGIN_ID,
     registrations,
+    corpusSupplements,
+    promptSupplements,
     on(hook, handler, opts) {
       registrations.push(opts === undefined ? { hook, handler } : { hook, handler, opts })
     },
@@ -35,6 +43,12 @@ function mockApi(): MockApi {
         .filter((x) => x.hook === hook)
         .sort((a, b) => (a.opts?.priority ?? 100) - (b.opts?.priority ?? 100))
         .map((r) => r.handler(event, ctx))
+    },
+    registerMemoryCorpusSupplement(supplement) {
+      corpusSupplements.push(supplement)
+    },
+    registerMemoryPromptSupplement(builder) {
+      promptSupplements.push(builder)
     },
   }
 }
@@ -159,6 +173,29 @@ describe('OpenClaw adapter — createAgentxpPluginRegister', () => {
       )
       expect(db.listTraceSteps(SESSION).length).toBe(0)
       expect(db.listAllExperiences().length).toBe(0)
+    } finally {
+      db.close()
+    }
+  })
+
+  it('registers exactly one memory corpus supplement and one prompt supplement (M7 Batch 2)', () => {
+    const db = openPluginDb(':memory:')
+    try {
+      const api = mockApi()
+      createAgentxpPluginRegister(db)(api as never)
+      expect(api.corpusSupplements.length).toBe(1)
+      expect(api.promptSupplements.length).toBe(1)
+      const corpus = api.corpusSupplements[0] as {
+        search: (p: { query: string }) => Promise<unknown[]>
+        get: (p: { lookup: string }) => Promise<unknown | null>
+      }
+      expect(typeof corpus.search).toBe('function')
+      expect(typeof corpus.get).toBe('function')
+      const builder = api.promptSupplements[0] as (p: {
+        availableTools: Set<string>
+      }) => string[]
+      expect(typeof builder).toBe('function')
+      expect(builder({ availableTools: new Set() })).toEqual([])
     } finally {
       db.close()
     }

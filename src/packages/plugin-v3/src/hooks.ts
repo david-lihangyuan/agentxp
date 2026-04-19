@@ -12,6 +12,11 @@ import type {
   ToolCallCtx,
 } from './types.js'
 import type { PluginDb, StagedTraceStep } from './db.js'
+import {
+  pushKeywords,
+  pushToolName,
+  setLastActiveSession,
+} from './session-state.js'
 
 // Lightweight Tier-1 rule-based flags. The concrete set is
 // intentionally small in MVP; the contract is that `message_sending`
@@ -29,7 +34,49 @@ export interface MessageSendingSignal {
 const DESTRUCTIVE =
   /(?:\brm\s+-rf\b|\bDROP\s+TABLE\b|\bTRUNCATE\b|\bforce\.push\b|--hard\b|--force\b)/i
 
+// Collects candidate keyword tokens from arbitrary tool-call
+// arguments. Walks strings recursively, splits path-like segments,
+// and keeps alphabetic tokens of length >= 3. Purely syntactic;
+// semantic weighting is left to the prompt builder / phase heuristic.
+const KEYWORD_SPLIT = /[^a-zA-Z0-9_]+/
+const KEYWORD_STOPWORDS = new Set([
+  'the', 'and', 'for', 'with', 'from', 'into', 'this', 'that', 'not',
+  'src', 'dist', 'lib', 'node_modules', 'tmp', 'var', 'etc', 'usr',
+  'ts', 'js', 'tsx', 'jsx', 'json', 'md',
+])
+
+function collectKeywords(value: unknown, out: string[], depth = 0): void {
+  if (depth > 4 || out.length >= 32) return
+  if (typeof value === 'string') {
+    for (const raw of value.split(KEYWORD_SPLIT)) {
+      const tok = raw.toLowerCase()
+      if (tok.length < 3) continue
+      if (KEYWORD_STOPWORDS.has(tok)) continue
+      if (!out.includes(tok)) out.push(tok)
+      if (out.length >= 32) return
+    }
+    return
+  }
+  if (Array.isArray(value)) {
+    for (const v of value) collectKeywords(v, out, depth + 1)
+    return
+  }
+  if (value && typeof value === 'object') {
+    for (const v of Object.values(value as Record<string, unknown>)) {
+      collectKeywords(v, out, depth + 1)
+    }
+  }
+}
+
 export function onMessageSending(ctx: MessageSendingCtx): MessageSendingSignal {
+  // Feed the shared session-state so memory-prompt can read session
+  // activity on its next synchronous build.
+  setLastActiveSession(ctx.session_id)
+  pushToolName(ctx.session_id, ctx.tool_call.name)
+  const kws: string[] = []
+  collectKeywords(ctx.tool_call.arguments, kws)
+  if (kws.length > 0) pushKeywords(ctx.session_id, kws)
+
   const args = JSON.stringify(ctx.tool_call.arguments ?? '')
   if (DESTRUCTIVE.test(args)) {
     return {

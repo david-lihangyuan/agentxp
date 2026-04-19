@@ -19,6 +19,8 @@ import {
   onToolCall,
 } from './hooks.js'
 import type { SessionSummaryInput } from './hooks.js'
+import { createCorpusSupplement } from './memory-corpus.js'
+import { createPromptBuilder } from './memory-prompt.js'
 
 export const AGENTXP_PLUGIN_ID = 'agentxp'
 export const AGENTXP_PLUGIN_NAME = 'AgentXP'
@@ -162,6 +164,13 @@ export function createAgentxpPluginRegister(
         ...(event.error !== undefined ? { error: event.error } : {}),
       })
     })
+
+    // M7 Batch 2 — memory supplements. The corpus exposes staged
+    // experiences for the host's memory search; the prompt builder
+    // injects a "## Past AgentXP Experiences" section keyed off the
+    // shared session-state populated by onMessageSending.
+    api.registerMemoryCorpusSupplement(createCorpusSupplement(db))
+    api.registerMemoryPromptSupplement(createPromptBuilder(db))
   }
 }
 

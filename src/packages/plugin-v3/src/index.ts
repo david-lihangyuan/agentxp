@@ -46,3 +46,28 @@ export type { SdkBackoffOptions } from './backoff.js'
 
 export { publishStagedExperiences } from './publisher.js'
 export type { PublishOptions, PublishResult } from './publisher.js'
+
+export { inferPhase } from './phase.js'
+export type { Phase, PhaseInput } from './phase.js'
+
+export {
+  setLastActiveSession,
+  getLastActiveSession,
+  getSessionState,
+  pushToolName,
+  pushKeywords,
+  resetSessionState,
+  MAX_TOOL_HISTORY,
+  MAX_KEYWORD_HISTORY,
+} from './session-state.js'
+export type { SessionState } from './session-state.js'
+
+export { createCorpusSupplement, searchStagedSync } from './memory-corpus.js'
+export type {
+  CorpusScope,
+  CorpusSupplementOptions,
+  SearchStagedOptions,
+} from './memory-corpus.js'
+
+export { createPromptBuilder } from './memory-prompt.js'
+export type { PromptBuilderOptions } from './memory-prompt.js'
