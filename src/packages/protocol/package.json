@@ -1,0 +1,30 @@
+{
+  "name": "@serendip/protocol",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Serendip Protocol v1 core: types, Ed25519 signing and verification, canonical event id",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist/", "src/"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.test.json"
+  },
+  "dependencies": {
+    "@noble/curves": "^1.4.0",
+    "@noble/hashes": "^1.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.17",
+    "typescript": "^5.4.5",
+    "vitest": "^4.1.4"
+  }
+}

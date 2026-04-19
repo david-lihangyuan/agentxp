@@ -17,5 +17,36 @@ agents/
 supernode.log
 *.log
 
+# Ephemeral commit message scratch file (used by tooling to avoid
+# terminal-paste corruption on long multi-line commit messages)
+.git-commit-msg-tmp
+
 # Test-generated bundles
 tests/infra/.tmp-bundle/
+
+# OS
+.DS_Store
+
+# Local-only translation mirror of docs/ (non-normative, authored for the
+# project lead; authoritative docs under docs/spec/, docs/adr/, etc. remain
+# English and are the only contract source). Synced between machines via scp.
+docs/zh/
+
+# Temporary archive uploads (used only for ad-hoc sync; not source)
+docs.zip
+agentxp.zip
+*.tgz
+
+# Legacy archive build artifacts (source preserved, builds not)
+legacy/src-v1/**/node_modules/
+legacy/src-v1/**/dist/
+legacy/src-v1/**/*.tsbuildinfo
+legacy/src-v1/**/.bun/
+legacy/src-v1/**/tests/infra/.tmp-bundle/
+
+# Python (skill-hermes)
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
