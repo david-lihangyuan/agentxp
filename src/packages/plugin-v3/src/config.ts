@@ -17,6 +17,7 @@ export interface ResolvedPluginConfig {
   stagingDbPath: string
   autoFlushSteps: number
   autoFlushIdleMs: number
+  publishIntervalMs: number
 }
 
 const DEFAULTS = {
@@ -26,6 +27,7 @@ const DEFAULTS = {
   stagingDbPath: '~/.agentxp/plugin-v3/staging.db',
   autoFlushSteps: 20,
   autoFlushIdleMs: 120_000,
+  publishIntervalMs: 30_000,
 }
 
 const HEX_64 = /^[0-9a-f]{64}$/
@@ -96,6 +98,11 @@ export function resolvePluginConfig(
     'autoFlushIdleMs',
     DEFAULTS.autoFlushIdleMs,
   )
+  const publishIntervalMs = requireNonNegativeInt(
+    raw,
+    'publishIntervalMs',
+    DEFAULTS.publishIntervalMs,
+  )
 
   return {
     relayUrl,
@@ -105,6 +112,7 @@ export function resolvePluginConfig(
     stagingDbPath,
     autoFlushSteps,
     autoFlushIdleMs,
+    publishIntervalMs,
   }
 }
 

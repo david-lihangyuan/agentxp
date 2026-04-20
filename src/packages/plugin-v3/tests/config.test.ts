@@ -114,4 +114,28 @@ describe('resolvePluginConfig', () => {
       resolvePluginConfig({ operatorPublicKey: VALID_KEY, autoFlushSteps: 'ten' }),
     ).toThrowError(/autoFlushSteps/)
   })
+
+  it('defaults publishIntervalMs to 30000 and accepts overrides', () => {
+    const dflt = resolvePluginConfig({ operatorPublicKey: VALID_KEY })
+    expect(dflt.publishIntervalMs).toBe(30_000)
+    const overridden = resolvePluginConfig({
+      operatorPublicKey: VALID_KEY,
+      publishIntervalMs: 5_000,
+    })
+    expect(overridden.publishIntervalMs).toBe(5_000)
+    const disabled = resolvePluginConfig({
+      operatorPublicKey: VALID_KEY,
+      publishIntervalMs: 0,
+    })
+    expect(disabled.publishIntervalMs).toBe(0)
+  })
+
+  it('rejects invalid publishIntervalMs', () => {
+    expect(() =>
+      resolvePluginConfig({ operatorPublicKey: VALID_KEY, publishIntervalMs: -1 }),
+    ).toThrowError(/publishIntervalMs/)
+    expect(() =>
+      resolvePluginConfig({ operatorPublicKey: VALID_KEY, publishIntervalMs: 1.5 }),
+    ).toThrowError(/publishIntervalMs/)
+  })
 })

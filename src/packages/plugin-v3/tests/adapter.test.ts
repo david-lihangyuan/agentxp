@@ -292,7 +292,11 @@ describe('agentxpPlugin.register — pluginConfig wiring (M7 Batch 2.5)', () => 
 
   it('does not throw when pluginConfig supplies a valid operatorPublicKey', () => {
     const dbPath = join(tmp, 'nested', 'sub', 'staging.db')
-    const api = apiWithConfig({ operatorPublicKey: VALID_KEY, stagingDbPath: dbPath })
+    const api = apiWithConfig({
+      operatorPublicKey: VALID_KEY,
+      stagingDbPath: dbPath,
+      publishIntervalMs: 0,
+    })
     expect(() => agentxpPlugin.register(api as never)).not.toThrow()
     expect(existsSync(dbPath)).toBe(true)
     // All six lifecycle hooks + two supplements were registered.
@@ -303,7 +307,11 @@ describe('agentxpPlugin.register — pluginConfig wiring (M7 Batch 2.5)', () => 
 
   it('creates missing parent directories for the staging DB', () => {
     const dbPath = join(tmp, 'a', 'b', 'c', 'staging.db')
-    const api = apiWithConfig({ operatorPublicKey: VALID_KEY, stagingDbPath: dbPath })
+    const api = apiWithConfig({
+      operatorPublicKey: VALID_KEY,
+      stagingDbPath: dbPath,
+      publishIntervalMs: 0,
+    })
     agentxpPlugin.register(api as never)
     expect(existsSync(dbPath)).toBe(true)
   })
@@ -319,5 +327,71 @@ describe('agentxpPlugin.register — pluginConfig wiring (M7 Batch 2.5)', () => 
     const api = mockApi()
     // Deliberately no pluginConfig field on the api object.
     expect(() => agentxpPlugin.register(api as never)).toThrowError(/pluginConfig/i)
+  })
+
+  it('leaves the publisher disabled when publishIntervalMs=0 (no key load attempted)', () => {
+    const api = apiWithConfig({
+      operatorPublicKey: VALID_KEY,
+      stagingDbPath: join(tmp, 's.db'),
+      // Point agentKeyPath at a path that doesn't exist; because the
+      // interval is 0, the adapter must not even try to load it.
+      agentKeyPath: join(tmp, 'does-not-exist.key'),
+      publishIntervalMs: 0,
+    })
+    expect(() => agentxpPlugin.register(api as never)).not.toThrow()
+  })
+
+  it('continues to register hooks even when agent key load fails', () => {
+    const api = apiWithConfig({
+      operatorPublicKey: VALID_KEY,
+      stagingDbPath: join(tmp, 's.db'),
+      agentKeyPath: join(tmp, 'missing.key'),
+      publishIntervalMs: 30_000,
+    })
+    expect(() => agentxpPlugin.register(api as never)).not.toThrow()
+    expect(api.registrations.length).toBe(6)
+  })
+})
+
+// M7 Batch 2.7 — publisher wiring via createAgentxpPluginRegister.
+describe('createAgentxpPluginRegister — publisher wiring (M7 Batch 2.7)', () => {
+  it('does not start a publisher when options.publisher is absent', () => {
+    const db = openPluginDb(':memory:')
+    try {
+      const register = createAgentxpPluginRegister(db)
+      const api = mockApi()
+      register(api as never)
+      expect(register.handle.publisher).toBeUndefined()
+    } finally {
+      db.close()
+    }
+  })
+
+  it('starts a PublishLoopHandle when options.publisher is provided', () => {
+    const db = openPluginDb(':memory:')
+    try {
+      const fakeFetch: typeof globalThis.fetch = async () =>
+        new Response(JSON.stringify({ ok: true }), { status: 200 })
+      const register = createAgentxpPluginRegister(db, {
+        publisher: {
+          agent: {
+            publicKey: 'b'.repeat(64),
+            privateKey: new Uint8Array(32),
+            delegatedBy: 'a'.repeat(64),
+            expiresAt: 1_800_000_000,
+          },
+          relayUrl: 'http://relay.test',
+          intervalMs: 60_000,
+          fetch: fakeFetch,
+        },
+      })
+      const api = mockApi()
+      register(api as never)
+      expect(register.handle.publisher).toBeDefined()
+      expect(typeof register.handle.publisher?.stop).toBe('function')
+      register.handle.publisher?.stop()
+    } finally {
+      db.close()
+    }
   })
 })

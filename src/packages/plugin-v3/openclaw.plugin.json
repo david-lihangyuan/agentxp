@@ -49,6 +49,12 @@
         "minimum": 0,
         "default": 120000,
         "description": "Auto-stage a session's captured trace after this many milliseconds of inactivity. 0 disables the idle trigger. Fallback for hosts that may not fire session_end."
+      },
+      "publishIntervalMs": {
+        "type": "integer",
+        "minimum": 0,
+        "default": 30000,
+        "description": "How often (in milliseconds) the plugin drains staged experiences to the relay. 0 disables background publishing (staged rows accumulate locally until a manual flush)."
       }
     },
     "required": ["operatorPublicKey"]
@@ -60,6 +66,7 @@
     "defaultVisibility": { "widget": "select" },
     "stagingDbPath": { "widget": "path" },
     "autoFlushSteps": { "widget": "number" },
-    "autoFlushIdleMs": { "widget": "number" }
+    "autoFlushIdleMs": { "widget": "number" },
+    "publishIntervalMs": { "widget": "number" }
   }
 }

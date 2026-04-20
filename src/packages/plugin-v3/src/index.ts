@@ -31,6 +31,16 @@ export {
   AGENTXP_PLUGIN_NAME,
   AGENTXP_PLUGIN_DESCRIPTION,
 } from './adapter.js'
+export type {
+  AgentxpPublisherOptions,
+  AgentxpRegisterHandle,
+  AgentxpRegisterOptions,
+} from './adapter.js'
+
+export { AgentKeyLoadError, loadAgentKey } from './identity.js'
+
+export { startPublishLoop } from './publish-loop.js'
+export type { PublishLoopHandle, PublishLoopOptions } from './publish-loop.js'
 
 export { resolvePluginConfig } from './config.js'
 export type { ResolvedPluginConfig, Visibility } from './config.js'

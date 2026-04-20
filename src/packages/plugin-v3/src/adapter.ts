@@ -9,6 +9,7 @@
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 
+import type { AgentKey } from '@serendip/protocol'
 import { definePluginEntry, emptyPluginConfigSchema } from 'openclaw/plugin-sdk/core'
 import type { OpenClawPluginApi } from 'openclaw/plugin-sdk/core'
 
@@ -24,8 +25,13 @@ import {
   onToolCall,
 } from './hooks.js'
 import type { SessionSummaryInput } from './hooks.js'
+import { AgentKeyLoadError, loadAgentKey } from './identity.js'
 import { createCorpusSupplement } from './memory-corpus.js'
 import { createPromptBuilder } from './memory-prompt.js'
+import {
+  startPublishLoop,
+  type PublishLoopHandle,
+} from './publish-loop.js'
 
 export const AGENTXP_PLUGIN_ID = 'agentxp'
 export const AGENTXP_PLUGIN_NAME = 'AgentXP'
@@ -98,22 +104,40 @@ function mapSessionEndReason(raw: string | undefined): 'exit' | 'idle' | 'explic
 // so legacy tests and direct callers see no behaviour change; the
 // definePluginEntry register() below passes the real defaults from
 // resolvePluginConfig.
+export interface AgentxpPublisherOptions {
+  agent: AgentKey
+  relayUrl: string
+  intervalMs: number
+  fetch?: typeof globalThis.fetch
+}
+
 export interface AgentxpRegisterOptions {
   autoFlushSteps?: number
   autoFlushIdleMs?: number
+  // When set, the adapter starts a background publish loop that
+  // drains staged_experiences to the relay. Tests that only exercise
+  // hook wiring leave this undefined to avoid any network activity.
+  publisher?: AgentxpPublisherOptions
+}
+
+// Tracks any side-effecting resources the adapter started so callers
+// (tests, hot-reload code paths) can shut them down.
+export interface AgentxpRegisterHandle {
+  publisher?: PublishLoopHandle
 }
 
 export function createAgentxpPluginRegister(
   db: PluginDb,
   options: AgentxpRegisterOptions = {},
-): (api: OpenClawPluginApi) => void {
+): ((api: OpenClawPluginApi) => void) & { handle: AgentxpRegisterHandle } {
   const flush: FlushController = createFlushController({
     db,
     countThreshold: options.autoFlushSteps ?? 0,
     idleMs: options.autoFlushIdleMs ?? 0,
     summary: IMPLICIT_SUMMARY,
   })
-  return (api) => {
+  const handle: AgentxpRegisterHandle = {}
+  const register = (api: OpenClawPluginApi): void => {
     api.on('session_start', (event: SessionStartEventLike) => {
       onSessionStart(db, {
         session_id: event.sessionId,
@@ -199,7 +223,21 @@ export function createAgentxpPluginRegister(
     // shared session-state populated by onMessageSending.
     api.registerMemoryCorpusSupplement(createCorpusSupplement(db))
     api.registerMemoryPromptSupplement(createPromptBuilder(db))
+
+    // M7 Batch 2.7 — background relay publisher. Drains staged
+    // experiences on a timer so capture stays off the hot path and
+    // transient relay outages don't block tool calls.
+    if (options.publisher && options.publisher.intervalMs > 0) {
+      handle.publisher = startPublishLoop({
+        db,
+        agent: options.publisher.agent,
+        relayUrl: options.publisher.relayUrl,
+        intervalMs: options.publisher.intervalMs,
+        ...(options.publisher.fetch ? { fetch: options.publisher.fetch } : {}),
+      })
+    }
   }
+  return Object.assign(register, { handle })
 }
 
 // Opens the staging DB at the configured path, creating the parent
@@ -217,10 +255,37 @@ export function openDbFromConfig(stagingDbPath: string): PluginDb {
   return openPluginDb(stagingDbPath)
 }
 
+// Loads the agent key used for signing published experiences. Returns
+// null on any recoverable failure (missing key file, delegation
+// mismatch, malformed metadata) so the plugin still captures traces —
+// only the background publisher is suppressed. We log a single
+// user-readable line rather than throwing, because publishing is a
+// side-concern of the capture hot path.
+function tryLoadAgentKey(
+  agentKeyPath: string,
+  operatorPublicKey: string,
+): AgentKey | null {
+  try {
+    return loadAgentKey(agentKeyPath, operatorPublicKey)
+  } catch (err) {
+    if (err instanceof AgentKeyLoadError) {
+      console.warn(`[agentxp] publisher disabled: ${err.message}`)
+      return null
+    }
+    console.warn(
+      `[agentxp] publisher disabled: unexpected error loading agent key: ` +
+        `${err instanceof Error ? err.message : String(err)}`,
+    )
+    return null
+  }
+}
+
 // Host-facing entry. OpenClaw loads this by importing the module and
 // looking for a default-shaped `definePluginEntry` return value. The
 // register() closure here resolves pluginConfig, opens the staging
-// DB, and hands the api off to createAgentxpPluginRegister.
+// DB, loads the agent key, and hands the api off to
+// createAgentxpPluginRegister with a publisher option when the key is
+// available and publishIntervalMs > 0.
 export const agentxpPlugin = definePluginEntry({
   id: AGENTXP_PLUGIN_ID,
   name: AGENTXP_PLUGIN_NAME,
@@ -229,10 +294,21 @@ export const agentxpPlugin = definePluginEntry({
   register(api) {
     const cfg = resolvePluginConfig(api.pluginConfig)
     const db = openDbFromConfig(cfg.stagingDbPath)
-    createAgentxpPluginRegister(db, {
+    const registerOptions: AgentxpRegisterOptions = {
       autoFlushSteps: cfg.autoFlushSteps,
       autoFlushIdleMs: cfg.autoFlushIdleMs,
-    })(api)
+    }
+    if (cfg.publishIntervalMs > 0) {
+      const agent = tryLoadAgentKey(cfg.agentKeyPath, cfg.operatorPublicKey)
+      if (agent) {
+        registerOptions.publisher = {
+          agent,
+          relayUrl: cfg.relayUrl,
+          intervalMs: cfg.publishIntervalMs,
+        }
+      }
+    }
+    createAgentxpPluginRegister(db, registerOptions)(api)
   },
 })
 
