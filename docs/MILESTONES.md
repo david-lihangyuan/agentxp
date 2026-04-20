@@ -298,14 +298,30 @@ Checks:
 
 ### M7-DONE — Publish + verify
 
-- [ ] `npm publish --access public -w @agentxp/openclaw-plugin`
-      succeeds for prerelease tag `v0.2.0-rc.1`
-- [ ] A real OpenClaw host (v2026.4.15+) installs the published
-      tarball and the plugin loads without runtime errors
-- [ ] End-to-end smoke: one agent session on the OpenClaw host
+- [x] `npm publish --access public -w @agentxp/openclaw-plugin`
+      succeeds for prerelease tag `v0.2.0-rc.1`.
+      Published as `@agentxp/openclaw-plugin@0.2.0-rc.1` on
+      `2026-04-20`, tarball shasum `e0f8b119…`, dist-tag `next`.
+      Git tag `openclaw-plugin-v0.2.0-rc.1`.
+- [x] A real OpenClaw host (v2026.4.15+) installs the published
+      tarball and the plugin loads without runtime errors.
+      Verified during Batch 2.7 live smoke with the pre-publish
+      local `.tgz` (identical sha to the npm-published artefact);
+      post-publish re-verified via clean-dir `npm install
+      @agentxp/openclaw-plugin@next` + `require()` smoke (all
+      exported hooks + `agentxpPlugin` resolve).
+- [x] End-to-end smoke: one agent session on the OpenClaw host
       produces at least one experience that reaches
-      `https://relay.agentxp.io` and shows up in the Dashboard
+      `https://relay.agentxp.io` and shows up in the Dashboard.
+      Verified during Batch 2.7: 4 pre-existing staged rows drained
+      to zero within one 30 s interval, and
+      `GET /api/v1/events?author=<agent>` returned the matching
+      signed `intent.broadcast` events.
 - [ ] Stable `v0.2.0` tag cut after 72 h of clean operation
+
+Status: **SHIPPED** as `0.2.0-rc.1` on `2026-04-20` via PRs #14
+(`6bf5709`) and #15 (`2eafd56`). Stable `v0.2.0` pending the 72 h
+soak window.
 
 Expected duration: 4–6 days for Batch 1, 3–4 days for Batch 2, plus
 the verify window.
