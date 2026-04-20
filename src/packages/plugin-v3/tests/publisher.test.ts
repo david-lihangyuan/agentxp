@@ -119,7 +119,12 @@ describe('publishStagedExperiences — 503 retention (MILESTONES M4 check 3; SPE
       const staged = db.listAllExperiences()
       expect(staged.length).toBe(1)
       expect(staged[0]!.retry_count).toBe(1)
-      expect(db.listTraceSteps(sess).length).toBe(2)
+      // Trace steps are cleared by onSessionEnd once they are folded
+      // into the staged experience's trace_json; retry preserves the
+      // staged row, not the raw step ledger.
+      expect(db.listTraceSteps(sess).length).toBe(0)
+      const stagedTrace = JSON.parse(staged[0]!.trace_json) as { steps: unknown[] }
+      expect(stagedTrace.steps.length).toBe(2)
     } finally {
       db.close()
     }

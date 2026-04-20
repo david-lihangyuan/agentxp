@@ -94,7 +94,7 @@ Expected duration: 3–4 days.
 
 ---
 
-## M4 — Plugin v3 SKU (`@agentxp/plugin-v3`)
+## M4 — Plugin v3 SKU (`@agentxp/openclaw-plugin`, internal path `src/packages/plugin-v3/`)
 
 Scope: SPEC module #5. Reference: `docs/spec/03-modules-product.md §5`
 (including the §5.1 Host hook surface added 2026-04-18).
@@ -163,3 +163,149 @@ All of M0–M6 `DONE`, plus:
 
 Status: **DONE** on `f454845`. Tagged `mvp-v0.1.0`. Ready to open a
 PR from `feat/v0.1-impl` into `main`.
+
+
+---
+
+## M7 — Plugin v3 shippable as OpenClaw plugin (post-MVP)
+
+Scope: ship `@agentxp/openclaw-plugin` (renamed from the internal
+SKU `@agentxp/plugin-v3` in M7 Batch 1 after a registry-name
+collision) as a real OpenClaw plugin to npm public + GitHub. The
+workspace directory stays at `src/packages/plugin-v3/` for now.
+Decision recorded in `docs/adr/ADR-004`. Split into two batches;
+Batch 1 must land before Batch 2 begins.
+
+This milestone is **post-MVP**. Nothing under `mvp-v0.1.0` is
+changed; the MVP SPEC freeze (DP-4 T3=Y) holds for the tagged
+release and is superseded by ADR-004 only for subsequent work.
+
+### Batch 1 — adapter + manifest + full lifecycle hook surface
+
+Artefacts:
+- `src/packages/plugin-v3/openclaw.plugin.json` manifest with
+  `configSchema` (operator pubkey, agent key, relay URL,
+  visibility default)
+- `src/packages/plugin-v3/src/adapter.ts` exporting
+  `definePluginEntry({ id: 'agentxp', register(api) {...} })`
+- Three new hook handlers: `onSessionStart`, `onBeforeToolCall`,
+  `onAgentEnd`. The existing `onMessageSending` / `onToolCall` /
+  `onSessionEnd` are reused unchanged.
+- All six hooks registered via `api.on(...)` in the adapter
+- `package.json`: `"private": true` removed;
+  `publishConfig.access: "public"`; `files` includes
+  `openclaw.plugin.json`; optional peer dep
+  `"openclaw": ">=2026.4.15"`
+
+Checks:
+- [x] `npm run build -w @agentxp/openclaw-plugin` produces `dist/`
+      with `adapter.js` and all six hook exports present
+- [x] New Vitest suites cover `onSessionStart`,
+      `onBeforeToolCall`, `onAgentEnd` (each with happy / edge /
+      error cases) and an adapter integration test with a mocked
+      `OpenClawPluginApi`
+- [x] `tsc --noEmit` green on both `tsconfig.json` and
+      `tsconfig.test.json`
+- [x] `npm publish --dry-run -w @agentxp/openclaw-plugin` shows the
+      manifest file and `dist/` in the tarball; no test files, no
+      SQLite DBs, no `src/`
+
+### Batch 2 — memory supplement injection
+
+Artefacts:
+- `src/packages/plugin-v3/src/memory-corpus.ts` — re-implementation
+  of the legacy corpus supplement against the SPEC §5 contract
+- `src/packages/plugin-v3/src/memory-prompt.ts` — re-implementation
+  of phase-aware prompt supplement (stuck / evaluating / planning /
+  executing)
+- Adapter wires both via `api.registerMemoryCorpusSupplement(...)` /
+  `api.registerMemoryPromptSupplement(...)`
+
+Checks:
+- [x] With a non-empty local DB, corpus supplement returns at least
+      one candidate for a context whose keywords intersect a staged
+      experience's tags
+- [x] Empty local DB → zero injections (no errors, no default noise)
+- [x] Visibility enforcement: private experiences are not returned
+      when the supplied scope is `public-only`
+
+### Batch 2.5 — `register()` wiring
+
+Artefacts:
+- `src/packages/plugin-v3/src/config.ts` — `resolvePluginConfig`
+  (reads `api.pluginConfig`, expands `~/`, validates
+  `operatorPublicKey` hex, returns a typed `ResolvedPluginConfig`)
+- `adapter.ts#register()` now opens the staging DB at the configured
+  path and hands the api to `createAgentxpPluginRegister`
+
+Checks:
+- [x] A mock `api.pluginConfig` with a valid `operatorPublicKey`
+      loads the plugin without throwing; all six hooks + both
+      supplements are registered
+- [x] Missing parent directories for `stagingDbPath` are created
+- [x] Missing `operatorPublicKey` / missing `pluginConfig` throw
+      readable errors before any DB work
+
+### Batch 2.6 — auto-flush fallback for unreliable `session_end`
+
+OpenClaw 2026.4.15 does not always fire `session_end` / `agent_end`,
+leaving captured `trace_steps` orphaned. This adds two per-session
+fallbacks that call the same staging path with `reason='auto_count'`
+or `'auto_idle'`.
+
+Artefacts:
+- `src/packages/plugin-v3/src/flush.ts` — `FlushController`
+  (per-session counter + idle timer). `autoFlushSteps` (default 20)
+  and `autoFlushIdleMs` (default 120000) configure the thresholds.
+- `types.ts` — `SessionEndReason` extended with `'auto_count'` and
+  `'auto_idle'`.
+
+Checks:
+- [x] Count trigger stages an experience after N `after_tool_call`
+      events even when `session_end` never fires
+- [x] Idle trigger stages after T ms of inactivity
+- [x] A real `session_end` after an auto-flush does not double-stage
+- [x] Verified end-to-end against `openclaw tui`:
+      `staged_experiences` rows appear with
+      `reason='auto_count'` after the threshold is reached
+
+### Batch 2.7 — background relay publisher
+
+Artefacts:
+- `src/packages/plugin-v3/src/identity.ts` — `loadAgentKey`
+  supporting both on-disk layouts (skill single-file `agent.json`
+  with `privateKey`; split `agent.key` hex seed + sibling
+  `agent.json` metadata). Enforces `delegatedBy === operatorPublicKey`.
+- `src/packages/plugin-v3/src/publish-loop.ts` — `startPublishLoop`
+  (setInterval + reentrancy guard + unref'd timer + error
+  swallowing via `onError`). Drains `staged_experiences` by calling
+  the existing `publishStagedExperiences` on a timer.
+- `config.publishIntervalMs` (default 30000 ms, 0 disables).
+- `adapter.register()` loads the key only when interval > 0;
+  missing or mis-delegated key logs one warning and leaves capture
+  intact with publisher disabled.
+
+Checks:
+- [x] 8 identity tests + 5 publish-loop tests + 2 adapter register
+      tests cover both on-disk layouts, delegation mismatch,
+      malformed hex, disable-on-zero, reentrancy, and `onError`
+      plumbing
+- [x] Live smoke: after gateway restart with the new adapter,
+      four pre-existing staged rows drained to zero within one
+      30 s interval, and `GET /api/v1/events?author=<agent>`
+      on `https://relay.agentxp.io` returns the corresponding
+      signed `intent.broadcast` events
+
+### M7-DONE — Publish + verify
+
+- [ ] `npm publish --access public -w @agentxp/openclaw-plugin`
+      succeeds for prerelease tag `v0.2.0-rc.1`
+- [ ] A real OpenClaw host (v2026.4.15+) installs the published
+      tarball and the plugin loads without runtime errors
+- [ ] End-to-end smoke: one agent session on the OpenClaw host
+      produces at least one experience that reaches
+      `https://relay.agentxp.io` and shows up in the Dashboard
+- [ ] Stable `v0.2.0` tag cut after 72 h of clean operation
+
+Expected duration: 4–6 days for Batch 1, 3–4 days for Batch 2, plus
+the verify window.

@@ -25,10 +25,36 @@ export interface ToolCallCtx {
   created_at: string
 }
 
+export type SessionEndReason =
+  | 'exit'
+  | 'idle'
+  | 'explicit'
+  | 'auto_count'
+  | 'auto_idle'
+
 export interface SessionEndCtx {
   session_id: string
   ended_at: string
-  reason: 'exit' | 'idle' | 'explicit'
+  reason: SessionEndReason
+}
+
+export interface SessionStartCtx {
+  session_id: string
+  resumed_from?: string
+}
+
+export interface BeforeToolCallCtx {
+  session_id: string
+  tool_name: string
+  arguments: unknown
+  tool_call_id?: string
+}
+
+export interface AgentEndCtx {
+  session_id: string
+  success: boolean
+  duration_ms?: number
+  error?: string
 }
 
 // ReasoningTrace shape (02-data-model §4). Plugin v3 MUST populate

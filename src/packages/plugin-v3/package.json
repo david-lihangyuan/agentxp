@@ -1,8 +1,7 @@
 {
-  "name": "@agentxp/plugin-v3",
+  "name": "@agentxp/openclaw-plugin",
   "version": "0.1.0",
-  "private": true,
-  "description": "AgentXP Plugin v3 — hook-driven SKU with reasoning_trace capture (workspace-only, DP-4 T3=Y)",
+  "description": "AgentXP OpenClaw plugin — captures reasoning traces and publishes experiences to the AgentXP relay.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -10,25 +9,41 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./adapter": {
+      "types": "./dist/adapter.d.ts",
+      "default": "./dist/adapter.js"
     }
   },
-  "publishConfig": {
-    "access": "restricted"
+  "openclaw": {
+    "extensions": [
+      "./dist/adapter.js"
+    ]
   },
-  "files": ["dist/", "src/"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist/",
+    "openclaw.plugin.json"
+  ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsup",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.test.json"
   },
+  "peerDependencies": {
+    "openclaw": ">=2026.4.15"
+  },
   "dependencies": {
-    "@serendip/protocol": "0.1.0",
-    "better-sqlite3": "^11.7.0"
+    "better-sqlite3": "^11.7.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@serendip/supernode": "0.1.0",
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.19.17",
+    "openclaw": "^2026.4.15",
+    "tsup": "^8.5.1",
     "typescript": "^5.4.5",
     "vitest": "^4.1.4"
   }
