@@ -185,6 +185,59 @@ describe('OpenClaw adapter — createAgentxpPluginRegister', () => {
     }
   })
 
+  it('auto-flushes on count threshold even when session_end is never fired (M7 Batch 2.6)', () => {
+    const db = openPluginDb(':memory:')
+    try {
+      const api = mockApi()
+      createAgentxpPluginRegister(db, { autoFlushSteps: 3, autoFlushIdleMs: 0 })(
+        api as never,
+      )
+      const SESSION = 'sess-autoflush'
+      api.invoke('session_start', { sessionId: SESSION }, { sessionId: SESSION })
+      for (let i = 0; i < 3; i++) {
+        api.invoke(
+          'after_tool_call',
+          { toolName: 'bash', params: { cmd: `echo ${i}` }, result: `${i}`, durationMs: 10 },
+          { sessionId: SESSION, toolName: 'bash' },
+        )
+      }
+      const staged = db.listAllExperiences()
+      expect(staged.length).toBe(1)
+      expect(staged[0]!.reason).toBe('auto_count')
+      expect(db.listTraceSteps(SESSION).length).toBe(0)
+    } finally {
+      db.close()
+    }
+  })
+
+  it('session_end after an auto-flush does not double-stage (idempotency)', () => {
+    const db = openPluginDb(':memory:')
+    try {
+      const api = mockApi()
+      createAgentxpPluginRegister(db, { autoFlushSteps: 2, autoFlushIdleMs: 0 })(
+        api as never,
+      )
+      const SESSION = 'sess-double'
+      api.invoke('session_start', { sessionId: SESSION }, { sessionId: SESSION })
+      for (let i = 0; i < 2; i++) {
+        api.invoke(
+          'after_tool_call',
+          { toolName: 'bash', params: {}, result: 'ok', durationMs: 5 },
+          { sessionId: SESSION, toolName: 'bash' },
+        )
+      }
+      expect(db.listAllExperiences().length).toBe(1)
+      api.invoke(
+        'session_end',
+        { sessionId: SESSION, reason: 'exit' },
+        { sessionId: SESSION },
+      )
+      expect(db.listAllExperiences().length).toBe(1)
+    } finally {
+      db.close()
+    }
+  })
+
   it('registers exactly one memory corpus supplement and one prompt supplement (M7 Batch 2)', () => {
     const db = openPluginDb(':memory:')
     try {

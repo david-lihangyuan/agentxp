@@ -15,6 +15,8 @@ export interface ResolvedPluginConfig {
   agentKeyPath: string
   defaultVisibility: Visibility
   stagingDbPath: string
+  autoFlushSteps: number
+  autoFlushIdleMs: number
 }
 
 const DEFAULTS = {
@@ -22,6 +24,8 @@ const DEFAULTS = {
   agentKeyPath: '~/.agentxp/identity/agent.key',
   defaultVisibility: 'unlisted' as Visibility,
   stagingDbPath: '~/.agentxp/plugin-v3/staging.db',
+  autoFlushSteps: 20,
+  autoFlushIdleMs: 120_000,
 }
 
 const HEX_64 = /^[0-9a-f]{64}$/
@@ -82,11 +86,39 @@ export function resolvePluginConfig(
     )
   }
 
+  const autoFlushSteps = requireNonNegativeInt(
+    raw,
+    'autoFlushSteps',
+    DEFAULTS.autoFlushSteps,
+  )
+  const autoFlushIdleMs = requireNonNegativeInt(
+    raw,
+    'autoFlushIdleMs',
+    DEFAULTS.autoFlushIdleMs,
+  )
+
   return {
     relayUrl,
     operatorPublicKey,
     agentKeyPath,
     defaultVisibility: vis,
     stagingDbPath,
+    autoFlushSteps,
+    autoFlushIdleMs,
   }
+}
+
+function requireNonNegativeInt(
+  raw: Record<string, unknown>,
+  key: string,
+  fallback: number,
+): number {
+  const v = raw[key]
+  if (v === undefined) return fallback
+  if (typeof v !== 'number' || !Number.isFinite(v) || !Number.isInteger(v) || v < 0) {
+    throw new Error(
+      `agentxp plugin: config field "${key}" must be a non-negative integer (got ${String(v)})`,
+    )
+  }
+  return v
 }

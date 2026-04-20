@@ -86,4 +86,32 @@ describe('resolvePluginConfig', () => {
       resolvePluginConfig({ operatorPublicKey: VALID_KEY, stagingDbPath: [] }),
     ).toThrowError(/stagingDbPath/)
   })
+
+  it('fills in defaults for autoFlushSteps and autoFlushIdleMs', () => {
+    const resolved = resolvePluginConfig({ operatorPublicKey: VALID_KEY })
+    expect(resolved.autoFlushSteps).toBe(20)
+    expect(resolved.autoFlushIdleMs).toBe(120_000)
+  })
+
+  it('passes through supplied autoFlushSteps and autoFlushIdleMs overrides', () => {
+    const resolved = resolvePluginConfig({
+      operatorPublicKey: VALID_KEY,
+      autoFlushSteps: 5,
+      autoFlushIdleMs: 0,
+    })
+    expect(resolved.autoFlushSteps).toBe(5)
+    expect(resolved.autoFlushIdleMs).toBe(0)
+  })
+
+  it('rejects negative or non-integer auto-flush values', () => {
+    expect(() =>
+      resolvePluginConfig({ operatorPublicKey: VALID_KEY, autoFlushSteps: -1 }),
+    ).toThrowError(/autoFlushSteps/)
+    expect(() =>
+      resolvePluginConfig({ operatorPublicKey: VALID_KEY, autoFlushIdleMs: 1.5 }),
+    ).toThrowError(/autoFlushIdleMs/)
+    expect(() =>
+      resolvePluginConfig({ operatorPublicKey: VALID_KEY, autoFlushSteps: 'ten' }),
+    ).toThrowError(/autoFlushSteps/)
+  })
 })

@@ -25,10 +25,17 @@ export interface ToolCallCtx {
   created_at: string
 }
 
+export type SessionEndReason =
+  | 'exit'
+  | 'idle'
+  | 'explicit'
+  | 'auto_count'
+  | 'auto_idle'
+
 export interface SessionEndCtx {
   session_id: string
   ended_at: string
-  reason: 'exit' | 'idle' | 'explicit'
+  reason: SessionEndReason
 }
 
 export interface SessionStartCtx {

@@ -37,6 +37,18 @@
         "type": "string",
         "default": "~/.agentxp/plugin-v3/staging.db",
         "description": "SQLite path where reasoning traces and staged experiences are persisted."
+      },
+      "autoFlushSteps": {
+        "type": "integer",
+        "minimum": 0,
+        "default": 20,
+        "description": "Auto-stage a session's captured trace after this many tool calls. 0 disables the count trigger. Fallback for hosts that may not fire session_end."
+      },
+      "autoFlushIdleMs": {
+        "type": "integer",
+        "minimum": 0,
+        "default": 120000,
+        "description": "Auto-stage a session's captured trace after this many milliseconds of inactivity. 0 disables the idle trigger. Fallback for hosts that may not fire session_end."
       }
     },
     "required": ["operatorPublicKey"]
@@ -46,6 +58,8 @@
     "operatorPublicKey": { "widget": "text", "monospace": true },
     "agentKeyPath": { "widget": "path" },
     "defaultVisibility": { "widget": "select" },
-    "stagingDbPath": { "widget": "path" }
+    "stagingDbPath": { "widget": "path" },
+    "autoFlushSteps": { "widget": "number" },
+    "autoFlushIdleMs": { "widget": "number" }
   }
 }

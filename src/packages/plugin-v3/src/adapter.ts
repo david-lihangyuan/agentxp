@@ -14,6 +14,7 @@ import type { OpenClawPluginApi } from 'openclaw/plugin-sdk/core'
 
 import { resolvePluginConfig } from './config.js'
 import { openPluginDb, type PluginDb } from './db.js'
+import { createFlushController, type FlushController } from './flush.js'
 import {
   onAgentEnd,
   onBeforeToolCall,
@@ -93,9 +94,25 @@ function mapSessionEndReason(raw: string | undefined): 'exit' | 'idle' | 'explic
   return 'exit'
 }
 
+// Auto-flush fallback options. Both thresholds default to 0 (disabled)
+// so legacy tests and direct callers see no behaviour change; the
+// definePluginEntry register() below passes the real defaults from
+// resolvePluginConfig.
+export interface AgentxpRegisterOptions {
+  autoFlushSteps?: number
+  autoFlushIdleMs?: number
+}
+
 export function createAgentxpPluginRegister(
   db: PluginDb,
+  options: AgentxpRegisterOptions = {},
 ): (api: OpenClawPluginApi) => void {
+  const flush: FlushController = createFlushController({
+    db,
+    countThreshold: options.autoFlushSteps ?? 0,
+    idleMs: options.autoFlushIdleMs ?? 0,
+    summary: IMPLICIT_SUMMARY,
+  })
   return (api) => {
     api.on('session_start', (event: SessionStartEventLike) => {
       onSessionStart(db, {
@@ -135,8 +152,9 @@ export function createAgentxpPluginRegister(
     )
 
     api.on('after_tool_call', (event: AfterToolCallEventLike, ctx: ToolContextLike) => {
+      const sessionId = ctx.sessionId ?? 'unknown'
       onToolCall(db, {
-        session_id: ctx.sessionId ?? 'unknown',
+        session_id: sessionId,
         created_at: new Date().toISOString(),
         tool_call: {
           name: event.toolName,
@@ -145,9 +163,14 @@ export function createAgentxpPluginRegister(
           duration_ms: event.durationMs ?? 0,
         },
       })
+      // Auto-flush fallback: some OpenClaw exit paths never fire
+      // session_end. Drive staging off tool-call counts / idle time
+      // as well so traces don't get orphaned in trace_steps forever.
+      flush.onStep(sessionId)
     })
 
     api.on('session_end', (event: SessionEndEventLike, _ctx: SessionContextLike) => {
+      flush.onEnd(event.sessionId)
       onSessionEnd(
         db,
         {
@@ -161,6 +184,7 @@ export function createAgentxpPluginRegister(
 
     api.on('agent_end', (event: AgentEndEventLike, ctx: AgentContextLike) => {
       if (!ctx.sessionId) return
+      flush.onEnd(ctx.sessionId)
       onAgentEnd(db, {
         session_id: ctx.sessionId,
         success: event.success,
@@ -205,7 +229,10 @@ export const agentxpPlugin = definePluginEntry({
   register(api) {
     const cfg = resolvePluginConfig(api.pluginConfig)
     const db = openDbFromConfig(cfg.stagingDbPath)
-    createAgentxpPluginRegister(db)(api)
+    createAgentxpPluginRegister(db, {
+      autoFlushSteps: cfg.autoFlushSteps,
+      autoFlushIdleMs: cfg.autoFlushIdleMs,
+    })(api)
   },
 })
 
