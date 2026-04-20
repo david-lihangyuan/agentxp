@@ -198,15 +198,15 @@ Artefacts:
   `"openclaw": ">=2026.4.15"`
 
 Checks:
-- [ ] `npm run build -w @agentxp/openclaw-plugin` produces `dist/`
+- [x] `npm run build -w @agentxp/openclaw-plugin` produces `dist/`
       with `adapter.js` and all six hook exports present
-- [ ] New Vitest suites cover `onSessionStart`,
+- [x] New Vitest suites cover `onSessionStart`,
       `onBeforeToolCall`, `onAgentEnd` (each with happy / edge /
       error cases) and an adapter integration test with a mocked
       `OpenClawPluginApi`
-- [ ] `tsc --noEmit` green on both `tsconfig.json` and
+- [x] `tsc --noEmit` green on both `tsconfig.json` and
       `tsconfig.test.json`
-- [ ] `npm publish --dry-run -w @agentxp/openclaw-plugin` shows the
+- [x] `npm publish --dry-run -w @agentxp/openclaw-plugin` shows the
       manifest file and `dist/` in the tarball; no test files, no
       SQLite DBs, no `src/`
 
@@ -228,6 +228,73 @@ Checks:
 - [x] Empty local DB → zero injections (no errors, no default noise)
 - [x] Visibility enforcement: private experiences are not returned
       when the supplied scope is `public-only`
+
+### Batch 2.5 — `register()` wiring
+
+Artefacts:
+- `src/packages/plugin-v3/src/config.ts` — `resolvePluginConfig`
+  (reads `api.pluginConfig`, expands `~/`, validates
+  `operatorPublicKey` hex, returns a typed `ResolvedPluginConfig`)
+- `adapter.ts#register()` now opens the staging DB at the configured
+  path and hands the api to `createAgentxpPluginRegister`
+
+Checks:
+- [x] A mock `api.pluginConfig` with a valid `operatorPublicKey`
+      loads the plugin without throwing; all six hooks + both
+      supplements are registered
+- [x] Missing parent directories for `stagingDbPath` are created
+- [x] Missing `operatorPublicKey` / missing `pluginConfig` throw
+      readable errors before any DB work
+
+### Batch 2.6 — auto-flush fallback for unreliable `session_end`
+
+OpenClaw 2026.4.15 does not always fire `session_end` / `agent_end`,
+leaving captured `trace_steps` orphaned. This adds two per-session
+fallbacks that call the same staging path with `reason='auto_count'`
+or `'auto_idle'`.
+
+Artefacts:
+- `src/packages/plugin-v3/src/flush.ts` — `FlushController`
+  (per-session counter + idle timer). `autoFlushSteps` (default 20)
+  and `autoFlushIdleMs` (default 120000) configure the thresholds.
+- `types.ts` — `SessionEndReason` extended with `'auto_count'` and
+  `'auto_idle'`.
+
+Checks:
+- [x] Count trigger stages an experience after N `after_tool_call`
+      events even when `session_end` never fires
+- [x] Idle trigger stages after T ms of inactivity
+- [x] A real `session_end` after an auto-flush does not double-stage
+- [x] Verified end-to-end against `openclaw tui`:
+      `staged_experiences` rows appear with
+      `reason='auto_count'` after the threshold is reached
+
+### Batch 2.7 — background relay publisher
+
+Artefacts:
+- `src/packages/plugin-v3/src/identity.ts` — `loadAgentKey`
+  supporting both on-disk layouts (skill single-file `agent.json`
+  with `privateKey`; split `agent.key` hex seed + sibling
+  `agent.json` metadata). Enforces `delegatedBy === operatorPublicKey`.
+- `src/packages/plugin-v3/src/publish-loop.ts` — `startPublishLoop`
+  (setInterval + reentrancy guard + unref'd timer + error
+  swallowing via `onError`). Drains `staged_experiences` by calling
+  the existing `publishStagedExperiences` on a timer.
+- `config.publishIntervalMs` (default 30000 ms, 0 disables).
+- `adapter.register()` loads the key only when interval > 0;
+  missing or mis-delegated key logs one warning and leaves capture
+  intact with publisher disabled.
+
+Checks:
+- [x] 8 identity tests + 5 publish-loop tests + 2 adapter register
+      tests cover both on-disk layouts, delegation mismatch,
+      malformed hex, disable-on-zero, reentrancy, and `onError`
+      plumbing
+- [x] Live smoke: after gateway restart with the new adapter,
+      four pre-existing staged rows drained to zero within one
+      30 s interval, and `GET /api/v1/events?author=<agent>`
+      on `https://relay.agentxp.io` returns the corresponding
+      signed `intent.broadcast` events
 
 ### M7-DONE — Publish + verify
 
