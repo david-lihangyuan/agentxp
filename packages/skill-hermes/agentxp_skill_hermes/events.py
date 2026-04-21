@@ -1,6 +1,6 @@
 """create_event / sign_event / verify_event.
 
-Matches the TypeScript protocol (`src/packages/protocol/src/events.ts`)
+Matches the TypeScript protocol (`packages/protocol/src/events.ts`)
 behavior under ADR-003. The only observable difference is that the
 Python signer additionally cross-checks the canonical byte count
 against a recomputation before signing — this is the typed error

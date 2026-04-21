@@ -15,8 +15,8 @@ ADR-002. Rules are `.augment/rules/project.md`.
 Scope: configure the monorepo shell. No product logic.
 
 Artefacts:
-- Root `package.json` with `"workspaces": ["src/packages/*"]`
-- `src/packages/` directory exists (may be empty)
+- Root `package.json` with `"workspaces": ["packages/*"]`
+- `packages/` directory exists (may be empty)
 - `tsconfig.json`, `vitest.config.ts`, lint rule blocking imports
   from `legacy/`
 
@@ -36,14 +36,14 @@ Reference: `docs/spec/03-modules-platform.md §1`,
 `docs/spec/02-data-model.md §1`, `serendip-protocol-v1.md`.
 
 Artefacts:
-- `src/packages/protocol/` with `signEvent`, `verifyEvent`, canonical
+- `packages/protocol/` with `signEvent`, `verifyEvent`, canonical
   `eventId`, kind validation against `kind-registry/kinds/*.json`
 - Test suite covering: sign-verify round-trip, tampered payload
   rejected, invalid kind rejected, canonical id determinism
 
 Checks:
 - [x] `bun test --filter @agentxp/protocol` 100% green
-- [x] Zero `legacy/` imports in `src/packages/protocol/`
+- [x] Zero `legacy/` imports in `packages/protocol/`
 - [x] Can `import { signEvent } from '@agentxp/protocol'` from another
       package in the workspace without setup friction
       (package published as `@agentxp/protocol` per SPEC
@@ -94,7 +94,7 @@ Expected duration: 3–4 days.
 
 ---
 
-## M4 — Plugin v3 SKU (`@agentxp/openclaw-plugin`, internal path `src/packages/plugin-v3/`)
+## M4 — Plugin v3 SKU (`@agentxp/openclaw-plugin`, internal path `packages/plugin-v3/`)
 
 Scope: SPEC module #5. Reference: `docs/spec/03-modules-product.md §5`
 (including the §5.1 Host hook surface added 2026-04-18).
@@ -172,7 +172,7 @@ PR from `feat/v0.1-impl` into `main`.
 Scope: ship `@agentxp/openclaw-plugin` (renamed from the internal
 SKU `@agentxp/plugin-v3` in M7 Batch 1 after a registry-name
 collision) as a real OpenClaw plugin to npm public + GitHub. The
-workspace directory stays at `src/packages/plugin-v3/` for now.
+workspace directory stays at `packages/plugin-v3/` for now.
 Decision recorded in `docs/adr/ADR-004`. Split into two batches;
 Batch 1 must land before Batch 2 begins.
 
@@ -183,10 +183,10 @@ release and is superseded by ADR-004 only for subsequent work.
 ### Batch 1 — adapter + manifest + full lifecycle hook surface
 
 Artefacts:
-- `src/packages/plugin-v3/openclaw.plugin.json` manifest with
+- `packages/plugin-v3/openclaw.plugin.json` manifest with
   `configSchema` (operator pubkey, agent key, relay URL,
   visibility default)
-- `src/packages/plugin-v3/src/adapter.ts` exporting
+- `packages/plugin-v3/src/adapter.ts` exporting
   `definePluginEntry({ id: 'agentxp', register(api) {...} })`
 - Three new hook handlers: `onSessionStart`, `onBeforeToolCall`,
   `onAgentEnd`. The existing `onMessageSending` / `onToolCall` /
@@ -213,9 +213,9 @@ Checks:
 ### Batch 2 — memory supplement injection
 
 Artefacts:
-- `src/packages/plugin-v3/src/memory-corpus.ts` — re-implementation
+- `packages/plugin-v3/src/memory-corpus.ts` — re-implementation
   of the legacy corpus supplement against the SPEC §5 contract
-- `src/packages/plugin-v3/src/memory-prompt.ts` — re-implementation
+- `packages/plugin-v3/src/memory-prompt.ts` — re-implementation
   of phase-aware prompt supplement (stuck / evaluating / planning /
   executing)
 - Adapter wires both via `api.registerMemoryCorpusSupplement(...)` /
@@ -232,7 +232,7 @@ Checks:
 ### Batch 2.5 — `register()` wiring
 
 Artefacts:
-- `src/packages/plugin-v3/src/config.ts` — `resolvePluginConfig`
+- `packages/plugin-v3/src/config.ts` — `resolvePluginConfig`
   (reads `api.pluginConfig`, expands `~/`, validates
   `operatorPublicKey` hex, returns a typed `ResolvedPluginConfig`)
 - `adapter.ts#register()` now opens the staging DB at the configured
@@ -254,7 +254,7 @@ fallbacks that call the same staging path with `reason='auto_count'`
 or `'auto_idle'`.
 
 Artefacts:
-- `src/packages/plugin-v3/src/flush.ts` — `FlushController`
+- `packages/plugin-v3/src/flush.ts` — `FlushController`
   (per-session counter + idle timer). `autoFlushSteps` (default 20)
   and `autoFlushIdleMs` (default 120000) configure the thresholds.
 - `types.ts` — `SessionEndReason` extended with `'auto_count'` and
@@ -272,11 +272,11 @@ Checks:
 ### Batch 2.7 — background relay publisher
 
 Artefacts:
-- `src/packages/plugin-v3/src/identity.ts` — `loadAgentKey`
+- `packages/plugin-v3/src/identity.ts` — `loadAgentKey`
   supporting both on-disk layouts (skill single-file `agent.json`
   with `privateKey`; split `agent.key` hex seed + sibling
   `agent.json` metadata). Enforces `delegatedBy === operatorPublicKey`.
-- `src/packages/plugin-v3/src/publish-loop.ts` — `startPublishLoop`
+- `packages/plugin-v3/src/publish-loop.ts` — `startPublishLoop`
   (setInterval + reentrancy guard + unref'd timer + error
   swallowing via `onError`). Drains `staged_experiences` by calling
   the existing `publishStagedExperiences` on a timer.

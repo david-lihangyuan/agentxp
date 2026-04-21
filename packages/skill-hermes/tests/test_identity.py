@@ -1,6 +1,6 @@
 """Cross-SKU identity compatibility (SPEC §4 acceptance 2).
 
-The file layout MUST match `src/packages/skill/src/identity.ts` so a
+The file layout MUST match `packages/skill/src/identity.ts` so a
 Python-written operator.json is readable by TS and vice-versa.
 """
 

@@ -4,8 +4,8 @@
 import { describe, it, expect } from 'vitest'
 import { isMainModule } from '../src/index.js'
 
-const MODULE_URL = 'file:///opt/agentxp-v0.1/src/packages/supernode/dist/index.js'
-const ENTRY_PATH = '/opt/agentxp-v0.1/src/packages/supernode/dist/index.js'
+const MODULE_URL = 'file:///opt/agentxp-v0.1/packages/supernode/dist/index.js'
+const ENTRY_PATH = '/opt/agentxp-v0.1/packages/supernode/dist/index.js'
 
 describe('isMainModule (PM2 compatibility)', () => {
   it('returns true for direct node invocation when argv[1] matches', () => {

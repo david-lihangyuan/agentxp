@@ -1,6 +1,6 @@
 """Publish staged drafts to a relay (SPEC 01-interfaces §5.1, §6).
 
-Mirrors `src/packages/skill/src/publisher.ts`:
+Mirrors `packages/skill/src/publisher.ts`:
 - 15-minute base backoff with 60-minute cap, matching the Skill SKU
   retry contract (SPEC 01-interfaces §6).
 - Drafts are removed only on 200 OK or a non-retryable 4xx.

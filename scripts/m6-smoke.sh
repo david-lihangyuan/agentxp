@@ -14,9 +14,9 @@ export HOME="$ROOT/home"
 export ROOT
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-HERMES_DIR="$REPO/src/packages/skill-hermes"
-SKILL_BIN="$REPO/src/packages/skill/dist/cli.js"
-SUPERNODE_ENTRY="$REPO/src/packages/supernode/dist/index.js"
+HERMES_DIR="$REPO/packages/skill-hermes"
+SKILL_BIN="$REPO/packages/skill/dist/cli.js"
+SUPERNODE_ENTRY="$REPO/packages/supernode/dist/index.js"
 
 PORT=13144
 PORT="$PORT" DB_PATH="$ROOT/relay.sqlite" node "$SUPERNODE_ENTRY" > "$ROOT/relay.log" 2>&1 &

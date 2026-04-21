@@ -16,8 +16,8 @@ from pathlib import Path
 
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
-PROTOCOL_DIST = REPO_ROOT / "src" / "packages" / "protocol" / "dist" / "index.js"
+REPO_ROOT = Path(__file__).resolve().parents[3]
+PROTOCOL_DIST = REPO_ROOT / "packages" / "protocol" / "dist" / "index.js"
 
 
 def _protocol_available() -> bool:

@@ -123,9 +123,9 @@ signed events.
 
 ## Consequences
 
-- `src/packages/protocol/src/canonical.ts` implements `sortedJSON` and
+- `packages/protocol/src/canonical.ts` implements `sortedJSON` and
   `sha256hex` per D1.
-- `src/packages/protocol/src/events.ts` exports `signEvent` /
+- `packages/protocol/src/events.ts` exports `signEvent` /
   `verifyEvent` per D2 / D3, plus `createEvent` (Phase A A3 helper).
 - A short citation `// Ported from legacy/src-v1/packages/protocol/
   src/events.ts:…` accompanies ported algorithm blocks, per

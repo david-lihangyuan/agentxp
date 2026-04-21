@@ -1,6 +1,6 @@
 """Ed25519 operator + agent key primitives.
 
-Mirrors `src/packages/protocol/src/keys.ts` — the on-disk record
+Mirrors `packages/protocol/src/keys.ts` — the on-disk record
 carries the 32-byte Ed25519 seed (hex-encoded), and the public key is
 derived via `SigningKey(seed).verify_key`.
 """

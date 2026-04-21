@@ -1,10 +1,15 @@
 # ADR-002 — Monorepo on-disk layout (provisional)
 
 - Date: 2026-04-18
-- Status: **PROVISIONAL** (closes §4.1 check GAP-1; adopted 2026-04-18)
+- Status: **SUPERSEDED by [ADR-005](./ADR-005-flatten-packages-root.md)
+  on 2026-04-21.** The on-disk location decision below
+  (`src/packages/<name>/`) is no longer in force; packages now live at
+  `packages/<name>/`. Kept on disk as a historical record of the
+  reasoning that preceded ADR-005.
 - Related: `.augment/rules/project.md §1-§2`; `docs/spec/00-overview.md §4`;
   `docs/spec/03-modules-{platform,product}.md` per-module `Package:` fields
 - Supersedes: —
+- Superseded-by: ADR-005
 
 ## Context
 

@@ -7,7 +7,7 @@ import { InvalidKindRegistryError } from '../src/errors.js'
 import { loadKindRegistry } from '../src/kinds.js'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const REGISTRY_DIR = resolve(HERE, '../../../../kind-registry/kinds')
+const REGISTRY_DIR = resolve(HERE, '../../../kind-registry/kinds')
 
 describe('loadKindRegistry (SPEC 03-modules-platform §6)', () => {
   it('finds the io.agentxp.experience entry in the on-disk registry', () => {

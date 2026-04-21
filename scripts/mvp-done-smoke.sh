@@ -13,8 +13,8 @@ export HOME="$ROOT/home"
 export ROOT
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-SKILL_BIN="$REPO/src/packages/skill/dist/cli.js"
-SUPERNODE_ENTRY="$REPO/src/packages/supernode/dist/index.js"
+SKILL_BIN="$REPO/packages/skill/dist/cli.js"
+SUPERNODE_ENTRY="$REPO/packages/supernode/dist/index.js"
 
 PORT=13145
 export PORT

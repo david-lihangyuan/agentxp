@@ -1,6 +1,6 @@
 """Tier-1 capture + Tier-2 reflect orchestration (ADR-001).
 
-Mirrors `src/packages/skill/src/reflect.ts`: both tiers share the same
+Mirrors `packages/skill/src/reflect.ts`: both tiers share the same
 event schema and go through local staging; Tier-2 is the publish
 cycle. The Python port additionally enforces byte-count parity with
 the TS reference via `events.sign_event` (§4 acceptance 3).

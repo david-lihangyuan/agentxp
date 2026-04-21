@@ -5,8 +5,8 @@
 # Expected layout:
 #   /opt/agentxp-v0.1/             <- this script's cwd
 #     package.json (workspaces root)
-#     src/packages/protocol/
-#     src/packages/supernode/
+#     packages/protocol/
+#     packages/supernode/
 set -euo pipefail
 
 ROOT="/opt/agentxp-v0.1"
@@ -23,7 +23,7 @@ echo "==> building @agentxp/supernode"
 npm run -w @agentxp/supernode build
 
 echo "==> smoke: dist artefacts present"
-test -f src/packages/protocol/dist/index.js
-test -f src/packages/supernode/dist/index.js
+test -f packages/protocol/dist/index.js
+test -f packages/supernode/dist/index.js
 
 echo "==> OK"

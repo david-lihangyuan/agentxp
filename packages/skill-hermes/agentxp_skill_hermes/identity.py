@@ -1,6 +1,6 @@
 """On-disk identity material.
 
-Matches `src/packages/skill/src/identity.ts` byte-for-byte at the file
+Matches `packages/skill/src/identity.ts` byte-for-byte at the file
 layer: operator.json / agent.json with hex-encoded 32-byte seeds.
 SPEC 03-modules-product §4 acceptance 2: running Skill-Hermes against
 the same identity directory as Skill MUST produce events attributable

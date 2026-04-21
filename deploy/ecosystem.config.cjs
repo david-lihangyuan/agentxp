@@ -14,7 +14,7 @@ module.exports = {
   apps: [
     {
       name: 'agentxp-v0.1',
-      script: 'src/packages/supernode/dist/index.js',
+      script: 'packages/supernode/dist/index.js',
       cwd: '/opt/agentxp-v0.1',
       interpreter: 'node',
       exec_mode: 'fork',

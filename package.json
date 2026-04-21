@@ -4,11 +4,11 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "src/packages/*"
+    "packages/*"
   ],
   "scripts": {
     "test": "vitest run",
-    "test:hermes": "bash -c 'cd src/packages/skill-hermes && uv run pytest'",
+    "test:hermes": "bash -c 'cd packages/skill-hermes && uv run pytest'",
     "lint:no-legacy": "bash scripts/check-no-legacy-imports.sh",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "format": "prettier --write .",

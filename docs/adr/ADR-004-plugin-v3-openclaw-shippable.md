@@ -53,8 +53,8 @@ for the Plugin v3 package only.
    before Batch 2 begins; Batch 2 may slip without holding Batch 1.
 
    **Batch 1 — adapter shell + full lifecycle hook surface.**
-   - `src/packages/plugin-v3/openclaw.plugin.json` manifest.
-   - `src/packages/plugin-v3/src/adapter.ts` entry that calls
+   - `packages/plugin-v3/openclaw.plugin.json` manifest.
+   - `packages/plugin-v3/src/adapter.ts` entry that calls
      `definePluginEntry({ id: 'agentxp', register(api) { ... } })`.
    - Register all six SPEC-aligned hooks via `api.on(...)`:
      `session_start`, `session_end`, `message_sending`,
@@ -67,7 +67,7 @@ for the Plugin v3 package only.
    - npm publish contract: `name: "@agentxp/openclaw-plugin"`
      (renamed from `@agentxp/plugin-v3` during Batch 1 execution
      after a registry-name collision; the workspace directory stays
-     `src/packages/plugin-v3/`), `access: public`,
+     `packages/plugin-v3/`), `access: public`,
      `files: ["dist/", "openclaw.plugin.json"]`.
 
    **Batch 2 — memory supplement injection.**
@@ -94,7 +94,7 @@ for the Plugin v3 package only.
 
    Aggregate: ~3000 LOC of legacy code stays in `legacy/` and is NOT
    migrated. Net migration budget for M7 is ~800 LOC of new code in
-   `src/packages/plugin-v3/` + ~500 LOC of tests.
+   `packages/plugin-v3/` + ~500 LOC of tests.
 
 ## Consequences
 
