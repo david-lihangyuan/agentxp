@@ -4,7 +4,23 @@
 import { describe, it, expect } from 'vitest'
 import { createEvent, signEvent } from '@agentxp/protocol'
 import type { AgentKey, ExperiencePayload } from '@agentxp/protocol'
-import { bootstrapIdentity, publish, startTestServer, type TestServer } from './helpers.js'
+import {
+  bootstrapIdentity,
+  fetchJson,
+  publish,
+  startTestServer,
+  type TestServer,
+} from './helpers.js'
+
+interface AgentMetric {
+  pubkey: string
+  operator_pubkey: string | null
+  agent_id: string | null
+  experiences: number
+}
+interface AgentsResponse {
+  agents: AgentMetric[]
+}
 
 async function publishExperience(
   srv: TestServer,
@@ -23,11 +39,6 @@ async function publishExperience(
   return ev.id
 }
 
-async function fetchJson(srv: TestServer, path: string): Promise<{ status: number; body: any }> {
-  const r = await srv.fetch(new Request(`http://t${path}`))
-  return { status: r.status, body: await r.json() }
-}
-
 describe('GET /api/v1/metrics/agents (SPEC §5.5)', () => {
   it('returns an empty list for a fresh server', async () => {
     const srv = startTestServer()
@@ -42,14 +53,9 @@ describe('GET /api/v1/metrics/agents (SPEC §5.5)', () => {
     await publishExperience(srv, agent, 'one')
     await publishExperience(srv, agent, 'two')
 
-    const res = await fetchJson(srv, '/api/v1/metrics/agents')
+    const res = await fetchJson<AgentsResponse>(srv, '/api/v1/metrics/agents')
     expect(res.status).toBe(200)
-    const agents = res.body.agents as Array<{
-      pubkey: string
-      operator_pubkey: string | null
-      agent_id: string | null
-      experiences: number
-    }>
+    const agents = res.body.agents
     expect(agents.length).toBe(1)
     expect(agents[0]?.pubkey).toBe(agent.publicKey)
     expect(agents[0]?.operator_pubkey).toBe(operator.publicKey)
@@ -65,7 +71,7 @@ describe('GET /api/v1/metrics/agents (SPEC §5.5)', () => {
     await publishExperience(srv, a2, 'a2 exp 1')
     await publishExperience(srv, a2, 'a2 exp 2')
 
-    const res = await fetchJson(srv, '/api/v1/metrics/agents?limit=1')
+    const res = await fetchJson<AgentsResponse>(srv, '/api/v1/metrics/agents?limit=1')
     expect(res.status).toBe(200)
     expect(res.body.agents.length).toBe(1)
     expect(res.body.agents[0]?.pubkey).toBe(a2.publicKey)
@@ -75,7 +81,7 @@ describe('GET /api/v1/metrics/agents (SPEC §5.5)', () => {
     const srv = startTestServer()
     await bootstrapIdentity(srv)
     await bootstrapIdentity(srv)
-    const res = await fetchJson(srv, '/api/v1/metrics/agents?limit=0')
+    const res = await fetchJson<AgentsResponse>(srv, '/api/v1/metrics/agents?limit=0')
     expect(res.status).toBe(200)
     expect(res.body.agents.length).toBe(1)
   })
@@ -84,7 +90,7 @@ describe('GET /api/v1/metrics/agents (SPEC §5.5)', () => {
     const srv = startTestServer()
     await bootstrapIdentity(srv)
     await bootstrapIdentity(srv)
-    const res = await fetchJson(srv, '/api/v1/metrics/agents?limit=abc')
+    const res = await fetchJson<AgentsResponse>(srv, '/api/v1/metrics/agents?limit=abc')
     expect(res.status).toBe(200)
     expect(res.body.agents.length).toBe(2)
   })
@@ -96,7 +102,12 @@ describe('GET /api/v1/metrics/agent/:pubkey (SPEC §5.5)', () => {
     const { operator, agent } = await bootstrapIdentity(srv)
     await publishExperience(srv, agent, 'only one')
 
-    const res = await fetchJson(srv, `/api/v1/metrics/agent/${agent.publicKey}`)
+    const res = await fetchJson<{
+      pubkey: string
+      operator_pubkey: string
+      experiences: number
+      last_activity: number
+    }>(srv, `/api/v1/metrics/agent/${agent.publicKey}`)
     expect(res.status).toBe(200)
     expect(res.body.pubkey).toBe(agent.publicKey)
     expect(res.body.operator_pubkey).toBe(operator.publicKey)

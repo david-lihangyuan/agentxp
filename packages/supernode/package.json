@@ -17,6 +17,10 @@
     "./app": {
       "types": "./dist/app.d.ts",
       "default": "./dist/app.js"
+    },
+    "./testing": {
+      "types": "./src/testing.ts",
+      "default": "./src/testing.ts"
     }
   },
   "bin": {

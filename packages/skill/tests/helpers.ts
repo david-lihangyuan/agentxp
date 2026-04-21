@@ -1,7 +1,7 @@
 // Skill-side alias for the shared in-memory fixtures. Canonical
-// implementation lives in @agentxp/supernode/src/testing.ts.
+// implementation lives in @agentxp/supernode/testing.
 export {
   registerOperatorAndAgent,
   startInMemoryRelay,
-} from '../../supernode/src/testing.js'
-export type { InMemoryRelay as SkillTestServer } from '../../supernode/src/testing.js'
+} from '@agentxp/supernode/testing'
+export type { InMemoryRelay as SkillTestServer } from '@agentxp/supernode/testing'

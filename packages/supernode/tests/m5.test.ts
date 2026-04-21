@@ -3,7 +3,13 @@
 import { describe, it, expect } from 'vitest'
 import { createEvent, signEvent, delegateAgentKey, generateOperatorKey } from '@agentxp/protocol'
 import type { AgentKey, ExperiencePayload } from '@agentxp/protocol'
-import { bootstrapIdentity, publish, startTestServer, type TestServer } from './helpers.js'
+import {
+  bootstrapIdentity,
+  fetchJson,
+  publish,
+  startTestServer,
+  type TestServer,
+} from './helpers.js'
 
 async function publishExperience(
   srv: TestServer,
@@ -33,11 +39,6 @@ async function publishExperience(
   return { id: ev.id, pubkey: ev.pubkey }
 }
 
-async function fetchJson(srv: TestServer, path: string): Promise<{ status: number; body: any }> {
-  const r = await srv.fetch(new Request(`http://t${path}`))
-  return { status: r.status, body: await r.json() }
-}
-
 describe('L2 Reasoning Trace (SPEC §12)', () => {
   it('indexes trace_references and exposes them via GET /experiences/:id/trace', async () => {
     const srv = startTestServer()
@@ -65,10 +66,13 @@ describe('L2 Reasoning Trace (SPEC §12)', () => {
       reasoning_trace: trace,
     })
 
-    const t = await fetchJson(srv, `/api/v1/experiences/${pub.id}/trace`)
+    const t = await fetchJson<{ references: Array<{ step_index: number; stale: number }> }>(
+      srv,
+      `/api/v1/experiences/${pub.id}/trace`,
+    )
     expect(t.status).toBe(200)
     expect(t.body.references.length).toBe(2)
-    const byStep = (t.body.references as Array<{ step_index: number; stale: number }>).reduce(
+    const byStep = t.body.references.reduce(
       (a, r) => {
         a[r.step_index] = r
         return a
@@ -78,7 +82,7 @@ describe('L2 Reasoning Trace (SPEC §12)', () => {
     expect(byStep[1]).toBeDefined()
 
     // Stale flag: one reference resolved, one unresolved (all-f 64-hex).
-    const stales = t.body.references.filter((r: { stale: number }) => r.stale === 1)
+    const stales = t.body.references.filter((r) => r.stale === 1)
     expect(stales.length).toBe(1)
   })
 
@@ -108,33 +112,41 @@ describe('Pulse + Feedback loop (SPEC §8, §9)', () => {
     const { operator: opA, agent: agentA } = await bootstrapIdentity(srv)
     const pub = await publishExperience(srv, agentA, { what: 'Searchable Docker tip', tags: ['docker'] })
 
+    type ScoreBody = { impact_score: number }
+    type SearchBody = { results: unknown[] }
+    type PulseBody = { pulses: Array<{ kind: string; event_id: string }> }
+
     // Cold score
-    const pre = await fetchJson(srv, `/api/v1/experiences/${pub.id}/score`)
+    const pre = await fetchJson<ScoreBody>(srv, `/api/v1/experiences/${pub.id}/score`)
     expect(pre.body.impact_score).toBe(0)
 
     // Same-operator search: no impact.
-    const sameOp = await fetchJson(srv, `/api/v1/search?q=Docker&viewer_pubkey=${opA.publicKey}`)
+    const sameOp = await fetchJson<SearchBody>(
+      srv,
+      `/api/v1/search?q=Docker&viewer_pubkey=${opA.publicKey}`,
+    )
     expect(sameOp.body.results.length).toBeGreaterThan(0)
-    const midScore = await fetchJson(srv, `/api/v1/experiences/${pub.id}/score`)
+    const midScore = await fetchJson<ScoreBody>(srv, `/api/v1/experiences/${pub.id}/score`)
     expect(midScore.body.impact_score).toBe(0)
 
     // Cross-operator search: impact increases (§9 acceptance 1).
     const opB = await generateOperatorKey()
-    const after = await fetchJson(srv, `/api/v1/search?q=Docker&viewer_pubkey=${opB.publicKey}`)
+    const after = await fetchJson<SearchBody>(
+      srv,
+      `/api/v1/search?q=Docker&viewer_pubkey=${opB.publicKey}`,
+    )
     expect(after.body.results.length).toBeGreaterThan(0)
-    const postScore = await fetchJson(srv, `/api/v1/experiences/${pub.id}/score`)
+    const postScore = await fetchJson<ScoreBody>(srv, `/api/v1/experiences/${pub.id}/score`)
     expect(postScore.body.impact_score).toBeGreaterThan(0)
 
     // Pulse feed shows the search_hit.
-    const pulse = await fetchJson(srv, `/api/v1/pulse`)
+    const pulse = await fetchJson<PulseBody>(srv, `/api/v1/pulse`)
     expect(
-      (pulse.body.pulses as Array<{ kind: string; event_id: string }>).some(
-        (p) => p.kind === 'search_hit' && p.event_id === pub.id,
-      ),
+      pulse.body.pulses.some((p) => p.kind === 'search_hit' && p.event_id === pub.id),
     ).toBe(true)
 
     // Monotone non-decrease on repeat reads (§9 acceptance 2).
-    const second = await fetchJson(srv, `/api/v1/experiences/${pub.id}/score`)
+    const second = await fetchJson<ScoreBody>(srv, `/api/v1/experiences/${pub.id}/score`)
     expect(second.body.impact_score).toBeGreaterThanOrEqual(postScore.body.impact_score)
   })
 
@@ -176,11 +188,17 @@ describe('Pulse + Feedback loop (SPEC §8, §9)', () => {
       what: 'Extension of target', tags: ['b'], extendsTarget: target.id,
     })
 
-    const rels = await fetchJson(srv, `/api/v1/experiences/${target.id}/relations`)
+    const rels = await fetchJson<{ incoming: Array<{ relation: string }> }>(
+      srv,
+      `/api/v1/experiences/${target.id}/relations`,
+    )
     expect(rels.body.incoming.length).toBe(1)
-    expect(rels.body.incoming[0].relation).toBe('extends')
+    expect(rels.body.incoming[0]?.relation).toBe('extends')
 
-    const imp = await fetchJson(srv, `/api/v1/experiences/${target.id}/impact`)
+    const imp = await fetchJson<{ verifications: number; impact_score: number }>(
+      srv,
+      `/api/v1/experiences/${target.id}/impact`,
+    )
     expect(imp.body.verifications).toBe(1)
     expect(imp.body.impact_score).toBeGreaterThan(0)
   })
@@ -220,7 +238,12 @@ describe('Dashboard (SPEC §7; MILESTONES M5 checks 1 & 3)', () => {
     const { operator, agent } = await bootstrapIdentity(srv)
     await publishExperience(srv, agent, { what: 'One', outcome: 'succeeded' })
     await publishExperience(srv, agent, { what: 'Two', outcome: 'failed' })
-    const s = await fetchJson(srv, `/api/v1/dashboard/operator/${operator.publicKey}/summary`)
+    const s = await fetchJson<{
+      experiences: number
+      succeeded: number
+      failed: number
+      agents: number
+    }>(srv, `/api/v1/dashboard/operator/${operator.publicKey}/summary`)
     expect(s.status).toBe(200)
     expect(s.body.experiences).toBe(2)
     expect(s.body.succeeded).toBe(1)
@@ -230,7 +253,7 @@ describe('Dashboard (SPEC §7; MILESTONES M5 checks 1 & 3)', () => {
 
   it('unknown operator returns 404 with a JSON error body (§7 acceptance 2)', async () => {
     const srv = startTestServer()
-    const s = await fetchJson(
+    const s = await fetchJson<{ error: string }>(
       srv,
       `/api/v1/dashboard/operator/${'a'.repeat(64)}/summary`,
     )
@@ -242,9 +265,12 @@ describe('Dashboard (SPEC §7; MILESTONES M5 checks 1 & 3)', () => {
     const srv = startTestServer()
     const { agent } = await bootstrapIdentity(srv)
     await publishExperience(srv, agent, { what: 'Recent one' })
-    const exp = await fetchJson(srv, `/api/v1/dashboard/experiences`)
+    const exp = await fetchJson<{ experiences: unknown[] }>(srv, `/api/v1/dashboard/experiences`)
     expect(exp.body.experiences.length).toBe(1)
-    const net = await fetchJson(srv, `/api/v1/dashboard/network`)
+    const net = await fetchJson<{ operators: number; experiences: number }>(
+      srv,
+      `/api/v1/dashboard/network`,
+    )
     expect(net.body.operators).toBeGreaterThanOrEqual(1)
     expect(net.body.experiences).toBe(1)
   })
@@ -272,12 +298,12 @@ describe('Dashboard (SPEC §7; MILESTONES M5 checks 1 & 3)', () => {
     await publishExperience(srv, agent, { what: 'One' })
     await publishExperience(srv, agent, { what: 'Two' })
 
-    const res = await fetchJson(
+    const res = await fetchJson<{ buckets: Array<{ day_bucket: number; count: number }> }>(
       srv,
       `/api/v1/dashboard/operator/${operator.publicKey}/growth`,
     )
     expect(res.status).toBe(200)
-    const buckets = res.body.buckets as Array<{ day_bucket: number; count: number }>
+    const buckets = res.body.buckets
     expect(buckets.length).toBe(1) // both publishes land in the same second, same day bucket
     expect(buckets[0]?.count).toBe(2)
     expect(typeof buckets[0]?.day_bucket).toBe('number')
@@ -297,12 +323,12 @@ describe('Dashboard (SPEC §7; MILESTONES M5 checks 1 & 3)', () => {
     await publishExperience(srv, agent, { what: 'Broke something', outcome: 'failed' })
     await publishExperience(srv, agent, { what: 'Sort of', outcome: 'partial' })
 
-    const res = await fetchJson(
+    const res = await fetchJson<{ failures: Array<{ what: string; outcome: string }> }>(
       srv,
       `/api/v1/dashboard/operator/${operator.publicKey}/failures`,
     )
     expect(res.status).toBe(200)
-    const failures = res.body.failures as Array<{ what: string; outcome: string }>
+    const failures = res.body.failures
     expect(failures.length).toBe(2)
     const outcomes = new Set(failures.map((f) => f.outcome))
     expect(outcomes).toEqual(new Set(['failed', 'partial']))
@@ -315,12 +341,12 @@ describe('Dashboard (SPEC §7; MILESTONES M5 checks 1 & 3)', () => {
     await publishExperience(srv, agent, { what: 'f2', outcome: 'failed' })
     await publishExperience(srv, agent, { what: 'f3', outcome: 'failed' })
 
-    const res = await fetchJson(
+    const res = await fetchJson<{ failures: unknown[] }>(
       srv,
       `/api/v1/dashboard/operator/${operator.publicKey}/failures?limit=2`,
     )
     expect(res.status).toBe(200)
-    expect((res.body.failures as unknown[]).length).toBe(2)
+    expect(res.body.failures.length).toBe(2)
   })
 })
 
@@ -384,8 +410,11 @@ describe('POST /api/v1/experiences/:id/relations (SPEC \u00a75.4)', () => {
     expect(body.event_id).toBe(signed.id)
 
     // Verify the relation actually landed in experience_relations.
-    const rels = await fetchJson(srv, `/api/v1/experiences/${target.id}/relations`)
+    const rels = await fetchJson<{ incoming: Array<{ relation: string }> }>(
+      srv,
+      `/api/v1/experiences/${target.id}/relations`,
+    )
     expect(rels.body.incoming.length).toBe(1)
-    expect(rels.body.incoming[0].relation).toBe('extends')
+    expect(rels.body.incoming[0]?.relation).toBe('extends')
   })
 })

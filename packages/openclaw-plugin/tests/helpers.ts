@@ -1,5 +1,5 @@
 // Plugin-side alias for the shared in-memory fixtures. Canonical
-// implementation lives in @agentxp/supernode/src/testing.ts. The
+// implementation lives in @agentxp/supernode/testing. The
 // synchronous makeOperatorKey / makeAgentKey helpers are kept
 // here because publish-loop tests generate many keys in tight
 // loops and prefer the sync API over protocol async variants.
@@ -9,8 +9,8 @@ import type { AgentKey, OperatorKey } from '@agentxp/protocol'
 export {
   registerOperatorAndAgent,
   startInMemoryRelay,
-} from '../../supernode/src/testing.js'
-export type { InMemoryRelay as PluginTestServer } from '../../supernode/src/testing.js'
+} from '@agentxp/supernode/testing'
+export type { InMemoryRelay as PluginTestServer } from '@agentxp/supernode/testing'
 
 function toHex(bytes: Uint8Array): string {
   return Array.from(bytes)

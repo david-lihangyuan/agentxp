@@ -4,7 +4,23 @@
 import { describe, it, expect } from 'vitest'
 import { createEvent, generateOperatorKey, signEvent } from '@agentxp/protocol'
 import type { AgentKey, ExperiencePayload } from '@agentxp/protocol'
-import { bootstrapIdentity, publish, startTestServer, type TestServer } from './helpers.js'
+import {
+  bootstrapIdentity,
+  fetchJson,
+  publish,
+  startTestServer,
+  type TestServer,
+} from './helpers.js'
+
+interface PulseEntry {
+  event_id: string
+  kind: string
+  created_at: number
+}
+interface PulseResponse {
+  pulses: PulseEntry[]
+  next_cursor: string | null
+}
 
 async function publishExperience(
   srv: TestServer,
@@ -22,11 +38,6 @@ async function publishExperience(
     throw new Error(`publish failed ${res.status} ${JSON.stringify(res.body)}`)
   }
   return ev.id
-}
-
-async function fetchJson(srv: TestServer, path: string): Promise<{ status: number; body: any }> {
-  const r = await srv.fetch(new Request(`http://t${path}`))
-  return { status: r.status, body: await r.json() }
 }
 
 // Drive at least one pulse_event row via cross-operator search.
@@ -58,9 +69,9 @@ describe('GET /api/v1/pulse — observational feed (SPEC §5.3)', () => {
     await triggerPulse(srv, 'alpha')
     await triggerPulse(srv, 'beta')
 
-    const res = await fetchJson(srv, '/api/v1/pulse')
+    const res = await fetchJson<PulseResponse>(srv, '/api/v1/pulse')
     expect(res.status).toBe(200)
-    const pulses = res.body.pulses as Array<{ event_id: string; kind: string; created_at: number }>
+    const pulses = res.body.pulses
     expect(pulses.length).toBeGreaterThanOrEqual(2)
     // created_at is non-increasing.
     for (let i = 1; i < pulses.length; i += 1) {
@@ -86,7 +97,7 @@ describe('GET /api/v1/pulse — observational feed (SPEC §5.3)', () => {
     await triggerPulse(srv, 'two')
     await triggerPulse(srv, 'three')
 
-    const res = await fetchJson(srv, '/api/v1/pulse?limit=2')
+    const res = await fetchJson<PulseResponse>(srv, '/api/v1/pulse?limit=2')
     expect(res.status).toBe(200)
     expect(res.body.pulses.length).toBe(2)
   })
@@ -99,7 +110,7 @@ describe('GET /api/v1/pulse — observational feed (SPEC §5.3)', () => {
     await triggerPulse(srv, 'one')
     await triggerPulse(srv, 'two')
 
-    const res = await fetchJson(srv, '/api/v1/pulse?limit=0')
+    const res = await fetchJson<PulseResponse>(srv, '/api/v1/pulse?limit=0')
     expect(res.status).toBe(200)
     expect(res.body.pulses.length).toBe(1)
   })
@@ -112,7 +123,7 @@ describe('GET /api/v1/pulse — observational feed (SPEC §5.3)', () => {
     await triggerPulse(srv, 'one')
     await triggerPulse(srv, 'two')
 
-    const res = await fetchJson(srv, '/api/v1/pulse?limit=-5')
+    const res = await fetchJson<PulseResponse>(srv, '/api/v1/pulse?limit=-5')
     expect(res.status).toBe(200)
     expect(res.body.pulses.length).toBe(1)
   })
@@ -128,7 +139,7 @@ describe('GET /api/v1/pulse — observational feed (SPEC §5.3)', () => {
     await triggerPulse(srv, 'two')
     await triggerPulse(srv, 'three')
 
-    const res = await fetchJson(srv, '/api/v1/pulse?limit=abc')
+    const res = await fetchJson<PulseResponse>(srv, '/api/v1/pulse?limit=abc')
     expect(res.status).toBe(200)
     expect(res.body.pulses.length).toBe(3)
   })
