@@ -2,7 +2,7 @@
 
 - Date: 2026-04-19
 - Status: **ACCEPTED**
-- Related: DP-1 & DP-4 T3 in `docs/spec-in-progress.md`;
+- Related: DP-1 & DP-4 T3 in `docs/archive/spec-in-progress.md`;
   `docs/spec/03-modules-product.md §5`; legacy reference
   `legacy/src-v1/packages/plugin-v3/` (5358 LOC, 29 files);
   `legacy/src-v1/packages/plugin-v3/openclaw.plugin.json`.
@@ -36,7 +36,7 @@ for the Plugin v3 package only.
 
 1. **Open a new milestone `M7 — Plugin v3 shippable as OpenClaw plugin`.**
    M7 is post-MVP; it does not change the behaviour or contract of
-   anything shipped under the `mvp-v0.1.0` tag. `docs/MILESTONES.md`
+   anything shipped under the `mvp-v0.1.0` tag. `docs/archive/MILESTONES.md`
    records M7 with verifiable checks.
 
 2. **Target host: OpenClaw.** Peer dependency is `openclaw >= 2026.4.15`
@@ -102,7 +102,7 @@ for the Plugin v3 package only.
   the MVP SPEC freeze holds. A post-MVP SPEC minor version may later
   update §5 to reflect shipped reality. Until then, ADR-004 is the
   canonical reference for Plugin v3's shipping state.
-- `docs/MILESTONES.md` gains an M7 entry with verifiable Checks.
+- `docs/archive/MILESTONES.md` gains an M7 entry with verifiable Checks.
 - `docs/openclaw-plugins.md` is created as a standing one-page ledger
   of AgentXP-authored OpenClaw plugins. Today: one entry (plugin-v3).
 - Plugin v3 acquires an optional peer dependency on `openclaw`. At
@@ -116,7 +116,7 @@ for the Plugin v3 package only.
 
 ## Rejected alternatives
 
-- **Amend DP-4 T3 in `docs/spec-in-progress.md`.** Rejected because
+- **Amend DP-4 T3 in `docs/archive/spec-in-progress.md`.** Rejected because
   the MVP SPEC is tagged at `mvp-v0.1.0` and mutating the ledger that
   drove the tagged release pollutes the audit trail. An ADR is the
   cleaner vehicle for a post-MVP scope change.

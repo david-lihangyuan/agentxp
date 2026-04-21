@@ -24,7 +24,7 @@ Each entry has five parts:
 
 Entries in §5 (**removed from production**) differ from all others
 in that their code is scheduled to be deleted or archived during
-`BOOTSTRAP.md §4.3`; they are not merely "out of contract".
+`docs/archive/BOOTSTRAP.md §4.3`; they are not merely "out of contract".
 
 Deferral **MUST NOT** be treated as prohibition. Any entry here
 **MAY** re-enter the SPEC via an ADR per `00-overview.md §10`.
@@ -233,7 +233,7 @@ accepted by relays but are out of MVP SPEC until promoted via ADR.
 ### 5.2 Legacy UUID archives (already done)
 
 Not deferred — completed. Recorded here for historical traceability
-per DP-8 (`docs/spec-in-progress.md`): six UUID-named markdown
+per DP-8 (`docs/archive/spec-in-progress.md`): six UUID-named markdown
 files under `legacy/` were deduplicated and renamed to semantic
 filenames in commit `ece2210`. No further action required.
 

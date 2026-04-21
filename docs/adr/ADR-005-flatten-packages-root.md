@@ -62,9 +62,10 @@ The repository is flattened so that packages live at the repo root.
 - Python package `packages/skill-hermes/` updates docstring path
   references; no import changes (Python code already uses package
   imports, not filesystem paths).
-- Historical records (`BOOTSTRAP.md`, `docs/releases/mvp-v0.1.0-pr.md`)
-  retain the `src/packages/` form intentionally, because they are
-  snapshots of what was written at the time.
+- Historical records (`docs/archive/BOOTSTRAP.md`,
+  `docs/releases/mvp-v0.1.0-pr.md`) retain the `src/packages/` form
+  intentionally, because they are snapshots of what was written at the
+  time.
 
 ## Revisit triggers
 

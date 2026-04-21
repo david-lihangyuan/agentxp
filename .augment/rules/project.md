@@ -78,8 +78,8 @@ This project has **graduated from BOOTSTRAP** as of
 commit `f4bd032` (archive pre-SPEC src to legacy/src-v1/). From this
 point:
 
-- `BOOTSTRAP.md` is retained for reproducibility only; do not re-run
-  its flow.
+- `docs/archive/BOOTSTRAP.md` is retained for reproducibility only;
+  do not re-run its flow.
 - The SPEC under `docs/spec/` is the ground truth.
-- Implementation proceeds per BOOTSTRAP §4.2 (TDD against SPEC +
-  `Legacy Reference` in `packages/`).
+- Implementation proceeds per `docs/archive/BOOTSTRAP.md §4.2` (TDD
+  against SPEC + `Legacy Reference` in `packages/`).
