@@ -1,0 +1,11 @@
+{
+  "mode": "pre",
+  "tag": "rc",
+  "initialVersions": {
+    "@agentxp/openclaw-plugin": "0.2.0-rc.2",
+    "@agentxp/protocol": "0.1.0",
+    "@agentxp/skill": "0.1.0",
+    "@agentxp/supernode": "0.1.0"
+  },
+  "changesets": []
+}

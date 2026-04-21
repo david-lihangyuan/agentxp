@@ -1,46 +1,61 @@
-# Changelog
+# Changelog — Monorepo Milestones
 
-All notable changes to AgentXP will be documented in this file.
+This file tracks **repository-wide milestones** for AgentXP:
+scope renames, layout refactors, cross-cutting architectural
+changes. Per-package release notes live alongside each package:
 
-This project adheres to [Semantic Versioning](https://semver.org/) and [Conventional Commits](https://www.conventionalcommits.org/).
+- `packages/openclaw-plugin/CHANGELOG.md`
+- `packages/skill/CHANGELOG.md`
+- `packages/protocol/CHANGELOG.md`
+- `packages/supernode/CHANGELOG.md`
 
-<!-- ────────────────────────────────────────────────────────────────────────── -->
-<!-- HOW TO ADD A CHANGELOG ENTRY:                                             -->
-<!--                                                                           -->
-<!--   1. Add your entry under [Unreleased] while working on a branch.         -->
-<!--   2. On release, rename [Unreleased] to [v<version>] — YYYY-MM-DD.        -->
-<!--   3. Add a fresh empty [Unreleased] section at the top.                   -->
-<!--                                                                           -->
-<!-- Entry template:                                                           -->
-<!--                                                                           -->
-<!-- ## [Unreleased]                                                           -->
-<!--                                                                           -->
-<!-- ### Added                                                                 -->
-<!-- - ...                                                                     -->
-<!--                                                                           -->
-<!-- ### Changed                                                               -->
-<!-- - ...                                                                     -->
-<!--                                                                           -->
-<!-- ### Fixed                                                                 -->
-<!-- - ...                                                                     -->
-<!--                                                                           -->
-<!-- ### Removed                                                               -->
-<!-- - ...                                                                     -->
-<!--                                                                           -->
-<!-- ### Security                                                              -->
-<!-- - ...                                                                     -->
-<!-- ────────────────────────────────────────────────────────────────────────── -->
-
-## [Unreleased]
-
-### Added
-- *(your changes go here)*
+Those files are generated automatically by
+[Changesets](https://github.com/changesets/changesets) — see
+[`docs/RELEASING.md`](docs/RELEASING.md) for the release flow.
 
 ---
 
-## [4.0.0] — 2026-04-12
+## 2026-04-21 — Repository refactor (rc phase)
 
-This is the first major open-source release of AgentXP v4, a complete ground-up rewrite.
+Three commits on branch `refactor/repo-layout` reshape the
+monorepo without changing any published package's public API:
+
+- **Scope rename** (`37be2c6`): rewrite every internal import from
+  `@serendip/*` to `@agentxp/*`. The `@serendip/*` scope was never
+  successfully published, so this is transparent to npm consumers.
+- **Layout flatten** (`91e22b3`): move all workspaces from
+  `src/packages/*` to `packages/*` at the repository root. See
+  [ADR-005](docs/adr/ADR-005-flatten-packages-root.md) (supersedes
+  ADR-002).
+- **Plugin directory rename** (`1479e51`): rename
+  `packages/plugin-v3/` → `packages/openclaw-plugin/`. The npm
+  name was already `@agentxp/openclaw-plugin` (ADR-004); the
+  default `stagingDbPath` now lives at
+  `~/.agentxp/openclaw-plugin/staging.db` with a one-shot
+  auto-migrator for rc.1 installs.
+
+Release management now flows through Changesets. Two changesets
+covering these commits live in `.changeset/` and will bump:
+
+| Package                    | From       | To          |
+| -------------------------- | ---------- | ----------- |
+| `@agentxp/openclaw-plugin` | 0.2.0-rc.2 | 0.2.0-rc.3  |
+| `@agentxp/skill`           | 0.1.0      | 0.1.1-rc.0  |
+| `@agentxp/protocol`        | 0.1.0      | 0.1.1-rc.0  |
+| `@agentxp/supernode`       | 0.1.0      | 0.1.1-rc.0  |
+
+---
+
+## [4.0.0] — 2026-04-12 — **Legacy `@agentxp/skill` 4.x line (deprecated)**
+
+> This section documents the pre-SPEC `@agentxp/skill` 4.x npm line.
+> All of those published versions (`@agentxp/skill@<=4.8.0`,
+> `@agentxp/protocol@1.0.0`) have been deprecated on npm; the
+> current packages under `packages/` are the SPEC-driven rewrite
+> and are versioned from `0.1.0-rc.*` upwards. This section is
+> kept for historical accuracy.
+
+This was the first major open-source release of AgentXP v4 — a complete ground-up rewrite.
 
 ### Added
 

@@ -11,10 +11,15 @@
     "test:hermes": "bash -c 'cd packages/skill-hermes && uv run pytest'",
     "lint:no-legacy": "bash scripts/check-no-legacy-imports.sh",
     "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "npm run build && changeset publish"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.31.0",
     "vitest": "^4.1.4"
   },
   "overrides": {

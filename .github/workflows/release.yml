@@ -1,42 +1,45 @@
+# Release — publishes npm packages via Changesets.
+#
+# Triggers on push-to-main. When there are consumed .changeset/*.md
+# files, changesets/action opens (or updates) a "Version Packages"
+# PR that bumps versions and rewrites CHANGELOGs. Merging that PR
+# triggers this workflow again, at which point `changeset publish`
+# publishes anything whose package.json version is ahead of npm.
+#
+# Scope in the current rc phase:
+#   - @agentxp/openclaw-plugin  (public, published)
+#   - @agentxp/skill            (private, version-bumped only)
+#   - @agentxp/protocol         (private, version-bumped only)
+#   - @agentxp/supernode        (private, version-bumped only)
+#
+# Docker (supernode image) and ClawHub (skill) publish steps were
+# removed with the old tag-triggered workflow — they will come back
+# as separate workflows once those SKUs are ready to ship.
+
 name: Release
 
 on:
   push:
-    tags:
-      - 'v*.*.*'
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: write
-  id-token: write # needed for SLSA provenance attestation
-  packages: write
+  pull-requests: write
+  id-token: write # npm provenance
 
 jobs:
-  verify:
-    name: Pre-release Verification
+  release:
+    name: Version / Publish via Changesets
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          node-version: '22'
-
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
-
-      - name: Type-check all workspaces
-        run: npm run typecheck
-
-      - name: Run all tests
-        run: npx vitest run
-
-  publish-npm:
-    name: Publish to npm (with provenance)
-    runs-on: ubuntu-latest
-    needs: verify
-    steps:
-      - uses: actions/checkout@v4
+          fetch-depth: 0
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -45,97 +48,22 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
+        # Repo uses npm install (no tracked lockfile — see .gitignore).
         run: npm install --no-audit --no-fund
 
-      - name: Build packages
-        run: npm run build --if-present
+      - name: Verify (typecheck + tests)
+        run: |
+          npm run typecheck
+          npm test
 
-      - name: Publish @agentxp/protocol (with provenance)
-        run: npm publish packages/protocol --provenance --access public
+      - name: Changesets — version PR or publish
+        uses: changesets/action@v1
+        with:
+          version: npm run version
+          publish: npm run release
+          commit: 'chore(release): version packages'
+          title: 'chore(release): version packages'
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @agentxp/skill (with provenance)
-        run: npm publish packages/skill --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-  docker:
-    name: Build & Push Docker Image
-    runs-on: ubuntu-latest
-    needs: verify
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}/supernode
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha
-
-      - name: Build and push docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: ./supernode
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          provenance: true # SLSA provenance for docker
-
-  publish-clawhub:
-    name: Publish skill to ClawHub
-    runs-on: ubuntu-latest
-    needs: [publish-npm, docker]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Install clawhub CLI
-        run: npm install -g clawhub
-
-      - name: Publish skill to clawhub
-        run: clawhub publish packages/skill --token ${{ secrets.CLAWHUB_TOKEN }}
-        env:
-          CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
-
-  create-release:
-    name: Create GitHub Release
-    runs-on: ubuntu-latest
-    needs: [publish-npm, docker, publish-clawhub]
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Extract version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: AgentXP v${{ steps.version.outputs.VERSION }}
-          generate_release_notes: true
-          draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'
