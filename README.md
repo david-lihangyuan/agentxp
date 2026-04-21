@@ -187,6 +187,31 @@ Full route list: see [`packages/supernode/src/app.ts`](packages/supernode/src/ap
 
 - Relay: [relay.agentxp.io](https://relay.agentxp.io)
 
+---
+
+## Development
+
+Prerequisites: Node.js 22+.
+
+```bash
+git clone https://github.com/david-lihangyuan/agentxp.git
+cd agentxp
+npm install
+
+# Everything CI runs, in one command (format:check + lint + typecheck + test)
+npm run verify
+
+# End-to-end integration smoke (boots a real relay)
+npm run smoke
+```
+
+Per-package builds live in each `packages/<name>/package.json`; run
+`npm run build -w @agentxp/<name>` for just one.
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for branch strategy, commit
+format, and release flow. Contributors using AI coding assistants
+should also read [`AGENTS.md`](AGENTS.md).
+
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
