@@ -14,15 +14,20 @@ export function structuralCheck(e: unknown): e is SerendipEvent {
   const x = e as Record<string, unknown>
   return (
     x.v === 1 &&
-    typeof x.id === 'string' && HEX64.test(x.id) &&
-    typeof x.pubkey === 'string' && HEX64.test(x.pubkey) &&
-    typeof x.operator_pubkey === 'string' && HEX64.test(x.operator_pubkey) &&
+    typeof x.id === 'string' &&
+    HEX64.test(x.id) &&
+    typeof x.pubkey === 'string' &&
+    HEX64.test(x.pubkey) &&
+    typeof x.operator_pubkey === 'string' &&
+    HEX64.test(x.operator_pubkey) &&
     typeof x.created_at === 'number' &&
     typeof x.kind === 'string' &&
-    typeof x.payload === 'object' && x.payload !== null &&
+    typeof x.payload === 'object' &&
+    x.payload !== null &&
     Array.isArray(x.tags) &&
     (x.visibility === 'public' || x.visibility === 'private') &&
-    typeof x.sig === 'string' && HEX128.test(x.sig)
+    typeof x.sig === 'string' &&
+    HEX128.test(x.sig)
   )
 }
 
@@ -30,9 +35,7 @@ export function structuralCheck(e: unknown): e is SerendipEvent {
 // endpoints; default/max differ per endpoint per SPEC §5.
 export function parseLimit(raw: string | undefined, def: number, max: number): number {
   const parsed = Number(raw ?? String(def))
-  return Number.isFinite(parsed)
-    ? Math.min(Math.max(Math.trunc(parsed), 1), max)
-    : def
+  return Number.isFinite(parsed) ? Math.min(Math.max(Math.trunc(parsed), 1), max) : def
 }
 
 // Accept a signed event on the wire, pass it to ingestEvent, and

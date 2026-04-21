@@ -14,7 +14,13 @@ export interface PulseRow {
 
 export function writePulse(
   db: Db,
-  row: { event_id: string; pubkey: string; kind: PulseKind; outcome?: string | null; created_at: number },
+  row: {
+    event_id: string
+    pubkey: string
+    kind: PulseKind
+    outcome?: string | null
+    created_at: number
+  },
 ): void {
   db.prepare(
     `INSERT INTO pulse_events (event_id, pubkey, kind, outcome, created_at)

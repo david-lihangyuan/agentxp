@@ -38,9 +38,7 @@ describe('onBeforeToolCall', () => {
   })
 
   it('blocks force-push', () => {
-    const res = onBeforeToolCall(
-      ctx({ cmd: 'git push --force origin main' }, 'bash'),
-    )
+    const res = onBeforeToolCall(ctx({ cmd: 'git push --force origin main' }, 'bash'))
     expect(res.blocked).toBe(true)
   })
 

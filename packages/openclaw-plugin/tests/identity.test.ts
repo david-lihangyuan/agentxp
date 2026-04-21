@@ -83,9 +83,7 @@ describe('loadAgentKey', () => {
   })
 
   it('throws when the agentKeyPath does not exist', () => {
-    expect(() => loadAgentKey(join(dir, 'nope.key'), OPERATOR)).toThrow(
-      AgentKeyLoadError,
-    )
+    expect(() => loadAgentKey(join(dir, 'nope.key'), OPERATOR)).toThrow(AgentKeyLoadError)
   })
 
   it('throws when split layout but agent.json is missing', () => {
@@ -118,9 +116,7 @@ describe('loadAgentKey', () => {
         expiresAt: 1,
       }),
     )
-    expect(() => loadAgentKey(join(dir, 'agent.key'), OPERATOR)).toThrow(
-      /delegatedBy mismatch/,
-    )
+    expect(() => loadAgentKey(join(dir, 'agent.key'), OPERATOR)).toThrow(/delegatedBy mismatch/)
   })
 
   it('throws when privateKey hex is malformed', () => {

@@ -22,6 +22,8 @@
     "build": "npm run build --workspaces --if-present",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "verify": "npm run format:check && npm run lint:no-legacy && npm run typecheck && npm test",
+    "smoke": "npm run build && bash scripts/mvp-done-smoke.sh",
     "changeset": "changeset",
     "version": "changeset version",
     "release": "npm run build && changeset publish"

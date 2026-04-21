@@ -32,7 +32,10 @@ async function publish(event) {
 const reg = await signEvent(
   createEvent(
     'identity.register',
-    { type: 'operator', data: { pubkey: operator.publicKey, registered_at: Math.floor(Date.now() / 1000) } },
+    {
+      type: 'operator',
+      data: { pubkey: operator.publicKey, registered_at: Math.floor(Date.now() / 1000) },
+    },
     [],
   ),
   operatorAsAgent,

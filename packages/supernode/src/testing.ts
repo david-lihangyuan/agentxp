@@ -7,12 +7,7 @@
 // downstream in-repo consumer) can pick it up from source without a
 // separate build step. Kept out of src/index.ts so the published
 // bundle doesn't carry the test-only wiring.
-import {
-  createEvent,
-  delegateAgentKey,
-  generateOperatorKey,
-  signEvent,
-} from '@agentxp/protocol'
+import { createEvent, delegateAgentKey, generateOperatorKey, signEvent } from '@agentxp/protocol'
 import type { AgentKey, OperatorKey, SerendipEvent } from '@agentxp/protocol'
 import { buildApp } from './app.js'
 import { openDb, type Db } from './db.js'
@@ -20,10 +15,7 @@ import { openDb, type Db } from './db.js'
 // Explicit fetch signature — avoids `typeof globalThis.fetch`, which
 // pulls in environment-specific extensions (e.g. Bun's `preconnect`)
 // that aren't present in tsc's build lib.
-export type RelayFetch = (
-  input: string | URL | Request,
-  init?: RequestInit,
-) => Promise<Response>
+export type RelayFetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
 
 export interface InMemoryRelay {
   db: Db
@@ -91,9 +83,7 @@ export async function registerOperatorAndAgent(
   )
   const regRes = await publish(server, reg)
   if (regRes.status !== 200) {
-    throw new Error(
-      `identity.register failed: ${regRes.status} ${JSON.stringify(regRes.body)}`,
-    )
+    throw new Error(`identity.register failed: ${regRes.status} ${JSON.stringify(regRes.body)}`)
   }
 
   const delegation: { agent_pubkey: string; expires_at: number; agent_id?: string } = {
@@ -108,9 +98,7 @@ export async function registerOperatorAndAgent(
   )
   const delRes = await publish(server, del)
   if (delRes.status !== 200) {
-    throw new Error(
-      `identity.delegate failed: ${delRes.status} ${JSON.stringify(delRes.body)}`,
-    )
+    throw new Error(`identity.delegate failed: ${delRes.status} ${JSON.stringify(delRes.body)}`)
   }
 }
 

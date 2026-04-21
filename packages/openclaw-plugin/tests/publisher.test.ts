@@ -70,9 +70,7 @@ describe('publishStagedExperiences (MILESTONES M4 check 1)', () => {
       const body = (await searchRes.json()) as { results: Array<{ event_id: string }> }
       expect(body.results.length).toBeGreaterThan(0)
 
-      const eventRes = await relay.fetch(
-        `${relay.origin}/api/v1/events/${results[0]!.eventId}`,
-      )
+      const eventRes = await relay.fetch(`${relay.origin}/api/v1/events/${results[0]!.eventId}`)
       const eventBody = (await eventRes.json()) as {
         event: { payload: { reasoning_trace: { steps: unknown[] } } }
       }

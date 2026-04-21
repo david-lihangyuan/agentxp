@@ -38,20 +38,14 @@ function expandHome(path: string): string {
   return path
 }
 
-function requireString(
-  raw: Record<string, unknown>,
-  key: string,
-  fallback?: string,
-): string {
+function requireString(raw: Record<string, unknown>, key: string, fallback?: string): string {
   const v = raw[key]
   if (typeof v === 'string') return v
   if (v === undefined) {
     if (fallback !== undefined) return fallback
     throw new Error(`agentxp plugin: missing required config field "${key}"`)
   }
-  throw new Error(
-    `agentxp plugin: config field "${key}" must be a string (got ${typeof v})`,
-  )
+  throw new Error(`agentxp plugin: config field "${key}" must be a string (got ${typeof v})`)
 }
 
 export function resolvePluginConfig(
@@ -74,30 +68,20 @@ export function resolvePluginConfig(
     )
   }
 
-  const agentKeyPath = expandHome(
-    requireString(raw, 'agentKeyPath', DEFAULTS.agentKeyPath),
-  )
-  const stagingDbPath = expandHome(
-    requireString(raw, 'stagingDbPath', DEFAULTS.stagingDbPath),
-  )
+  const agentKeyPath = expandHome(requireString(raw, 'agentKeyPath', DEFAULTS.agentKeyPath))
+  const stagingDbPath = expandHome(requireString(raw, 'stagingDbPath', DEFAULTS.stagingDbPath))
 
   const vis = raw.defaultVisibility ?? DEFAULTS.defaultVisibility
   if (vis !== 'public' && vis !== 'unlisted' && vis !== 'private') {
     throw new Error(
-      `agentxp plugin: defaultVisibility must be one of public|unlisted|private (got ${String(vis)})`,
+      `agentxp plugin: defaultVisibility must be one of public|unlisted|private (got ${String(
+        vis,
+      )})`,
     )
   }
 
-  const autoFlushSteps = requireNonNegativeInt(
-    raw,
-    'autoFlushSteps',
-    DEFAULTS.autoFlushSteps,
-  )
-  const autoFlushIdleMs = requireNonNegativeInt(
-    raw,
-    'autoFlushIdleMs',
-    DEFAULTS.autoFlushIdleMs,
-  )
+  const autoFlushSteps = requireNonNegativeInt(raw, 'autoFlushSteps', DEFAULTS.autoFlushSteps)
+  const autoFlushIdleMs = requireNonNegativeInt(raw, 'autoFlushIdleMs', DEFAULTS.autoFlushIdleMs)
   const publishIntervalMs = requireNonNegativeInt(
     raw,
     'publishIntervalMs',

@@ -56,9 +56,7 @@ function parseAgentJson(path: string): AgentJsonFields {
   const delegatedBy = pick('delegatedBy')
   const expiresAt = typeof obj.expiresAt === 'number' ? obj.expiresAt : undefined
   if (!publicKey || !delegatedBy || typeof expiresAt !== 'number') {
-    throw new AgentKeyLoadError(
-      `${path} is missing one of: publicKey, delegatedBy, expiresAt`,
-    )
+    throw new AgentKeyLoadError(`${path} is missing one of: publicKey, delegatedBy, expiresAt`)
   }
   const result: AgentJsonFields = { publicKey, delegatedBy, expiresAt }
   const privateKey = pick('privateKey')
@@ -68,10 +66,7 @@ function parseAgentJson(path: string): AgentJsonFields {
   return result
 }
 
-export function loadAgentKey(
-  agentKeyPath: string,
-  operatorPublicKey: string,
-): AgentKey {
+export function loadAgentKey(agentKeyPath: string, operatorPublicKey: string): AgentKey {
   if (!existsSync(agentKeyPath)) {
     throw new AgentKeyLoadError(
       `agentKeyPath not found: ${agentKeyPath} (run the skill init flow or ` +
@@ -121,9 +116,7 @@ function assembleAgentKey(
     )
   }
   if (!HEX_64.test(meta.publicKey)) {
-    throw new AgentKeyLoadError(
-      `${sourcePath}: publicKey must be 64 lowercase hex characters`,
-    )
+    throw new AgentKeyLoadError(`${sourcePath}: publicKey must be 64 lowercase hex characters`)
   }
   if (meta.delegatedBy.toLowerCase() !== operatorPublicKey.toLowerCase()) {
     throw new AgentKeyLoadError(

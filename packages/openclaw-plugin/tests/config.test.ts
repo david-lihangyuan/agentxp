@@ -30,16 +30,12 @@ describe('resolvePluginConfig', () => {
 
   it('throws when operatorPublicKey is not 64 hex chars', () => {
     expect(() => resolvePluginConfig({ operatorPublicKey: 'short' })).toThrowError(/hex/i)
-    expect(() =>
-      resolvePluginConfig({ operatorPublicKey: 'z'.repeat(64) }),
-    ).toThrowError(/hex/i)
+    expect(() => resolvePluginConfig({ operatorPublicKey: 'z'.repeat(64) })).toThrowError(/hex/i)
   })
 
   it('normalises operatorPublicKey to lower-case', () => {
     const upper = 'A'.repeat(64)
-    expect(resolvePluginConfig({ operatorPublicKey: upper }).operatorPublicKey).toBe(
-      'a'.repeat(64),
-    )
+    expect(resolvePluginConfig({ operatorPublicKey: upper }).operatorPublicKey).toBe('a'.repeat(64))
   })
 
   it('passes through supplied overrides (relayUrl, defaultVisibility)', () => {
@@ -79,9 +75,9 @@ describe('resolvePluginConfig', () => {
   })
 
   it('rejects unexpected field types', () => {
-    expect(() =>
-      resolvePluginConfig({ operatorPublicKey: VALID_KEY, relayUrl: 42 }),
-    ).toThrowError(/relayUrl/)
+    expect(() => resolvePluginConfig({ operatorPublicKey: VALID_KEY, relayUrl: 42 })).toThrowError(
+      /relayUrl/,
+    )
     expect(() =>
       resolvePluginConfig({ operatorPublicKey: VALID_KEY, stagingDbPath: [] }),
     ).toThrowError(/stagingDbPath/)

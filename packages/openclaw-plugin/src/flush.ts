@@ -51,16 +51,11 @@ interface SessionState {
   timer: unknown | null
 }
 
-export function createFlushController(
-  opts: FlushControllerOptions,
-): FlushController {
+export function createFlushController(opts: FlushControllerOptions): FlushController {
   const now = opts.now ?? (() => Date.now())
-  const setTimer =
-    opts.setTimer ??
-    ((fn: () => void, ms: number) => setTimeout(fn, ms))
+  const setTimer = opts.setTimer ?? ((fn: () => void, ms: number) => setTimeout(fn, ms))
   const clearTimer =
-    opts.clearTimer ??
-    ((handle: unknown) => clearTimeout(handle as ReturnType<typeof setTimeout>))
+    opts.clearTimer ?? ((handle: unknown) => clearTimeout(handle as ReturnType<typeof setTimeout>))
 
   const sessions = new Map<string, SessionState>()
 

@@ -129,15 +129,13 @@ export function networkOverview(db: Db): NetworkOverview {
   const agents = db
     .prepare(`SELECT COUNT(*) AS c FROM identities WHERE kind = 'agent' AND revoked = 0`)
     .get() as { c: number }
-  const experiences = db
-    .prepare(`SELECT COUNT(*) AS c FROM experiences`)
-    .get() as { c: number }
-  const relations = db
-    .prepare(`SELECT COUNT(*) AS c FROM experience_relations`)
-    .get() as { c: number }
-  const lastAct = db
-    .prepare(`SELECT MAX(created_at) AS t FROM experiences`)
-    .get() as { t: number | null }
+  const experiences = db.prepare(`SELECT COUNT(*) AS c FROM experiences`).get() as { c: number }
+  const relations = db.prepare(`SELECT COUNT(*) AS c FROM experience_relations`).get() as {
+    c: number
+  }
+  const lastAct = db.prepare(`SELECT MAX(created_at) AS t FROM experiences`).get() as {
+    t: number | null
+  }
   return {
     operators: operators.c,
     agents: agents.c,

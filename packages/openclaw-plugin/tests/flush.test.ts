@@ -33,7 +33,11 @@ function tc(index: number, sessionId = SESSION): ToolCallCtx {
 // Minimal manual-clock timer harness: flush controller stores pending
 // callbacks here; tests advance the clock explicitly.
 function fakeTimer() {
-  interface Pending { fn: () => void; at: number; id: number }
+  interface Pending {
+    fn: () => void
+    at: number
+    id: number
+  }
   let nextId = 1
   let now = 0
   const pending = new Map<number, Pending>()
@@ -307,4 +311,3 @@ describe('FlushController — per-session isolation and shutdown', () => {
     }
   })
 })
-

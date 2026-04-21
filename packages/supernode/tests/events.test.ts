@@ -177,9 +177,7 @@ describe('GET /api/v1/events (list) (SPEC 01-interfaces §5.1)', () => {
     const signed = await signEvent(createEvent('intent.broadcast', experience, []), agent)
     expect((await publish(srv, signed)).status).toBe(200)
 
-    const res = await srv.fetch(
-      new Request('http://t/api/v1/events?kind=intent.broadcast'),
-    )
+    const res = await srv.fetch(new Request('http://t/api/v1/events?kind=intent.broadcast'))
     const body = (await res.json()) as { events: Array<{ id: string; kind: string }> }
     expect(body.events.length).toBe(1)
     expect(body.events[0]?.id).toBe(signed.id)
@@ -192,9 +190,7 @@ describe('GET /api/v1/events (list) (SPEC 01-interfaces §5.1)', () => {
     const signed = await signEvent(createEvent('intent.broadcast', experience, []), agent)
     expect((await publish(srv, signed)).status).toBe(200)
 
-    const res = await srv.fetch(
-      new Request(`http://t/api/v1/events?pubkey=${agent.publicKey}`),
-    )
+    const res = await srv.fetch(new Request(`http://t/api/v1/events?pubkey=${agent.publicKey}`))
     const body = (await res.json()) as { events: Array<{ pubkey: string }> }
     expect(body.events.length).toBeGreaterThan(0)
     for (const ev of body.events) expect(ev.pubkey).toBe(agent.publicKey)

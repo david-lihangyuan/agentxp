@@ -42,9 +42,7 @@ async function buildSigned(
   return signEvent(unsigned, agent)
 }
 
-export async function publishStagedExperiences(
-  opts: PublishOptions,
-): Promise<PublishResult[]> {
+export async function publishStagedExperiences(opts: PublishOptions): Promise<PublishResult[]> {
   const now = opts.now ?? (() => Math.floor(Date.now() / 1000))
   const fetchImpl = opts.fetch ?? globalThis.fetch
   const backoffOpts = opts.random ? { random: opts.random } : {}

@@ -76,8 +76,6 @@ export function listExperiences(
   const sql = `SELECT event_id, pubkey, what, tried, outcome, learned, tags_json, created_at
                FROM experiences ${where}
                ORDER BY created_at DESC LIMIT ?`
-  const params: Array<string | number> = opts.pubkey
-    ? [opts.pubkey, opts.limit]
-    : [opts.limit]
+  const params: Array<string | number> = opts.pubkey ? [opts.pubkey, opts.limit] : [opts.limit]
   return (db.prepare(sql).all(...params) as ExperienceRow[]).map(rowToSummary)
 }

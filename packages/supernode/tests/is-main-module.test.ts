@@ -15,10 +15,7 @@ describe('isMainModule (PM2 compatibility)', () => {
   })
 
   it('returns true under PM2 when pm_exec_path matches, despite argv[1] wrapper', () => {
-    const argv = [
-      '/usr/bin/node',
-      '/usr/local/lib/node_modules/pm2/lib/ProcessContainerFork.js',
-    ]
+    const argv = ['/usr/bin/node', '/usr/local/lib/node_modules/pm2/lib/ProcessContainerFork.js']
     const env = { pm_exec_path: ENTRY_PATH }
     expect(isMainModule(MODULE_URL, argv, env)).toBe(true)
   })

@@ -22,11 +22,7 @@ interface AgentsResponse {
   agents: AgentMetric[]
 }
 
-async function publishExperience(
-  srv: TestServer,
-  agent: AgentKey,
-  what: string,
-): Promise<string> {
+async function publishExperience(srv: TestServer, agent: AgentKey, what: string): Promise<string> {
   const payload: ExperiencePayload = {
     type: 'experience',
     data: { what, tried: 't', outcome: 'succeeded', learned: 'l' },

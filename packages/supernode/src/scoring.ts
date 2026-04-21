@@ -46,9 +46,7 @@ function experienceOperator(db: Db, experienceId: string): string | null {
 
 function resolveOperator(db: Db, pubkey: string): string {
   const row = db
-    .prepare(
-      `SELECT kind, operator_pubkey FROM identities WHERE pubkey = ?`,
-    )
+    .prepare(`SELECT kind, operator_pubkey FROM identities WHERE pubkey = ?`)
     .get(pubkey) as { kind: string; operator_pubkey: string | null } | undefined
   if (!row) return pubkey
   if (row.kind === 'operator') return pubkey

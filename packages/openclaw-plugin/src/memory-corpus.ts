@@ -170,9 +170,7 @@ export function searchStagedSync(
   if (tokens.length === 0) return []
   const rows = db.listAllExperiences().map(parseRow)
   const filtered = rows.filter((p) => (scope === 'public-only' ? p.visibility === 'public' : true))
-  const scored = filtered
-    .map((p) => ({ p, score: scoreRow(p, tokens) }))
-    .filter((x) => x.score > 0)
+  const scored = filtered.map((p) => ({ p, score: scoreRow(p, tokens) })).filter((x) => x.score > 0)
   scored.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score
     return b.p.row.id - a.p.row.id

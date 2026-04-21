@@ -2,13 +2,7 @@
 // Verifies migrateLegacyAgentxpDir is idempotent, respects custom
 // paths, and never clobbers an existing target directory.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { migrateLegacyAgentxpDir } from '../src/adapter.js'

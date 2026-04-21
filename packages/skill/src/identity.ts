@@ -5,12 +5,7 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync, chmodSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import {
-  delegateAgentKey,
-  generateOperatorKey,
-  bytesToHex,
-  hexToBytes,
-} from '@agentxp/protocol'
+import { delegateAgentKey, generateOperatorKey, bytesToHex, hexToBytes } from '@agentxp/protocol'
 import type { AgentKey, OperatorKey } from '@agentxp/protocol'
 
 function defaultRoot(): string {

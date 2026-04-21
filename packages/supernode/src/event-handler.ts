@@ -21,12 +21,7 @@ import type {
 import type { Db } from './db.js'
 import { insertEvent } from './event-store.js'
 import { insertExperience } from './experience-store.js'
-import {
-  checkDelegation,
-  delegateAgent,
-  registerOperator,
-  revokeAgent,
-} from './identity-store.js'
+import { checkDelegation, delegateAgent, registerOperator, revokeAgent } from './identity-store.js'
 import { indexTraceReferences, validateTraceStructure } from './trace-store.js'
 import { writePulse } from './pulse-store.js'
 import { appendImpact } from './scoring.js'
@@ -163,7 +158,8 @@ export async function ingestEvent(db: Db, event: SerendipEvent): Promise<IngestR
     }
     if (payload.type === 'outcome') {
       const duplicate = !insertEvent(db, event, now)
-      const data = (payload as { data?: { target_experience_id?: unknown; outcome?: unknown } }).data
+      const data = (payload as { data?: { target_experience_id?: unknown; outcome?: unknown } })
+        .data
       if (!duplicate && data && typeof data.target_experience_id === 'string') {
         writePulse(db, {
           event_id: data.target_experience_id,

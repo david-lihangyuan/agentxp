@@ -3,11 +3,7 @@
 // and extracted keywords (M7 Batch 2).
 import { describe, it, expect, beforeEach } from 'vitest'
 import { onMessageSending } from '../src/hooks.js'
-import {
-  resetSessionState,
-  getLastActiveSession,
-  getSessionState,
-} from '../src/session-state.js'
+import { resetSessionState, getLastActiveSession, getSessionState } from '../src/session-state.js'
 import type { MessageSendingCtx } from '../src/types.js'
 
 function msg(sessionId: string, toolName: string, args: unknown): MessageSendingCtx {

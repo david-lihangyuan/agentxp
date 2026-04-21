@@ -48,9 +48,7 @@ const HEX64 = /^[0-9a-f]{64}$/
 
 export function indexTraceReferences(db: Db, event: SerendipEvent): void {
   const payload = event.payload as ExperiencePayload
-  const trace = payload.reasoning_trace as
-    | { steps: Array<{ references?: unknown }> }
-    | undefined
+  const trace = payload.reasoning_trace as { steps: Array<{ references?: unknown }> } | undefined
   if (!trace || !Array.isArray(trace.steps)) return
 
   const checkExists = db.prepare(`SELECT 1 FROM events WHERE id = ? LIMIT 1`)
@@ -77,9 +75,9 @@ export function getTrace(
   db: Db,
   experienceId: string,
 ): { reasoning_trace: unknown; references: TraceReferenceRow[] } | null {
-  const row = db
-    .prepare(`SELECT payload_json FROM events WHERE id = ?`)
-    .get(experienceId) as { payload_json: string } | undefined
+  const row = db.prepare(`SELECT payload_json FROM events WHERE id = ?`).get(experienceId) as
+    | { payload_json: string }
+    | undefined
   if (!row) return null
   const payload = JSON.parse(row.payload_json) as ExperiencePayload
   if (payload.type !== 'experience') return null

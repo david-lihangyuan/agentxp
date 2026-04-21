@@ -44,12 +44,7 @@ interface Row {
  * search_log; every hit generates a pulse_events row and an
  * impact_ledger contribution (bounded by same-operator + daily cap).
  */
-export function search(
-  db: Db,
-  q: string,
-  limit: number,
-  opts: SearchOptions = {},
-): SearchResult[] {
+export function search(db: Db, q: string, limit: number, opts: SearchOptions = {}): SearchResult[] {
   const term = `%${escapeLike(q.toLowerCase())}%`
   const rows = db
     .prepare(

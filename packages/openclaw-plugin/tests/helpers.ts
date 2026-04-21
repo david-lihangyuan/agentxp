@@ -6,10 +6,7 @@
 import { ed25519 } from '@noble/curves/ed25519'
 import type { AgentKey, OperatorKey } from '@agentxp/protocol'
 
-export {
-  registerOperatorAndAgent,
-  startInMemoryRelay,
-} from '@agentxp/supernode/testing'
+export { registerOperatorAndAgent, startInMemoryRelay } from '@agentxp/supernode/testing'
 export type { InMemoryRelay as PluginTestServer } from '@agentxp/supernode/testing'
 
 function toHex(bytes: Uint8Array): string {

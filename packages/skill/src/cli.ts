@@ -53,7 +53,8 @@ export async function runCli(argv: Argv): Promise<number> {
         `published=${outcome.published.length} retry=${outcome.retry.length} rejected=${outcome.rejected.length}`,
       )
       for (const r of outcome.published) console.log(`  ok event_id=${r.eventId}`)
-      for (const r of outcome.rejected) console.log(`  rejected draft=${r.draftId} ${r.error ?? ''}`)
+      for (const r of outcome.rejected)
+        console.log(`  rejected draft=${r.draftId} ${r.error ?? ''}`)
       for (const r of outcome.retry) console.log(`  retry draft=${r.draftId} ${r.error ?? ''}`)
       return outcome.rejected.length > 0 ? 2 : 0
     }
@@ -64,7 +65,10 @@ export async function runCli(argv: Argv): Promise<number> {
       const what = getFlag(rest, '--what') ?? ''
       const tried = getFlag(rest, '--tried') ?? ''
       const outcome = (getFlag(rest, '--outcome') ?? '') as
-        | 'succeeded' | 'failed' | 'partial' | 'inconclusive'
+        | 'succeeded'
+        | 'failed'
+        | 'partial'
+        | 'inconclusive'
       const learned = getFlag(rest, '--learned') ?? ''
       const tags: string[] = []
       for (let i = 0; i < rest.length; i++) {
@@ -78,7 +82,11 @@ export async function runCli(argv: Argv): Promise<number> {
         const row =
           tier === 'end-of-session'
             ? (await import('./reflect.js')).captureEndOfSessionDraft(store, {
-                what, tried, outcome, learned, tags,
+                what,
+                tried,
+                outcome,
+                learned,
+                tags,
               })
             : captureInSessionDraft(store, { what, tried, outcome, learned, tags })
         console.log(`captured draft=${row.id} tier=${row.tier}`)

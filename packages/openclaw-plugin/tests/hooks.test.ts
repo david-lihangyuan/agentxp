@@ -1,11 +1,6 @@
 // SPEC 03-modules-product §5 acceptance cases + MILESTONES M4 checks.
 import { describe, it, expect } from 'vitest'
-import {
-  onMessageSending,
-  onToolCall,
-  onSessionEnd,
-  buildTrace,
-} from '../src/hooks.js'
+import { onMessageSending, onToolCall, onSessionEnd, buildTrace } from '../src/hooks.js'
 import { openPluginDb } from '../src/db.js'
 import type { ToolCallCtx, SessionEndCtx, MessageSendingCtx } from '../src/types.js'
 

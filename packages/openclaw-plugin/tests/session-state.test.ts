@@ -61,9 +61,7 @@ describe('session-state', () => {
     const state = getSessionState('sess-3')
     expect(state!.toolNames.length).toBe(MAX_TOOL_HISTORY)
     // Oldest entries evicted; newest preserved
-    expect(state!.toolNames[state!.toolNames.length - 1]).toBe(
-      `tool-${MAX_TOOL_HISTORY + 4}`,
-    )
+    expect(state!.toolNames[state!.toolNames.length - 1]).toBe(`tool-${MAX_TOOL_HISTORY + 4}`)
     // toolCount keeps the full running total even after eviction
     expect(state!.toolCount).toBe(MAX_TOOL_HISTORY + 5)
   })
@@ -75,9 +73,7 @@ describe('session-state', () => {
     const state = getSessionState('sess-4')
     expect(state!.keywords.length).toBe(MAX_KEYWORD_HISTORY)
     // Most recent keywords win
-    expect(state!.keywords[state!.keywords.length - 1]).toBe(
-      `kw${MAX_KEYWORD_HISTORY + 9}`,
-    )
+    expect(state!.keywords[state!.keywords.length - 1]).toBe(`kw${MAX_KEYWORD_HISTORY + 9}`)
   })
 
   it('resetSessionState clears both the active pointer and the map', () => {

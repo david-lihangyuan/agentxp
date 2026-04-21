@@ -85,9 +85,7 @@ describe('onAgentEnd', () => {
   it('throws on empty session_id', () => {
     const db = freshDb()
     try {
-      expect(() =>
-        onAgentEnd(db, { session_id: '', success: true }),
-      ).toThrow(/session_id/)
+      expect(() => onAgentEnd(db, { session_id: '', success: true })).toThrow(/session_id/)
     } finally {
       db.close()
     }

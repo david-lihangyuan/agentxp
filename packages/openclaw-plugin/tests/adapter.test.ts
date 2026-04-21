@@ -8,11 +8,7 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openPluginDb } from '../src/db.js'
-import {
-  agentxpPlugin,
-  createAgentxpPluginRegister,
-  AGENTXP_PLUGIN_ID,
-} from '../src/adapter.js'
+import { agentxpPlugin, createAgentxpPluginRegister, AGENTXP_PLUGIN_ID } from '../src/adapter.js'
 
 type Registration = { hook: string; handler: Function; opts?: { priority?: number } }
 
@@ -189,9 +185,7 @@ describe('OpenClaw adapter — createAgentxpPluginRegister', () => {
     const db = openPluginDb(':memory:')
     try {
       const api = mockApi()
-      createAgentxpPluginRegister(db, { autoFlushSteps: 3, autoFlushIdleMs: 0 })(
-        api as never,
-      )
+      createAgentxpPluginRegister(db, { autoFlushSteps: 3, autoFlushIdleMs: 0 })(api as never)
       const SESSION = 'sess-autoflush'
       api.invoke('session_start', { sessionId: SESSION }, { sessionId: SESSION })
       for (let i = 0; i < 3; i++) {
@@ -214,9 +208,7 @@ describe('OpenClaw adapter — createAgentxpPluginRegister', () => {
     const db = openPluginDb(':memory:')
     try {
       const api = mockApi()
-      createAgentxpPluginRegister(db, { autoFlushSteps: 2, autoFlushIdleMs: 0 })(
-        api as never,
-      )
+      createAgentxpPluginRegister(db, { autoFlushSteps: 2, autoFlushIdleMs: 0 })(api as never)
       const SESSION = 'sess-double'
       api.invoke('session_start', { sessionId: SESSION }, { sessionId: SESSION })
       for (let i = 0; i < 2; i++) {
@@ -227,11 +219,7 @@ describe('OpenClaw adapter — createAgentxpPluginRegister', () => {
         )
       }
       expect(db.listAllExperiences().length).toBe(1)
-      api.invoke(
-        'session_end',
-        { sessionId: SESSION, reason: 'exit' },
-        { sessionId: SESSION },
-      )
+      api.invoke('session_end', { sessionId: SESSION, reason: 'exit' }, { sessionId: SESSION })
       expect(db.listAllExperiences().length).toBe(1)
     } finally {
       db.close()
@@ -251,9 +239,7 @@ describe('OpenClaw adapter — createAgentxpPluginRegister', () => {
       }
       expect(typeof corpus.search).toBe('function')
       expect(typeof corpus.get).toBe('function')
-      const builder = api.promptSupplements[0] as (p: {
-        availableTools: Set<string>
-      }) => string[]
+      const builder = api.promptSupplements[0] as (p: { availableTools: Set<string> }) => string[]
       expect(typeof builder).toBe('function')
       expect(builder({ availableTools: new Set() })).toEqual([])
     } finally {
@@ -318,9 +304,7 @@ describe('agentxpPlugin.register — pluginConfig wiring (M7 Batch 2.5)', () => 
 
   it('throws a readable error when operatorPublicKey is missing', () => {
     const api = apiWithConfig({ stagingDbPath: join(tmp, 'x.db') })
-    expect(() => agentxpPlugin.register(api as never)).toThrowError(
-      /operatorPublicKey/,
-    )
+    expect(() => agentxpPlugin.register(api as never)).toThrowError(/operatorPublicKey/)
   })
 
   it('throws when pluginConfig is missing entirely', () => {

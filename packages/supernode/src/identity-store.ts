@@ -43,9 +43,10 @@ export function delegateAgent(
 }
 
 export function revokeAgent(db: Db, agentPubkey: string, at: number): void {
-  db.prepare(
-    `UPDATE identities SET revoked = 1, revoked_at = ? WHERE pubkey = ?`,
-  ).run(at, agentPubkey)
+  db.prepare(`UPDATE identities SET revoked = 1, revoked_at = ? WHERE pubkey = ?`).run(
+    at,
+    agentPubkey,
+  )
 }
 
 export function getIdentity(db: Db, pubkey: string): IdentityRow | null {
@@ -92,7 +93,10 @@ export function checkDelegation(
   at: number,
 ):
   | { ok: true }
-  | { ok: false; reason: 'unknown_agent' | 'not_delegated' | 'delegation_revoked' | 'delegation_expired' } {
+  | {
+      ok: false
+      reason: 'unknown_agent' | 'not_delegated' | 'delegation_revoked' | 'delegation_expired'
+    } {
   const row = getIdentity(db, agentPubkey)
   if (!row || row.kind !== 'agent') return { ok: false, reason: 'unknown_agent' }
   if (row.operator_pubkey !== operatorPubkey) return { ok: false, reason: 'not_delegated' }

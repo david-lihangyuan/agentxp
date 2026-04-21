@@ -16,9 +16,7 @@ function freshDir(prefix: string): string {
   return mkdtempSync(join(tmpdir(), prefix))
 }
 
-async function seedWorkspace(
-  relayOrigin: string,
-): Promise<{ target: string; idRoot: string }> {
+async function seedWorkspace(relayOrigin: string): Promise<{ target: string; idRoot: string }> {
   const target = freshDir('agentxp-skill-refl-')
   const idRoot = freshDir('agentxp-skill-id-')
   mkdirSync(join(target, '.agentxp'), { recursive: true })
@@ -65,9 +63,9 @@ describe('Tier 1 — in-session capture (ADR-001; MILESTONES M3 check 3)', () =>
   it('rejects drafts missing required fields', () => {
     const store = openStoreForTarget(target)
     try {
-      expect(() =>
-        captureInSessionDraft(store, { ...draft, what: '' }),
-      ).toThrowError(/what is required/)
+      expect(() => captureInSessionDraft(store, { ...draft, what: '' })).toThrowError(
+        /what is required/,
+      )
     } finally {
       store.close()
     }
@@ -159,8 +157,8 @@ describe('Tier 2 — end-of-session reflect (ADR-001; MILESTONES M3 check 2 & 3)
 
   it('exits with OperatorKeyMissingError when no identity is present', async () => {
     const missingRoot = freshDir('agentxp-skill-missing-')
-    await expect(
-      reflect({ targetDir: target, identityRoot: missingRoot }),
-    ).rejects.toThrowError(/operator key not found/)
+    await expect(reflect({ targetDir: target, identityRoot: missingRoot })).rejects.toThrowError(
+      /operator key not found/,
+    )
   })
 })

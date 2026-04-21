@@ -25,12 +25,7 @@ export interface ToolCallCtx {
   created_at: string
 }
 
-export type SessionEndReason =
-  | 'exit'
-  | 'idle'
-  | 'explicit'
-  | 'auto_count'
-  | 'auto_idle'
+export type SessionEndReason = 'exit' | 'idle' | 'explicit' | 'auto_count' | 'auto_idle'
 
 export interface SessionEndCtx {
   session_id: string
@@ -74,11 +69,7 @@ export interface PluginReasoningTrace {
   dead_ends: Array<{ attempted: string; why_abandoned: string }>
   trace_summary: string
   confidence: number
-  duration_bucket:
-    | 'under_1min'
-    | '1_to_5min'
-    | '5_to_15min'
-    | 'over_15min'
+  duration_bucket: 'under_1min' | '1_to_5min' | '5_to_15min' | 'over_15min'
   tools_used_category: string[]
   context_at_start: string
   prerequisites: {

@@ -19,13 +19,7 @@ export interface KindRegistryEntry {
   readonly created_at: number
 }
 
-const REQUIRED_FIELDS = [
-  'name',
-  'owner',
-  'payload_schema_url',
-  'status',
-  'created_at',
-] as const
+const REQUIRED_FIELDS = ['name', 'owner', 'payload_schema_url', 'status', 'created_at'] as const
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)

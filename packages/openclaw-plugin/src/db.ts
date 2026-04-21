@@ -32,7 +32,9 @@ export interface PluginDb {
   listTraceSteps(sessionId: string): StagedTraceStep[]
   clearTraceSteps(sessionId: string): void
 
-  stageExperience(row: Omit<StagedExperience, 'id' | 'retry_count' | 'last_attempt'>): StagedExperience
+  stageExperience(
+    row: Omit<StagedExperience, 'id' | 'retry_count' | 'last_attempt'>,
+  ): StagedExperience
   listDueExperiences(now: number): StagedExperience[]
   listAllExperiences(): StagedExperience[]
   markAttempt(id: number, now: number, nextAt: number): void
@@ -98,8 +100,12 @@ export function openPluginDb(path: string): PluginDb {
   return {
     appendTraceStep(row) {
       return insertStep.get(
-        row.session_id, row.step_index, row.action,
-        row.outcome_short, row.duration_ms, row.created_at,
+        row.session_id,
+        row.step_index,
+        row.action,
+        row.outcome_short,
+        row.duration_ms,
+        row.created_at,
       ) as StagedTraceStep
     },
     listTraceSteps(sessionId) {
@@ -110,8 +116,13 @@ export function openPluginDb(path: string): PluginDb {
     },
     stageExperience(row) {
       return insertExp.get(
-        row.session_id, row.reason, row.data_json, row.trace_json,
-        row.tags_json, row.created_at, row.next_attempt_at,
+        row.session_id,
+        row.reason,
+        row.data_json,
+        row.trace_json,
+        row.tags_json,
+        row.created_at,
+        row.next_attempt_at,
       ) as StagedExperience
     },
     listDueExperiences(now) {

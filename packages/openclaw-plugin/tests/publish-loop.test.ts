@@ -39,7 +39,9 @@ async function stageOne(): Promise<ReturnType<typeof openPluginDb>> {
   const db = openPluginDb(':memory:')
   onToolCall(db, tc('s1', 0))
   const end: SessionEndCtx = {
-    session_id: 's1', ended_at: new Date().toISOString(), reason: 'exit',
+    session_id: 's1',
+    ended_at: new Date().toISOString(),
+    reason: 'exit',
   }
   onSessionEnd(db, end, SUMMARY)
   return db
@@ -51,9 +53,9 @@ describe('startPublishLoop', () => {
     const op = makeOperatorKey()
     const agent = makeAgentKey(op, 'loop-0')
     const db = openPluginDb(':memory:')
-    expect(() =>
-      startPublishLoop({ db, agent, relayUrl: relay.origin, intervalMs: 0 }),
-    ).toThrow(/positive finite number/)
+    expect(() => startPublishLoop({ db, agent, relayUrl: relay.origin, intervalMs: 0 })).toThrow(
+      /positive finite number/,
+    )
     db.close()
   })
 
@@ -66,8 +68,12 @@ describe('startPublishLoop', () => {
     const db = await stageOne()
     const onResult = vi.fn()
     const handle = startPublishLoop({
-      db, agent, relayUrl: relay.origin, intervalMs: 60_000,
-      fetch: relay.fetch, onResult,
+      db,
+      agent,
+      relayUrl: relay.origin,
+      intervalMs: 60_000,
+      fetch: relay.fetch,
+      onResult,
     })
     try {
       const results = await handle.runNow()
@@ -88,7 +94,11 @@ describe('startPublishLoop', () => {
 
     const db = await stageOne()
     const handle = startPublishLoop({
-      db, agent, relayUrl: relay.origin, intervalMs: 60_000, fetch: relay.fetch,
+      db,
+      agent,
+      relayUrl: relay.origin,
+      intervalMs: 60_000,
+      fetch: relay.fetch,
     })
     handle.stop()
     const results = await handle.runNow()
@@ -105,8 +115,12 @@ describe('startPublishLoop', () => {
       throw new Error('network down')
     }
     const handle = startPublishLoop({
-      db, agent, relayUrl: 'http://relay.test', intervalMs: 60_000,
-      fetch: brokenFetch, onError,
+      db,
+      agent,
+      relayUrl: 'http://relay.test',
+      intervalMs: 60_000,
+      fetch: brokenFetch,
+      onError,
     })
     try {
       // publisher catches fetch errors and records a retry; loop
@@ -129,14 +143,16 @@ describe('startPublishLoop', () => {
 
     const db = await stageOne()
     const handle = startPublishLoop({
-      db, agent, relayUrl: relay.origin, intervalMs: 60_000, fetch: relay.fetch,
+      db,
+      agent,
+      relayUrl: relay.origin,
+      intervalMs: 60_000,
+      fetch: relay.fetch,
     })
     try {
       const [a, b] = await Promise.all([handle.runNow(), handle.runNow()])
       // One cycle publishes; the reentrant one short-circuits with [].
-      const published = [...(a ?? []), ...(b ?? [])].filter(
-        (r) => r.status === 'published',
-      )
+      const published = [...(a ?? []), ...(b ?? [])].filter((r) => r.status === 'published')
       expect(published).toHaveLength(1)
     } finally {
       handle.stop()

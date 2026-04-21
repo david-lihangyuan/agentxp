@@ -23,8 +23,4 @@ export { generateOperatorKey, delegateAgentKey } from './keys.js'
 export { createEvent, signEvent, verifyEvent, MAX_PAYLOAD_BYTES } from './events.js'
 export { loadKindRegistry } from './kinds.js'
 export type { KindRegistryEntry, KindStatus } from './kinds.js'
-export {
-  InvalidKindError,
-  InvalidKindRegistryError,
-  PayloadTooLargeError,
-} from './errors.js'
+export { InvalidKindError, InvalidKindRegistryError, PayloadTooLargeError } from './errors.js'

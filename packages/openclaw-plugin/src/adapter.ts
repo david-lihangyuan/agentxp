@@ -29,10 +29,7 @@ import type { SessionSummaryInput } from './hooks.js'
 import { AgentKeyLoadError, loadAgentKey } from './identity.js'
 import { createCorpusSupplement } from './memory-corpus.js'
 import { createPromptBuilder } from './memory-prompt.js'
-import {
-  startPublishLoop,
-  type PublishLoopHandle,
-} from './publish-loop.js'
+import { startPublishLoop, type PublishLoopHandle } from './publish-loop.js'
 
 export const AGENTXP_PLUGIN_ID = 'agentxp'
 export const AGENTXP_PLUGIN_NAME = 'AgentXP'
@@ -252,10 +249,7 @@ export function createAgentxpPluginRegister(
 //
 // Exported for tests, which pass an isolated `home` to avoid
 // touching the real user home directory.
-export function migrateLegacyAgentxpDir(
-  stagingDbPath: string,
-  home: string = homedir(),
-): void {
+export function migrateLegacyAgentxpDir(stagingDbPath: string, home: string = homedir()): void {
   const targetDir = dirname(stagingDbPath)
   const parent = dirname(targetDir)
   const expectedParent = join(home, '.agentxp')
@@ -300,10 +294,7 @@ export function openDbFromConfig(stagingDbPath: string): PluginDb {
 // only the background publisher is suppressed. We log a single
 // user-readable line rather than throwing, because publishing is a
 // side-concern of the capture hot path.
-function tryLoadAgentKey(
-  agentKeyPath: string,
-  operatorPublicKey: string,
-): AgentKey | null {
+function tryLoadAgentKey(agentKeyPath: string, operatorPublicKey: string): AgentKey | null {
   try {
     return loadAgentKey(agentKeyPath, operatorPublicKey)
   } catch (err) {

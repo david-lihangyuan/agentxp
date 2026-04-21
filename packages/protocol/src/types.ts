@@ -8,16 +8,9 @@
 // Protocol-layer kinds (02-data-model.md §2)
 // -----------------------------------------------------------------
 
-export type IntentKind =
-  | 'intent.broadcast'
-  | 'intent.match'
-  | 'intent.verify'
-  | 'intent.subscribe'
+export type IntentKind = 'intent.broadcast' | 'intent.match' | 'intent.verify' | 'intent.subscribe'
 
-export type IdentityKind =
-  | 'identity.register'
-  | 'identity.delegate'
-  | 'identity.revoke'
+export type IdentityKind = 'identity.register' | 'identity.delegate' | 'identity.revoke'
 
 export type SerendipKind = IntentKind | IdentityKind
 

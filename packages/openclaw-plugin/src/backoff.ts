@@ -13,10 +13,7 @@ export interface SdkBackoffOptions {
   random?: () => number
 }
 
-export function sdkNextAttemptDelay(
-  retryCount: number,
-  opts: SdkBackoffOptions = {},
-): number {
+export function sdkNextAttemptDelay(retryCount: number, opts: SdkBackoffOptions = {}): number {
   const base = opts.baseSeconds ?? BASE_SECONDS
   const cap = opts.capSeconds ?? CAP_SECONDS
   const jr = opts.jitterRatio ?? JITTER_RATIO

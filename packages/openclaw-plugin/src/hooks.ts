@@ -12,11 +12,7 @@ import type {
   ToolCallCtx,
 } from './types.js'
 import type { PluginDb, StagedTraceStep } from './db.js'
-import {
-  pushKeywords,
-  pushToolName,
-  setLastActiveSession,
-} from './session-state.js'
+import { pushKeywords, pushToolName, setLastActiveSession } from './session-state.js'
 
 // Lightweight Tier-1 rule-based flags. The concrete set is
 // intentionally small in MVP; the contract is that `message_sending`
@@ -40,9 +36,29 @@ const DESTRUCTIVE =
 // semantic weighting is left to the prompt builder / phase heuristic.
 const KEYWORD_SPLIT = /[^a-zA-Z0-9_]+/
 const KEYWORD_STOPWORDS = new Set([
-  'the', 'and', 'for', 'with', 'from', 'into', 'this', 'that', 'not',
-  'src', 'dist', 'lib', 'node_modules', 'tmp', 'var', 'etc', 'usr',
-  'ts', 'js', 'tsx', 'jsx', 'json', 'md',
+  'the',
+  'and',
+  'for',
+  'with',
+  'from',
+  'into',
+  'this',
+  'that',
+  'not',
+  'src',
+  'dist',
+  'lib',
+  'node_modules',
+  'tmp',
+  'var',
+  'etc',
+  'usr',
+  'ts',
+  'js',
+  'tsx',
+  'jsx',
+  'json',
+  'md',
 ])
 
 function collectKeywords(value: unknown, out: string[], depth = 0): void {
@@ -168,7 +184,10 @@ export function onToolCall(db: PluginDb, ctx: ToolCallCtx): StagedTraceStep {
   return db.appendTraceStep({
     session_id: ctx.session_id,
     step_index: stepIndex,
-    action: `${ctx.tool_call.name}(${truncate(JSON.stringify(ctx.tool_call.arguments ?? {}), 120)})`,
+    action: `${ctx.tool_call.name}(${truncate(
+      JSON.stringify(ctx.tool_call.arguments ?? {}),
+      120,
+    )})`,
     outcome_short: resultPreview,
     duration_ms: ctx.tool_call.duration_ms,
     created_at: Math.floor(Date.parse(ctx.created_at) / 1000) || Math.floor(Date.now() / 1000),
@@ -182,10 +201,7 @@ export function bucketize(totalMs: number): PluginReasoningTrace['duration_bucke
   return 'over_15min'
 }
 
-export function buildTrace(
-  steps: StagedTraceStep[],
-  contextAtStart: string,
-): PluginReasoningTrace {
+export function buildTrace(steps: StagedTraceStep[], contextAtStart: string): PluginReasoningTrace {
   const totalMs = steps.reduce((a, s) => a + s.duration_ms, 0)
   const tools = Array.from(new Set(steps.map((s) => s.action.split('(')[0] ?? 'unknown')))
   return {

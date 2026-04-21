@@ -28,7 +28,9 @@ async function publishExperience(
       outcome: overrides.outcome ?? 'succeeded',
       learned: overrides.learned ?? 'Learned the lesson',
     },
-    ...(overrides.reasoning_trace !== undefined ? { reasoning_trace: overrides.reasoning_trace } : {}),
+    ...(overrides.reasoning_trace !== undefined
+      ? { reasoning_trace: overrides.reasoning_trace }
+      : {}),
     ...(overrides.extendsTarget ? { extends: overrides.extendsTarget } : {}),
   }
   const ev = await signEvent(createEvent('intent.broadcast', payload, overrides.tags ?? []), agent)
@@ -72,13 +74,10 @@ describe('L2 Reasoning Trace (SPEC §12)', () => {
     )
     expect(t.status).toBe(200)
     expect(t.body.references.length).toBe(2)
-    const byStep = t.body.references.reduce(
-      (a, r) => {
-        a[r.step_index] = r
-        return a
-      },
-      {} as Record<number, { stale: number }>,
-    )
+    const byStep = t.body.references.reduce((a, r) => {
+      a[r.step_index] = r
+      return a
+    }, {} as Record<number, { stale: number }>)
     expect(byStep[1]).toBeDefined()
 
     // Stale flag: one reference resolved, one unresolved (all-f 64-hex).
@@ -92,7 +91,10 @@ describe('L2 Reasoning Trace (SPEC §12)', () => {
     const payload: ExperiencePayload = {
       type: 'experience',
       data: {
-        what: 'bad trace', tried: 'bad trace', outcome: 'failed', learned: 'n/a',
+        what: 'bad trace',
+        tried: 'bad trace',
+        outcome: 'failed',
+        learned: 'n/a',
       },
       reasoning_trace: { steps: 'not an array' } as unknown,
     }
@@ -110,7 +112,10 @@ describe('Pulse + Feedback loop (SPEC §8, §9)', () => {
   it('search hit writes pulse_events + impact; score reflects it; same-operator yields zero', async () => {
     const srv = startTestServer()
     const { operator: opA, agent: agentA } = await bootstrapIdentity(srv)
-    const pub = await publishExperience(srv, agentA, { what: 'Searchable Docker tip', tags: ['docker'] })
+    const pub = await publishExperience(srv, agentA, {
+      what: 'Searchable Docker tip',
+      tags: ['docker'],
+    })
 
     type ScoreBody = { impact_score: number }
     type SearchBody = { results: unknown[] }
@@ -141,9 +146,9 @@ describe('Pulse + Feedback loop (SPEC §8, §9)', () => {
 
     // Pulse feed shows the search_hit.
     const pulse = await fetchJson<PulseBody>(srv, `/api/v1/pulse`)
-    expect(
-      pulse.body.pulses.some((p) => p.kind === 'search_hit' && p.event_id === pub.id),
-    ).toBe(true)
+    expect(pulse.body.pulses.some((p) => p.kind === 'search_hit' && p.event_id === pub.id)).toBe(
+      true,
+    )
 
     // Monotone non-decrease on repeat reads (§9 acceptance 2).
     const second = await fetchJson<ScoreBody>(srv, `/api/v1/experiences/${pub.id}/score`)
@@ -167,7 +172,10 @@ describe('Pulse + Feedback loop (SPEC §8, §9)', () => {
     const regB = await signEvent(
       createEvent(
         'identity.register',
-        { type: 'operator', data: { pubkey: opB.publicKey, registered_at: Math.floor(Date.now() / 1000) } },
+        {
+          type: 'operator',
+          data: { pubkey: opB.publicKey, registered_at: Math.floor(Date.now() / 1000) },
+        },
         [],
       ),
       opBasAgent,
@@ -177,7 +185,14 @@ describe('Pulse + Feedback loop (SPEC §8, §9)', () => {
     const delB = await signEvent(
       createEvent(
         'identity.delegate',
-        { type: 'delegation', data: { agent_pubkey: agentB.publicKey, expires_at: agentB.expiresAt, agent_id: agentB.agentId } },
+        {
+          type: 'delegation',
+          data: {
+            agent_pubkey: agentB.publicKey,
+            expires_at: agentB.expiresAt,
+            agent_id: agentB.agentId,
+          },
+        },
         [],
       ),
       opBasAgent,
@@ -185,7 +200,9 @@ describe('Pulse + Feedback loop (SPEC §8, §9)', () => {
     await publish(srv, delB)
 
     await publishExperience(srv, agentB, {
-      what: 'Extension of target', tags: ['b'], extendsTarget: target.id,
+      what: 'Extension of target',
+      tags: ['b'],
+      extendsTarget: target.id,
     })
 
     const rels = await fetchJson<{ incoming: Array<{ relation: string }> }>(
@@ -284,10 +301,7 @@ describe('Dashboard (SPEC §7; MILESTONES M5 checks 1 & 3)', () => {
 
   it('GET /dashboard/operator/:pubkey/growth returns empty buckets for an unknown operator', async () => {
     const srv = startTestServer()
-    const res = await fetchJson(
-      srv,
-      `/api/v1/dashboard/operator/${'b'.repeat(64)}/growth`,
-    )
+    const res = await fetchJson(srv, `/api/v1/dashboard/operator/${'b'.repeat(64)}/growth`)
     expect(res.status).toBe(200)
     expect(res.body).toEqual({ buckets: [] })
   })

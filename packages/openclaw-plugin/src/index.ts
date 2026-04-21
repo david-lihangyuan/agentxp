@@ -46,16 +46,9 @@ export { resolvePluginConfig } from './config.js'
 export type { ResolvedPluginConfig, Visibility } from './config.js'
 
 export { openPluginDb } from './db.js'
-export type {
-  PluginDb,
-  StagedTraceStep,
-  StagedExperience,
-} from './db.js'
+export type { PluginDb, StagedTraceStep, StagedExperience } from './db.js'
 
-export {
-  sdkNextAttemptDelay,
-  MAX_ATTEMPTS,
-} from './backoff.js'
+export { sdkNextAttemptDelay, MAX_ATTEMPTS } from './backoff.js'
 export type { SdkBackoffOptions } from './backoff.js'
 
 export { publishStagedExperiences } from './publisher.js'
@@ -77,11 +70,7 @@ export {
 export type { SessionState } from './session-state.js'
 
 export { createCorpusSupplement, searchStagedSync } from './memory-corpus.js'
-export type {
-  CorpusScope,
-  CorpusSupplementOptions,
-  SearchStagedOptions,
-} from './memory-corpus.js'
+export type { CorpusScope, CorpusSupplementOptions, SearchStagedOptions } from './memory-corpus.js'
 
 export { createPromptBuilder } from './memory-prompt.js'
 export type { PromptBuilderOptions } from './memory-prompt.js'

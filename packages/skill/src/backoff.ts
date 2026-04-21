@@ -12,10 +12,7 @@ export interface BackoffOptions {
   random?: () => number
 }
 
-export function nextAttemptDelay(
-  retryCount: number,
-  opts: BackoffOptions = {},
-): number {
+export function nextAttemptDelay(retryCount: number, opts: BackoffOptions = {}): number {
   const base = opts.baseSeconds ?? BASE_SECONDS
   const cap = opts.capSeconds ?? CAP_SECONDS
   const jr = opts.jitterRatio ?? JITTER_RATIO

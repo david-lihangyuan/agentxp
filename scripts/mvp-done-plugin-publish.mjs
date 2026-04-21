@@ -79,7 +79,8 @@ if (!row) throw new Error('no staged experience to patch')
 const trace = JSON.parse(row.trace_json)
 const lastIdx = trace.steps.length - 1
 trace.steps[lastIdx].references = [skillEvent]
-raw.prepare('UPDATE staged_experiences SET trace_json = ? WHERE id = ?')
+raw
+  .prepare('UPDATE staged_experiences SET trace_json = ? WHERE id = ?')
   .run(JSON.stringify(trace), row.id)
 raw.close()
 

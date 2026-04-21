@@ -46,7 +46,9 @@ async function publishExperience(
 async function triggerPulse(srv: TestServer, q: string): Promise<void> {
   const viewer = await generateOperatorKey()
   const r = await srv.fetch(
-    new Request(`http://t/api/v1/search?q=${encodeURIComponent(q)}&viewer_pubkey=${viewer.publicKey}`),
+    new Request(
+      `http://t/api/v1/search?q=${encodeURIComponent(q)}&viewer_pubkey=${viewer.publicKey}`,
+    ),
   )
   if (r.status !== 200) {
     throw new Error(`search failed: ${r.status}`)
