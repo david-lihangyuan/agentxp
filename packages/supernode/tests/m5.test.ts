@@ -248,4 +248,144 @@ describe('Dashboard (SPEC §7; MILESTONES M5 checks 1 & 3)', () => {
     expect(net.body.operators).toBeGreaterThanOrEqual(1)
     expect(net.body.experiences).toBe(1)
   })
+
+  it('GET /dashboard/operator/:pubkey/growth returns 400 for a non-hex pubkey', async () => {
+    const srv = startTestServer()
+    const res = await fetchJson(srv, '/api/v1/dashboard/operator/not-hex/growth')
+    expect(res.status).toBe(400)
+    expect(res.body).toEqual({ error: 'invalid_pubkey' })
+  })
+
+  it('GET /dashboard/operator/:pubkey/growth returns empty buckets for an unknown operator', async () => {
+    const srv = startTestServer()
+    const res = await fetchJson(
+      srv,
+      `/api/v1/dashboard/operator/${'b'.repeat(64)}/growth`,
+    )
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ buckets: [] })
+  })
+
+  it('GET /dashboard/operator/:pubkey/growth buckets published experiences by day', async () => {
+    const srv = startTestServer()
+    const { operator, agent } = await bootstrapIdentity(srv)
+    await publishExperience(srv, agent, { what: 'One' })
+    await publishExperience(srv, agent, { what: 'Two' })
+
+    const res = await fetchJson(
+      srv,
+      `/api/v1/dashboard/operator/${operator.publicKey}/growth`,
+    )
+    expect(res.status).toBe(200)
+    const buckets = res.body.buckets as Array<{ day_bucket: number; count: number }>
+    expect(buckets.length).toBe(1) // both publishes land in the same second, same day bucket
+    expect(buckets[0]?.count).toBe(2)
+    expect(typeof buckets[0]?.day_bucket).toBe('number')
+  })
+
+  it('GET /dashboard/operator/:pubkey/failures returns 400 for a non-hex pubkey', async () => {
+    const srv = startTestServer()
+    const res = await fetchJson(srv, '/api/v1/dashboard/operator/not-hex/failures')
+    expect(res.status).toBe(400)
+    expect(res.body).toEqual({ error: 'invalid_pubkey' })
+  })
+
+  it('GET /dashboard/operator/:pubkey/failures lists only failed/partial/inconclusive experiences', async () => {
+    const srv = startTestServer()
+    const { operator, agent } = await bootstrapIdentity(srv)
+    await publishExperience(srv, agent, { what: 'Happy path', outcome: 'succeeded' })
+    await publishExperience(srv, agent, { what: 'Broke something', outcome: 'failed' })
+    await publishExperience(srv, agent, { what: 'Sort of', outcome: 'partial' })
+
+    const res = await fetchJson(
+      srv,
+      `/api/v1/dashboard/operator/${operator.publicKey}/failures`,
+    )
+    expect(res.status).toBe(200)
+    const failures = res.body.failures as Array<{ what: string; outcome: string }>
+    expect(failures.length).toBe(2)
+    const outcomes = new Set(failures.map((f) => f.outcome))
+    expect(outcomes).toEqual(new Set(['failed', 'partial']))
+  })
+
+  it('GET /dashboard/operator/:pubkey/failures respects limit=<n>', async () => {
+    const srv = startTestServer()
+    const { operator, agent } = await bootstrapIdentity(srv)
+    await publishExperience(srv, agent, { what: 'f1', outcome: 'failed' })
+    await publishExperience(srv, agent, { what: 'f2', outcome: 'failed' })
+    await publishExperience(srv, agent, { what: 'f3', outcome: 'failed' })
+
+    const res = await fetchJson(
+      srv,
+      `/api/v1/dashboard/operator/${operator.publicKey}/failures?limit=2`,
+    )
+    expect(res.status).toBe(200)
+    expect((res.body.failures as unknown[]).length).toBe(2)
+  })
+})
+
+describe('POST /api/v1/experiences/:id/relations (SPEC \u00a75.4)', () => {
+  it('returns 400 for a non-hex id', async () => {
+    const srv = startTestServer()
+    const r = await srv.fetch(
+      new Request('http://t/api/v1/experiences/not-hex/relations', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({}),
+      }),
+    )
+    expect(r.status).toBe(400)
+    expect(await r.json()).toEqual({ error: 'invalid_id' })
+  })
+
+  it('returns 400 for a malformed body (missing event envelope)', async () => {
+    const srv = startTestServer()
+    const r = await srv.fetch(
+      new Request(`http://t/api/v1/experiences/${'a'.repeat(64)}/relations`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ event: { foo: 'bar' } }),
+      }),
+    )
+    expect(r.status).toBe(400)
+    expect(await r.json()).toEqual({ error: 'malformed_event' })
+  })
+
+  it('accepts a signed extends-style experience and records the relation', async () => {
+    const srv = startTestServer()
+    const { agent } = await bootstrapIdentity(srv)
+    const target = await publishExperience(srv, agent, { what: 'Target' })
+
+    // Build a signed experience that `extends` the target, then POST it to
+    // the relation endpoint instead of /events. SPEC §5.4 allows relation
+    // submission through either route; this test characterizes that
+    // /experiences/:id/relations shares the same ingest pipeline.
+    const payload: ExperiencePayload = {
+      type: 'experience',
+      data: {
+        what: 'Extending target',
+        tried: 't',
+        outcome: 'succeeded',
+        learned: 'l',
+      },
+      extends: target.id,
+    }
+    const signed = await signEvent(createEvent('intent.broadcast', payload, []), agent)
+    const r = await srv.fetch(
+      new Request(`http://t/api/v1/experiences/${target.id}/relations`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ event: signed }),
+      }),
+    )
+    expect(r.status).toBe(200)
+    const body = (await r.json()) as { accepted: boolean; event_id: string }
+    expect(body.accepted).toBe(true)
+    expect(body.event_id).toBe(signed.id)
+
+    // Verify the relation actually landed in experience_relations.
+    const rels = await fetchJson(srv, `/api/v1/experiences/${target.id}/relations`)
+    expect(rels.body.incoming.length).toBe(1)
+    expect(rels.body.incoming[0].relation).toBe('extends')
+  })
 })

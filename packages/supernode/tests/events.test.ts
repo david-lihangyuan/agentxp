@@ -145,6 +145,75 @@ describe('GET /api/v1/identities/:pubkey (SPEC 01-interfaces §5.2)', () => {
   })
 })
 
+describe('GET /api/v1/events (list) (SPEC 01-interfaces §5.1)', () => {
+  it('returns an empty list with next_cursor=null on a fresh server', async () => {
+    const srv = startTestServer()
+    const res = await srv.fetch(new Request('http://t/api/v1/events'))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ events: [], next_cursor: null })
+  })
+
+  it('lists every persisted event (identity + experience) in recency order', async () => {
+    const srv = startTestServer()
+    const { agent } = await bootstrapIdentity(srv)
+    const signed = await signEvent(createEvent('intent.broadcast', experience, []), agent)
+    expect((await publish(srv, signed)).status).toBe(200)
+
+    const res = await srv.fetch(new Request('http://t/api/v1/events'))
+    const body = (await res.json()) as {
+      events: Array<{ id: string; kind: string }>
+      next_cursor: null
+    }
+    // identity.register + identity.delegate + intent.broadcast = 3 events.
+    expect(body.events.length).toBe(3)
+    expect(body.next_cursor).toBeNull()
+    // Most recent (the intent.broadcast we just published) comes first.
+    expect(body.events[0]?.id).toBe(signed.id)
+  })
+
+  it('filters by kind=intent.broadcast', async () => {
+    const srv = startTestServer()
+    const { agent } = await bootstrapIdentity(srv)
+    const signed = await signEvent(createEvent('intent.broadcast', experience, []), agent)
+    expect((await publish(srv, signed)).status).toBe(200)
+
+    const res = await srv.fetch(
+      new Request('http://t/api/v1/events?kind=intent.broadcast'),
+    )
+    const body = (await res.json()) as { events: Array<{ id: string; kind: string }> }
+    expect(body.events.length).toBe(1)
+    expect(body.events[0]?.id).toBe(signed.id)
+    expect(body.events[0]?.kind).toBe('intent.broadcast')
+  })
+
+  it('filters by pubkey=<agent> (returns only events whose pubkey matches)', async () => {
+    const srv = startTestServer()
+    const { agent } = await bootstrapIdentity(srv)
+    const signed = await signEvent(createEvent('intent.broadcast', experience, []), agent)
+    expect((await publish(srv, signed)).status).toBe(200)
+
+    const res = await srv.fetch(
+      new Request(`http://t/api/v1/events?pubkey=${agent.publicKey}`),
+    )
+    const body = (await res.json()) as { events: Array<{ pubkey: string }> }
+    expect(body.events.length).toBeGreaterThan(0)
+    for (const ev of body.events) expect(ev.pubkey).toBe(agent.publicKey)
+  })
+
+  it('respects limit=1', async () => {
+    const srv = startTestServer()
+    const { agent } = await bootstrapIdentity(srv)
+    const a = await signEvent(createEvent('intent.broadcast', experience, ['a']), agent)
+    const b = await signEvent(createEvent('intent.broadcast', experience, ['b']), agent)
+    expect((await publish(srv, a)).status).toBe(200)
+    expect((await publish(srv, b)).status).toBe(200)
+
+    const res = await srv.fetch(new Request('http://t/api/v1/events?limit=1'))
+    const body = (await res.json()) as { events: unknown[] }
+    expect(body.events.length).toBe(1)
+  })
+})
+
 describe('GET /health (SPEC 01-interfaces §5.6; MILESTONES M2 check 1)', () => {
   it('returns 200 with status ok', async () => {
     const srv = startTestServer()
