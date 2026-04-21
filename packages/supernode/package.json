@@ -19,7 +19,10 @@
   "bin": {
     "supernode": "./dist/index.js"
   },
-  "files": ["dist/", "src/"],
+  "files": [
+    "dist/",
+    "src/"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
@@ -27,13 +30,13 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "@hono/node-server": "^1.13.7",
     "@agentxp/protocol": "^1.0.0",
+    "@hono/node-server": "^1.13.7",
     "better-sqlite3": "^11.7.0",
-    "hono": "^4.6.14"
+    "hono": "^4.12.14"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.12",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.19.17",
     "typescript": "^5.4.5",
     "vitest": "^4.1.4"

@@ -17,7 +17,11 @@
   "bin": {
     "agentxp": "./dist/cli.js"
   },
-  "files": ["dist/", "src/", "SKILL.md"],
+  "files": [
+    "dist/",
+    "src/",
+    "SKILL.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
@@ -29,7 +33,7 @@
   },
   "devDependencies": {
     "@agentxp/supernode": "^0.1.0",
-    "@types/better-sqlite3": "^7.6.12",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.19.17",
     "typescript": "^5.4.5",
     "vitest": "^4.1.4"
