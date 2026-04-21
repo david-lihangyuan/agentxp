@@ -3,6 +3,13 @@
 > Entry point for AI coding assistants working on this repository.
 > Humans should start with [`README.md`](README.md) and
 > [`CONTRIBUTING.md`](CONTRIBUTING.md).
+>
+> **This is the single source of truth for agent rules.** Tool-specific
+> configs (`CLAUDE.md`, `.cursor/rules/`, `.augment/rules/`,
+> `.github/copilot-instructions.md`, etc.) MUST NOT duplicate project
+> rules — they should either reference this file or contain only
+> tool-specific workflow details (e.g. how to invoke that tool's skill
+> library). When in doubt, load the files linked below.
 
 This file follows the [agents.md](https://agents.md/) convention. It
 is intentionally short — a pointer index, not documentation. Load the
