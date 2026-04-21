@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
-    "@agentxp/protocol": "0.1.0",
+    "@agentxp/protocol": "^1.0.0",
     "better-sqlite3": "^11.7.0",
     "hono": "^4.6.14"
   },

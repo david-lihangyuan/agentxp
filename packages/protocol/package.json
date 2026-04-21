@@ -1,8 +1,10 @@
 {
   "name": "@agentxp/protocol",
-  "version": "0.1.0",
-  "private": true,
+  "version": "1.0.0",
   "description": "Serendip Protocol v1 core: types, Ed25519 signing and verification, canonical event id",
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
