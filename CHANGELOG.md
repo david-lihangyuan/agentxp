@@ -15,10 +15,11 @@ Those files are generated automatically by
 
 ---
 
-## 2026-04-21 — Repository refactor (rc phase)
+## 2026-04-21 — Repository refactor + exit rc channel
 
-Three commits on branch `refactor/repo-layout` reshape the
-monorepo without changing any published package's public API:
+Four commits on branch `refactor/repo-layout` reshape the monorepo
+without changing any published package's public API, and graduate
+the repository from the `rc` pre-release channel to stable semver:
 
 - **Scope rename** (`37be2c6`): rewrite every internal import from
   `@serendip/*` to `@agentxp/*`. The `@serendip/*` scope was never
@@ -33,16 +34,20 @@ monorepo without changing any published package's public API:
   default `stagingDbPath` now lives at
   `~/.agentxp/openclaw-plugin/staging.db` with a one-shot
   auto-migrator for rc.1 installs.
+- **Adopt Changesets** (`68c8ffb` + follow-up): version management
+  flows through Changesets; the repository exits the `rc`
+  pre-release channel and publishes stable semver versions from
+  here on. See [`docs/RELEASING.md`](docs/RELEASING.md).
 
-Release management now flows through Changesets. Two changesets
-covering these commits live in `.changeset/` and will bump:
+Two changesets covering these commits live in `.changeset/` and
+will bump on the next release:
 
-| Package                    | From       | To          |
-| -------------------------- | ---------- | ----------- |
-| `@agentxp/openclaw-plugin` | 0.2.0-rc.2 | 0.2.0-rc.3  |
-| `@agentxp/skill`           | 0.1.0      | 0.1.1-rc.0  |
-| `@agentxp/protocol`        | 0.1.0      | 0.1.1-rc.0  |
-| `@agentxp/supernode`       | 0.1.0      | 0.1.1-rc.0  |
+| Package                    | From       | To     |
+| -------------------------- | ---------- | ------ |
+| `@agentxp/openclaw-plugin` | 0.2.0-rc.2 | 0.2.0  |
+| `@agentxp/skill`           | 0.1.0      | 0.1.1  |
+| `@agentxp/protocol`        | 0.1.0      | 0.1.1  |
+| `@agentxp/supernode`       | 0.1.0      | 0.1.1  |
 
 ---
 

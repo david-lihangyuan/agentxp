@@ -52,25 +52,6 @@ Alternatively label the PR `no-release` to bypass the CI gate.
 
 ---
 
-## Pre-release mode (rc channel)
-
-The repository is currently in **pre-release mode with tag `rc`**.
-Every `changeset version` produces pre-release versions like
-`0.2.0-rc.3` or `0.1.1-rc.0`, and `changeset publish` publishes them
-with the `rc` dist-tag (not `latest`).
-
-To exit pre-release and cut a stable version:
-
-```bash
-npx changeset pre exit
-npx changeset version    # now produces stable versions
-```
-
-Do **not** `pre exit` casually — it's a one-way commitment for the
-current batch of changesets.
-
----
-
 ## Private packages
 
 Three of the four published-eligible packages are currently
@@ -120,5 +101,9 @@ When you say "release", the assistant runs:
 The `@agentxp/skill` 1.x–4.x line and `@agentxp/protocol@1.0.0` on
 npm are **deprecated** — they predate the current SPEC-driven
 rewrite. The current `packages/` tree starts fresh from `0.1.x`
-(internal) and `0.2.0-rc.*` (plugin). See `CHANGELOG.md` and
+(internal) and `0.2.x` (plugin). The earlier `0.2.0-rc.1` and
+`0.2.0-rc.2` pre-releases of `@agentxp/openclaw-plugin` were cut
+under a previous rc-channel workflow; the repository has since
+exited pre-release mode and now publishes stable semver versions
+through the flow described above. See `CHANGELOG.md` and
 `HISTORY.md` for the cut-over narrative.
