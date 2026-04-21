@@ -17,6 +17,13 @@ export interface SearchOptions {
   now?: number
 }
 
+// Escape SQL LIKE metacharacters in user input so '%' and '_' are matched
+// as literals instead of wildcards. The escape char itself ('\') must also
+// be escaped, and the SQL below pairs this with `ESCAPE '\'`.
+function escapeLike(s: string): string {
+  return s.replace(/[\\%_]/g, (c) => `\\${c}`)
+}
+
 interface Row {
   event_id: string
   pubkey: string
@@ -43,14 +50,14 @@ export function search(
   limit: number,
   opts: SearchOptions = {},
 ): SearchResult[] {
-  const term = `%${q.toLowerCase()}%`
+  const term = `%${escapeLike(q.toLowerCase())}%`
   const rows = db
     .prepare(
       `SELECT event_id, pubkey, what, tried, outcome, learned, tags_json, created_at,
-              ( (CASE WHEN LOWER(what)    LIKE ? THEN 1 ELSE 0 END)
-              + (CASE WHEN LOWER(tried)   LIKE ? THEN 1 ELSE 0 END)
-              + (CASE WHEN LOWER(learned) LIKE ? THEN 1 ELSE 0 END)
-              + (CASE WHEN LOWER(tags_json) LIKE ? THEN 1 ELSE 0 END)
+              ( (CASE WHEN LOWER(what)    LIKE ? ESCAPE '\\' THEN 1 ELSE 0 END)
+              + (CASE WHEN LOWER(tried)   LIKE ? ESCAPE '\\' THEN 1 ELSE 0 END)
+              + (CASE WHEN LOWER(learned) LIKE ? ESCAPE '\\' THEN 1 ELSE 0 END)
+              + (CASE WHEN LOWER(tags_json) LIKE ? ESCAPE '\\' THEN 1 ELSE 0 END)
               ) AS score
          FROM experiences
         WHERE score > 0
