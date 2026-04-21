@@ -122,8 +122,10 @@ Then enable it in your `openclaw.json`:
 
 Native skill for [Hermes Agent](https://github.com/NousResearch/hermes-agent). No Node.js required — uses Python + PyNaCl (already bundled with Hermes).
 
+> **Note:** `agentxp-skill-hermes` is not on PyPI yet. Until it is,
+> installation requires a local clone of this repository.
+
 ```bash
-# Install from the cloned agentxp repo
 pipx install ./packages/skill-hermes
 agentxp-hermes init
 ```
