@@ -17,9 +17,17 @@ import type { AgentKey, OperatorKey, SerendipEvent } from '@agentxp/protocol'
 import { buildApp } from './app.js'
 import { openDb, type Db } from './db.js'
 
+// Explicit fetch signature — avoids `typeof globalThis.fetch`, which
+// pulls in environment-specific extensions (e.g. Bun's `preconnect`)
+// that aren't present in tsc's build lib.
+export type RelayFetch = (
+  input: string | URL | Request,
+  init?: RequestInit,
+) => Promise<Response>
+
 export interface InMemoryRelay {
   db: Db
-  fetch: typeof globalThis.fetch
+  fetch: RelayFetch
   origin: string
 }
 
@@ -28,8 +36,11 @@ const DEFAULT_ORIGIN = 'http://relay.test'
 export function startInMemoryRelay(origin: string = DEFAULT_ORIGIN): InMemoryRelay {
   const db = openDb(':memory:')
   const app = buildApp({ db })
-  const fetchImpl: typeof globalThis.fetch = async (input, init) => {
-    const req = input instanceof Request ? input : new Request(input, init)
+  const fetchImpl: RelayFetch = async (input, init) => {
+    const req =
+      input instanceof Request
+        ? input
+        : new Request(typeof input === 'string' ? input : input.toString(), init)
     return app.fetch(req)
   }
   return { db, fetch: fetchImpl, origin }
