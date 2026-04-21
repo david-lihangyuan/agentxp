@@ -22,6 +22,12 @@ jobs:
       - name: Build @agentxp/protocol
         run: npm run build -w @agentxp/protocol
 
+      - name: Prettier format check
+        run: npm run format:check
+
+      - name: No imports from legacy/
+        run: npm run lint:no-legacy
+
       - name: Type-check all workspaces
         run: npm run typecheck
 
@@ -70,3 +76,52 @@ jobs:
 
       - name: npm audit
         run: npm audit --audit-level=high
+
+  integration-smoke:
+    name: End-to-End Smoke (mvp-done)
+    runs-on: ubuntu-latest
+    needs: lint-typecheck
+    # Skip entirely when only docs/config changed. The path filter
+    # below catches every file that can meaningfully affect the
+    # skill+plugin+relay round-trip covered by scripts/mvp-done-smoke.sh.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed paths
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            relevant:
+              - 'packages/supernode/**'
+              - 'packages/skill/**'
+              - 'packages/openclaw-plugin/**'
+              - 'packages/protocol/**'
+              - 'scripts/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.github/workflows/pr.yml'
+
+      - name: Set up Node
+        if: steps.changes.outputs.relevant == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        if: steps.changes.outputs.relevant == 'true'
+        run: npm install --no-audit --no-fund
+
+      - name: Build all workspaces
+        if: steps.changes.outputs.relevant == 'true'
+        run: npm run build
+
+      - name: Run mvp-done end-to-end smoke
+        if: steps.changes.outputs.relevant == 'true'
+        run: bash scripts/mvp-done-smoke.sh
+
+      - name: Skipped (no code paths touched)
+        if: steps.changes.outputs.relevant != 'true'
+        run: echo "No packages/ or scripts/ changes in this PR \u2014 skipping end-to-end smoke."
