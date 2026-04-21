@@ -4,6 +4,9 @@
   "private": true,
   "description": "AgentXP relay: Hono + SQLite implementation of SPEC 03-modules-platform §2",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
