@@ -9,7 +9,7 @@
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 
-import type { AgentKey } from '@serendip/protocol'
+import type { AgentKey } from '@agentxp/protocol'
 import { definePluginEntry, emptyPluginConfigSchema } from 'openclaw/plugin-sdk/core'
 import type { OpenClawPluginApi } from 'openclaw/plugin-sdk/core'
 

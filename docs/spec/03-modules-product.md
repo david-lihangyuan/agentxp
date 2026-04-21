@@ -96,7 +96,7 @@ agent hosts that do not consume npm packages.
 
 1. *Happy —* `pip install agentxp-skill-hermes` followed by
    `agentxp-hermes reflect` publishes a valid signed experience
-   that passes `verifyEvent` from `@serendip/protocol`.
+   that passes `verifyEvent` from `@agentxp/protocol`.
 2. *Edge —* Running Skill-Hermes against the same identity
    directory as Skill produces events attributable to the same
    `operator_pubkey`.

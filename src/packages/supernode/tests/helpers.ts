@@ -4,8 +4,8 @@ import {
   delegateAgentKey,
   generateOperatorKey,
   signEvent,
-} from '@serendip/protocol'
-import type { AgentKey, OperatorKey, SerendipEvent } from '@serendip/protocol'
+} from '@agentxp/protocol'
+import type { AgentKey, OperatorKey, SerendipEvent } from '@agentxp/protocol'
 import { buildApp } from '../src/app.js'
 import { openDb, type Db } from '../src/db.js'
 

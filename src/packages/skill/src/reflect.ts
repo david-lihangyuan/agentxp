@@ -3,7 +3,7 @@
 // staged drafts; Tier-2 is the publish cycle.
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { ExperienceData } from '@serendip/protocol'
+import type { ExperienceData } from '@agentxp/protocol'
 import { loadOperatorKey, ensureAgentKey } from './identity.js'
 import { openDraftStore } from './drafts.js'
 import type { DraftRow, DraftStore, ReflectionTier } from './drafts.js'

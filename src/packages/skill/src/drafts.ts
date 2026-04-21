@@ -3,7 +3,7 @@
 // 200 (handled by publisher).
 import Database from 'better-sqlite3'
 import type { Database as Db } from 'better-sqlite3'
-import type { ExperienceData } from '@serendip/protocol'
+import type { ExperienceData } from '@agentxp/protocol'
 
 export type ReflectionTier = 'in-session' | 'end-of-session'
 

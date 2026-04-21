@@ -1,8 +1,8 @@
 // Publish staged drafts to a relay (SPEC 01-interfaces §5.1, §6).
 // Draft rows are removed only on 200 OK or a non-retryable 4xx
 // (the SPEC bars deleting rows otherwise).
-import { createEvent, signEvent } from '@serendip/protocol'
-import type { AgentKey, ExperiencePayload, SerendipEvent } from '@serendip/protocol'
+import { createEvent, signEvent } from '@agentxp/protocol'
+import type { AgentKey, ExperiencePayload, SerendipEvent } from '@agentxp/protocol'
 import { nextAttemptDelay } from './backoff.js'
 import type { DraftRow, DraftStore } from './drafts.js'
 

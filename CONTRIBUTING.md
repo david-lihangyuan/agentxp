@@ -148,7 +148,7 @@ npx prettier --write .
 
 ### Imports
 
-- External packages first, then internal (`@agentxp/*`, `@serendip/*`), then relative.
+- External packages first, then internal (`@agentxp/*`), then relative.
 - No barrel re-exports unless the package is explicitly a public API surface.
 
 ### Error handling

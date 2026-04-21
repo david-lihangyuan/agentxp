@@ -1,5 +1,5 @@
 // experiences view (SPEC 02-data-model §6.2).
-import type { ExperiencePayload, SerendipEvent } from '@serendip/protocol'
+import type { ExperiencePayload, SerendipEvent } from '@agentxp/protocol'
 import type { Db } from './db.js'
 
 export interface ExperienceSummary {

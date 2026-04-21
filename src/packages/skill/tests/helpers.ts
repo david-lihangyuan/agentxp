@@ -4,11 +4,11 @@
 import {
   createEvent,
   signEvent,
-} from '@serendip/protocol'
-import type { AgentKey, OperatorKey } from '@serendip/protocol'
+} from '@agentxp/protocol'
+import type { AgentKey, OperatorKey } from '@agentxp/protocol'
 // Intentionally pull the app factory from source so the skill test
 // suite runs without a separate supernode build step. The dev-only
-// dependency on @serendip/supernode is still declared in package.json
+// dependency on @agentxp/supernode is still declared in package.json
 // for typechecking.
 import { buildApp } from '../../supernode/src/app.js'
 import { openDb } from '../../supernode/src/db.js'

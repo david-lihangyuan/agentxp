@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { createEvent, signEvent } from '@serendip/protocol'
-import type { ExperiencePayload } from '@serendip/protocol'
+import { createEvent, signEvent } from '@agentxp/protocol'
+import type { ExperiencePayload } from '@agentxp/protocol'
 import { bootstrapIdentity, publish, startTestServer } from './helpers.js'
 
 const experience: ExperiencePayload = {

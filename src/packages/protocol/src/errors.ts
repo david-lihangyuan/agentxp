@@ -1,4 +1,4 @@
-// Typed errors thrown by @serendip/protocol.
+// Typed errors thrown by @agentxp/protocol.
 // Per docs/spec/03-modules-platform.md §1 acceptance cases 2 and 3.
 
 /**

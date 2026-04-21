@@ -22,11 +22,11 @@
     "typecheck": "tsc -p tsconfig.test.json"
   },
   "dependencies": {
-    "@serendip/protocol": "0.1.0",
+    "@agentxp/protocol": "0.1.0",
     "better-sqlite3": "^11.7.0"
   },
   "devDependencies": {
-    "@serendip/supernode": "0.1.0",
+    "@agentxp/supernode": "0.1.0",
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.19.17",
     "typescript": "^5.4.5",

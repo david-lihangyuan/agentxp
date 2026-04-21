@@ -9,7 +9,7 @@
 //    - identity.revoke    → mark agent revoked.
 //    - intent.broadcast   → experience or outcome; requires valid delegation.
 // 5. Idempotent insert into events, then derived view write (I1→I2).
-import { MAX_PAYLOAD_BYTES, verifyEvent } from '@serendip/protocol'
+import { MAX_PAYLOAD_BYTES, verifyEvent } from '@agentxp/protocol'
 import type {
   DelegationPayload,
   ExperienceData,
@@ -17,7 +17,7 @@ import type {
   OperatorRegistrationPayload,
   RevocationPayload,
   SerendipEvent,
-} from '@serendip/protocol'
+} from '@agentxp/protocol'
 import type { Db } from './db.js'
 import { insertEvent } from './event-store.js'
 import { insertExperience } from './experience-store.js'

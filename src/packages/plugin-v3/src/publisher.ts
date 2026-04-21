@@ -2,8 +2,8 @@
 // SPEC 03-modules-product §5 mandates: trace populated on every
 // published experience, retry-later on failure, no local delete
 // before 200. Retry schedule follows SDK contract (01-interfaces §6).
-import { createEvent, signEvent } from '@serendip/protocol'
-import type { AgentKey, ExperiencePayload } from '@serendip/protocol'
+import { createEvent, signEvent } from '@agentxp/protocol'
+import type { AgentKey, ExperiencePayload } from '@agentxp/protocol'
 import { MAX_ATTEMPTS, sdkNextAttemptDelay } from './backoff.js'
 import type { PluginDb, StagedExperience } from './db.js'
 

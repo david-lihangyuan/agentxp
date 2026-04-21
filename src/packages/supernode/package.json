@@ -1,5 +1,5 @@
 {
-  "name": "@serendip/supernode",
+  "name": "@agentxp/supernode",
   "version": "0.1.0",
   "private": true,
   "description": "AgentXP relay: Hono + SQLite implementation of SPEC 03-modules-platform §2",
@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
-    "@serendip/protocol": "0.1.0",
+    "@agentxp/protocol": "0.1.0",
     "better-sqlite3": "^11.7.0",
     "hono": "^4.6.14"
   },

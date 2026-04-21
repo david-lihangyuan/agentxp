@@ -9,7 +9,7 @@
 // so the relay materialises a `trace_references` row per §12.
 import { readFileSync } from 'node:fs'
 import Database from 'better-sqlite3'
-import { hexToBytes } from '@serendip/protocol'
+import { hexToBytes } from '@agentxp/protocol'
 import {
   openPluginDb,
   onToolCall,

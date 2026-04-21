@@ -46,7 +46,7 @@ Checks:
 - [x] Zero `legacy/` imports in `src/packages/protocol/`
 - [x] Can `import { signEvent } from '@agentxp/protocol'` from another
       package in the workspace without setup friction
-      (package published as `@serendip/protocol` per SPEC
+      (package published as `@agentxp/protocol` per SPEC
       03-modules-platform §1; see commit `9ab8ac5`)
 
 Expected duration: 2–3 days.

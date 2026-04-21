@@ -4,7 +4,7 @@
 // The protocol layer treats reasoning_trace as `unknown`; the relay
 // enforces the structure so that §12 acceptance 3 (reject
 // non-array steps with 400 invalid_trace_structure) is honoured.
-import type { ExperiencePayload, SerendipEvent } from '@serendip/protocol'
+import type { ExperiencePayload, SerendipEvent } from '@agentxp/protocol'
 import type { Db } from './db.js'
 
 export interface TraceReferenceRow {

@@ -1,8 +1,8 @@
 // Shared fixtures for @agentxp/openclaw-plugin. Reuses the in-memory M2
 // relay (buildApp + :memory: SQLite) used by the Skill test suite so
 // plugin tests round-trip a real signed event against a real relay.
-import { createEvent, signEvent } from '@serendip/protocol'
-import type { AgentKey, OperatorKey } from '@serendip/protocol'
+import { createEvent, signEvent } from '@agentxp/protocol'
+import type { AgentKey, OperatorKey } from '@agentxp/protocol'
 import { ed25519 } from '@noble/curves/ed25519'
 import { buildApp } from '../../supernode/src/app.js'
 import { openDb } from '../../supernode/src/db.js'

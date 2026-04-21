@@ -19,8 +19,8 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Build @serendip/protocol
-        run: npm run build -w @serendip/protocol
+      - name: Build @agentxp/protocol
+        run: npm run build -w @agentxp/protocol
 
       - name: Type-check all workspaces
         run: npm run typecheck
@@ -40,8 +40,8 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Build @serendip/protocol
-        run: npm run build -w @serendip/protocol
+      - name: Build @agentxp/protocol
+        run: npm run build -w @agentxp/protocol
 
       - name: Run vitest (all packages)
         run: npx vitest run --reporter=verbose

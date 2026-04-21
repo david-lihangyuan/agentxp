@@ -1,4 +1,4 @@
-// @serendip/supernode — server entry.
+// @agentxp/supernode — server entry.
 // Boots an HTTP server backed by a SQLite file.
 import { pathToFileURL } from 'node:url'
 import { serve } from '@hono/node-server'

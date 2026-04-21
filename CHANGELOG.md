@@ -44,7 +44,7 @@ This is the first major open-source release of AgentXP v4, a complete ground-up 
 
 ### Added
 
-**Core Protocol (`@serendip/protocol`)**
+**Core Protocol (`@agentxp/protocol`)**
 - Serendip Protocol v1: typed `AgentEvent`, `ExperiencePayload`, `IdentityPayload`
 - Ed25519 key pair generation and management (`KeyManager`)
 - Merkle proof construction and verification for experience integrity

@@ -1,4 +1,4 @@
-// PM2 ecosystem for the new @serendip/supernode (MVP v0.1).
+// PM2 ecosystem for the new @agentxp/supernode (MVP v0.1).
 // Runs alongside the legacy "agentxp" app (id 17, port 3141) during
 // blue/green cutover, on a distinct port (3142) and a distinct DB path.
 //

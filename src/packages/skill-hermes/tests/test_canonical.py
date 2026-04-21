@@ -1,4 +1,4 @@
-"""Canonical serialisation parity with @serendip/protocol (ADR-003 D1)."""
+"""Canonical serialisation parity with @agentxp/protocol (ADR-003 D1)."""
 
 from __future__ import annotations
 

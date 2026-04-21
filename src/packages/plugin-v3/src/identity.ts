@@ -12,13 +12,13 @@
 //      This form is accepted for compatibility; the path may point at
 //      a file named `agent.json` in that case.
 //
-// Either way we must end up with a valid @serendip/protocol AgentKey
+// Either way we must end up with a valid @agentxp/protocol AgentKey
 // whose `delegatedBy` matches the configured operator public key.
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
-import { hexToBytes } from '@serendip/protocol'
-import type { AgentKey } from '@serendip/protocol'
+import { hexToBytes } from '@agentxp/protocol'
+import type { AgentKey } from '@agentxp/protocol'
 
 const HEX_64 = /^[0-9a-f]{64}$/i
 

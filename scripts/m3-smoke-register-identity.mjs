@@ -1,7 +1,7 @@
 // Registers an operator + delegates an agent key on a live relay.
 // Used only by scripts/m3-smoke.sh for MILESTONES M3 Check 2 evidence.
 import { readFileSync } from 'node:fs'
-import { createEvent, signEvent, hexToBytes } from '@serendip/protocol'
+import { createEvent, signEvent, hexToBytes } from '@agentxp/protocol'
 import { ensureAgentKey } from '@agentxp/skill'
 
 const root = process.env['ROOT']

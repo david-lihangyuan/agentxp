@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build @serendip/protocol + @serendip/supernode on the VPS.
+# Build @agentxp/protocol + @agentxp/supernode on the VPS.
 # Idempotent: safe to re-run after every rsync.
 #
 # Expected layout:
@@ -16,11 +16,11 @@ echo "==> node $(node --version)  npm $(npm --version)"
 echo "==> installing workspace dependencies"
 npm ci
 
-echo "==> building @serendip/protocol"
-npm run -w @serendip/protocol build
+echo "==> building @agentxp/protocol"
+npm run -w @agentxp/protocol build
 
-echo "==> building @serendip/supernode"
-npm run -w @serendip/supernode build
+echo "==> building @agentxp/supernode"
+npm run -w @agentxp/supernode build
 
 echo "==> smoke: dist artefacts present"
 test -f src/packages/protocol/dist/index.js

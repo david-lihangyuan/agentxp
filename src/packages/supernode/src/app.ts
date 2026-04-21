@@ -1,6 +1,6 @@
 // Hono application builder. Routes mounted per SPEC 01-interfaces §5.
 import { Hono } from 'hono'
-import type { SerendipEvent } from '@serendip/protocol'
+import type { SerendipEvent } from '@agentxp/protocol'
 import type { Db } from './db.js'
 import { ingestEvent } from './event-handler.js'
 import { getEvent, listEvents } from './event-store.js'

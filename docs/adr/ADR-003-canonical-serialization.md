@@ -10,7 +10,7 @@
 
 ## Context
 
-M1 ("`@serendip/protocol`") must implement `signEvent` / `verifyEvent`
+M1 ("`@agentxp/protocol`") must implement `signEvent` / `verifyEvent`
 and the canonical `eventId`. Two authoritative documents disagree on
 how the canonical byte sequence is constructed:
 
@@ -37,7 +37,7 @@ the concrete API to Phase A's
 
 ### D1. Canonical byte sequence
 
-`@serendip/protocol` computes the canonical byte sequence as the
+`@agentxp/protocol` computes the canonical byte sequence as the
 **recursively sorted-keys, whitespace-free JSON** serialisation of the
 SerendipEvent with `id` and `sig` removed. Concretely:
 
@@ -73,7 +73,7 @@ the tuple form must produce a new protocol version
 
 ### D2. `signEvent` signature
 
-The concrete TypeScript signature exported by `@serendip/protocol` is:
+The concrete TypeScript signature exported by `@agentxp/protocol` is:
 
 ```ts
 signEvent(
@@ -131,5 +131,5 @@ signed events.
   src/events.ts:…` accompanies ported algorithm blocks, per
   `.augment/rules/project.md §2`.
 - Relay M2 (`supernode/src/protocol/event-handler.ts`) reuses
-  `verifyEvent` from `@serendip/protocol`; no independent canonical
+  `verifyEvent` from `@agentxp/protocol`; no independent canonical
   form lives on the relay side.

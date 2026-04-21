@@ -10,8 +10,8 @@ import {
   generateOperatorKey,
   bytesToHex,
   hexToBytes,
-} from '@serendip/protocol'
-import type { AgentKey, OperatorKey } from '@serendip/protocol'
+} from '@agentxp/protocol'
+import type { AgentKey, OperatorKey } from '@agentxp/protocol'
 
 function defaultRoot(): string {
   return join(homedir(), '.agentxp', 'identity')

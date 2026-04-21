@@ -1,5 +1,5 @@
 // Bundle config for @agentxp/openclaw-plugin.
-// @serendip/protocol is a workspace-internal package not published to
+// @agentxp/protocol is a workspace-internal package not published to
 // npm, so we inline it (and its transitive @noble/* deps) into the
 // shipped dist/. better-sqlite3 is a native module and MUST stay
 // external so host-side npm install can build its prebuilt binary.
@@ -12,10 +12,10 @@ export default defineConfig({
   },
   format: ['esm'],
   target: 'node18',
-  dts: { resolve: ['@serendip/protocol'] },
+  dts: { resolve: ['@agentxp/protocol'] },
   sourcemap: true,
   clean: true,
   splitting: false,
   external: ['better-sqlite3'],
-  noExternal: ['@serendip/protocol', '@noble/curves', '@noble/hashes'],
+  noExternal: ['@agentxp/protocol', '@noble/curves', '@noble/hashes'],
 })

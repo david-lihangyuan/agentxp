@@ -6,7 +6,7 @@
 // Reentrancy guard: if one cycle is still in flight when the timer
 // fires we skip the new cycle (rather than stacking). Errors from the
 // publisher are routed to onError and do NOT stop the loop.
-import type { AgentKey } from '@serendip/protocol'
+import type { AgentKey } from '@agentxp/protocol'
 
 import type { PluginDb } from './db.js'
 import { publishStagedExperiences, type PublishResult } from './publisher.js'

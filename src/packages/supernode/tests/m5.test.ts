@@ -1,8 +1,8 @@
 // M5 observational surface: Dashboard, Pulse, Feedback loop, L2 Trace.
 // SPEC 01-interfaces §5.3-§5.5; 03-modules-product §7, §8, §9, §12.
 import { describe, it, expect } from 'vitest'
-import { createEvent, signEvent, delegateAgentKey, generateOperatorKey } from '@serendip/protocol'
-import type { AgentKey, ExperiencePayload } from '@serendip/protocol'
+import { createEvent, signEvent, delegateAgentKey, generateOperatorKey } from '@agentxp/protocol'
+import type { AgentKey, ExperiencePayload } from '@agentxp/protocol'
 import { bootstrapIdentity, publish, startTestServer, type TestServer } from './helpers.js'
 
 async function publishExperience(

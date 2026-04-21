@@ -2,7 +2,7 @@
 
 SPEC 03-modules-product §4 requires wire-layer equivalence with the
 TS Skill, so several tests spawn Node and compare output against
-@serendip/protocol. The bridge is skipped (rather than failed) when
+@agentxp/protocol. The bridge is skipped (rather than failed) when
 the TS packages have not been built yet — we only want CI to catch
 divergence, not a missing `dist/` directory.
 """
@@ -32,12 +32,12 @@ def repo_root() -> Path:
 @pytest.fixture
 def protocol_or_skip() -> Path:
     if not _protocol_available():
-        pytest.skip(f"@serendip/protocol not built: {PROTOCOL_DIST}")
+        pytest.skip(f"@agentxp/protocol not built: {PROTOCOL_DIST}")
     return PROTOCOL_DIST
 
 
 def run_node(script: str, stdin: str = "") -> str:
-    """Run a short Node script with CWD = REPO_ROOT so @serendip/* resolves."""
+    """Run a short Node script with CWD = REPO_ROOT so @agentxp/* resolves."""
     env = os.environ.copy()
     res = subprocess.run(
         ["node", "--input-type=module", "-e", script],
@@ -55,9 +55,9 @@ def run_node(script: str, stdin: str = "") -> str:
 
 
 def js_canonicalize(event: dict) -> str:
-    """Ask @serendip/protocol to canonicalize the given event."""
+    """Ask @agentxp/protocol to canonicalize the given event."""
     script = (
-        "import { canonicalize } from '@serendip/protocol';"
+        "import { canonicalize } from '@agentxp/protocol';"
         "let s='';process.stdin.on('data',d=>s+=d);"
         "process.stdin.on('end',()=>{const e=JSON.parse(s);process.stdout.write(canonicalize(e));});"
     )
@@ -66,7 +66,7 @@ def js_canonicalize(event: dict) -> str:
 
 def js_verify_event(event: dict) -> bool:
     script = (
-        "import { verifyEvent } from '@serendip/protocol';"
+        "import { verifyEvent } from '@agentxp/protocol';"
         "let s='';process.stdin.on('data',d=>s+=d);"
         "process.stdin.on('end',async()=>{const e=JSON.parse(s);const ok=await verifyEvent(e);"
         "process.stdout.write(ok?'true':'false');});"

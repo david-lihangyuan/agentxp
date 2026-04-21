@@ -1,5 +1,5 @@
 // Raw event log (SPEC 02-data-model §6.1).
-import type { SerendipEvent } from '@serendip/protocol'
+import type { SerendipEvent } from '@agentxp/protocol'
 import type { Db } from './db.js'
 
 /**

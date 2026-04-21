@@ -50,7 +50,7 @@ jobs:
       - name: Build packages
         run: npm run build --if-present
 
-      - name: Publish @serendip/protocol (with provenance)
+      - name: Publish @agentxp/protocol (with provenance)
         run: npm publish packages/protocol --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

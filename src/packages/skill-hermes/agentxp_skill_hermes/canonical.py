@@ -2,7 +2,7 @@
 
 Matches ADR-003 D1 exactly: recursively sorted-keys, whitespace-free
 JSON over the envelope with `id` and `sig` removed. Output MUST be
-byte-identical to @serendip/protocol's `canonicalize` so that any
+byte-identical to @agentxp/protocol's `canonicalize` so that any
 signed event produced here verifies under the TypeScript verifier.
 """
 

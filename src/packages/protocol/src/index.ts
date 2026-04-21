@@ -1,4 +1,4 @@
-// @serendip/protocol — Public API.
+// @agentxp/protocol — Public API.
 // Per docs/spec/03-modules-platform.md §1 and ADR-003.
 
 export type {
