@@ -105,5 +105,6 @@ rewrite. The current `packages/` tree starts fresh from `0.1.x`
 `0.2.0-rc.2` pre-releases of `@agentxp/openclaw-plugin` were cut
 under a previous rc-channel workflow; the repository has since
 exited pre-release mode and now publishes stable semver versions
-through the flow described above. See `CHANGELOG.md` and
-`HISTORY.md` for the cut-over narrative.
+through the flow described above. See `CHANGELOG.md` for the
+cut-over narrative, and `docs/archive/HISTORY.md` for the pre-SPEC
+legacy mapping.

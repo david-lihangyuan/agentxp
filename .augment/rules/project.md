@@ -15,8 +15,9 @@ override these rules when they conflict.
   diverges from or refines the SPEC lands here.
 - `legacy/` — Historical snapshots. **Read-only reference only.**
   One exception: `legacy/docs/spec/serendip-protocol-v1.md` is still
-  normative per `HISTORY.md §1`. Cite it by filename:line; do not
-  move or edit it.
+  normative (it defines the Serendip protocol canonicalization used
+  by `packages/protocol/`). Cite it by filename:line; do not move
+  or edit it.
 - `legacy/src-v1/` — Pre-SPEC source snapshot. **MUST NOT be
   imported** from `packages/`. See `legacy/src-v1/README.md`.
 
@@ -49,8 +50,11 @@ override these rules when they conflict.
 ## 3. Legacy policy
 
 - Files under `legacy/` are preserved byte-for-byte except for
-  byte-identical dedupe (see `HISTORY.md §6`, DP-8).
-- `HISTORY.md` is the canonical index mapping `legacy/` -> SPEC.
+  byte-identical dedupe (historical record in
+  `docs/archive/HISTORY.md §6`, DP-8).
+- `docs/archive/HISTORY.md` is the one-shot index mapping pre-SPEC
+  `legacy/` documents to the v0.1 SPEC; consult it only for
+  provenance questions, not day-to-day work.
 - Re-entering a deferred module follows the gate defined in
   `docs/spec/04-deferred.md §6`.
 - When a `packages/` file would benefit from reading a legacy

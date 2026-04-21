@@ -17,8 +17,9 @@ and the SPEC disagree, the SPEC wins.
 | `spec-survey.md` | BOOTSTRAP §3 Step 1 — repository snapshot, 2026-04-18. | `docs/spec/00-overview.md` |
 | `spec-in-progress.md` | BOOTSTRAP §3 Step 2 — DP-1…DP-8 decision dialogue ledger. All points DECIDED. | ADRs + `docs/spec/` |
 | `spec-knowledge-gaps.md` | BOOTSTRAP §3 knowledge-gap ledger. Single entry (DP-3) resolved by ADR-001. | `docs/adr/ADR-001-reflection-trigger.md` |
-| `legacy-sweep-plan.md` | BOOTSTRAP §3 Step 0.5 — archival plan, executed 2026-04-18. | `HISTORY.md` |
+| `legacy-sweep-plan.md` | BOOTSTRAP §3 Step 0.5 — archival plan, executed 2026-04-18. | `HISTORY.md` (this directory) |
 | `MILESTONES.md` | MVP M0–M7 milestone tracker. M0–M6 + MVP-DONE tagged `mvp-v0.1.0`; M7 shipped as `0.2.0-rc.1` on 2026-04-20. | GitHub releases + issue tracker |
+| `HISTORY.md` | BOOTSTRAP §3 one-shot Legacy ↔ v0.1 SPEC mapping (2026-04-18 snapshot). | `CHANGELOG.md` (ongoing repo milestones); one normative fact — `legacy/docs/spec/serendip-protocol-v1.md` — is preserved in `.augment/rules/project.md §1`. |
 
 ## Known staleness
 

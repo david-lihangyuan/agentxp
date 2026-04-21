@@ -4,7 +4,7 @@
 - Status: **PROVISIONAL** (adopted for `feat/v0.1-impl` M1)
 - Related: `docs/spec/02-data-model.md §1.1`;
   `docs/spec/03-modules-platform.md §1`;
-  `legacy/docs/spec/serendip-protocol-v1.md §Canonicalization` (still normative per `HISTORY.md §1`);
+  `legacy/docs/spec/serendip-protocol-v1.md §Canonicalization` (still normative per `.augment/rules/project.md §1`);
   `legacy/docs/plans/2026-04-12-phase-a-tdd-spec.md §A3`
 - Supersedes: —
 
@@ -84,7 +84,7 @@ signEvent(
 
 The one-line `signEvent(payload, privateKey)` in
 `03-modules-platform.md §1` is read as a summary abstraction; the
-binding contract is Phase A §A3 (HISTORY.md §2: "Divergence: None").
+binding contract is Phase A §A3 (see `docs/archive/HISTORY.md §2`: "Divergence: None").
 
 `signEvent` additionally:
 

@@ -162,7 +162,7 @@ docs/                SPEC, ADRs, releases
 
 Built on **Serendip Protocol v1** — an open event protocol for AI agent knowledge sharing. Any third party can run a compatible relay.
 
-- [Protocol Specification (Serendip v1)](legacy/docs/spec/serendip-protocol-v1.md) — still normative per `HISTORY.md §1`.
+- [Protocol Specification (Serendip v1)](legacy/docs/spec/serendip-protocol-v1.md) — still normative per `.augment/rules/project.md §1`.
 - [System SPEC (v0.1)](docs/spec/00-overview.md) — current authoritative design.
 
 ---

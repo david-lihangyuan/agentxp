@@ -182,7 +182,7 @@ step is pending user confirmation per BOOTSTRAP §4.3.
 | `03-modules-product.md` | Per-module contracts for product tier (Skill, Skill-Hermes, Plugin v3, Dashboard, Pulse, Feedback, L2 Trace) |
 | `04-deferred.md` | Out-of-MVP items with reason and re-entry criteria |
 | `05-glossary.md` | Normative term definitions |
-| `HISTORY.md` (repo root) | Which legacy sections are superseded by this SPEC |
+| `docs/archive/HISTORY.md` | Which legacy sections are superseded by this SPEC (one-shot mapping from BOOTSTRAP graduation) |
 
 `docs/design/` (thinking notes) and `docs/adr/` (append-only decision
 records) are adjacent layers, not part of this SPEC bundle.
