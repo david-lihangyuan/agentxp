@@ -24,7 +24,7 @@ const DEFAULTS = {
   relayUrl: 'https://relay.agentxp.io',
   agentKeyPath: '~/.agentxp/identity/agent.key',
   defaultVisibility: 'unlisted' as Visibility,
-  stagingDbPath: '~/.agentxp/plugin-v3/staging.db',
+  stagingDbPath: '~/.agentxp/openclaw-plugin/staging.db',
   autoFlushSteps: 20,
   autoFlushIdleMs: 120_000,
   publishIntervalMs: 30_000,

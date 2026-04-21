@@ -22,7 +22,7 @@
 | `kind-registry/README.md` | Reverse-DNS kind naming convention | 2026-04-17 |
 | `packages/skill/{README,SKILL,SKILL-GUIDE}.md` | OpenClaw Skill (v1.2.0) | 2026-04-17 |
 | `packages/skill-hermes/{README,SKILL}.md` | Python port of Skill for Hermes Agent | 2026-04-17 |
-| `packages/plugin-v3/README.md` | OpenClaw Plugin v1.0.0 (workspace-local) | 2026-04-17 |
+| `packages/openclaw-plugin/README.md` | OpenClaw Plugin v1.0.0 (workspace-local) | 2026-04-17 |
 | `agents/coding-01/{SOUL,AGENTS,BOUNDARY,CURIOSITY,HEARTBEAT}.md` | Contribution agent instance | 2026-04-17 |
 | `agents/templates/*.md` | Agent instance templates | 2026-04-17 |
 | `packages/skill/templates/{preloaded-lessons,preloaded-mistakes,reflection-format}.md` | Seeded reflections + format contract | 2026-04-17 |
@@ -108,7 +108,7 @@ Listed as `G<n>` for reference in §1.4. Each entry cites evidence.
 - **G1 · Two client implementations coexist without a declared MVP
   boundary.** `packages/skill/` (v1.2.0, on the npm-publish path) is the
   Skill approach — prompt-driven, platform-agnostic, ships the
-  `agentxp` CLI. `packages/plugin-v3/` (v1.0.0, workspace-local only) is
+  `agentxp` CLI. `packages/openclaw-plugin/` (v1.0.0, workspace-local only) is
   the Plugin approach — code-level hooks against the OpenClaw Plugin
   SDK. `legacy/docs/plans/2026-04-16-plugin-design.md:16` explicitly
   proposes replacing Skill with Plugin, keeping Skill as "degradation
@@ -120,14 +120,14 @@ Listed as `G<n>` for reference in §1.4. Each entry cites evidence.
 - **G2 · Phase / milestone labelling conflicts.** v4 uses
   Phase A → I + HL (`legacy/docs/plans/2026-04-12-phase-*-tdd-spec.md`).
   Plugin v2 uses Task 1-18. Plugin v3 uses "6-phase plugin entry"
-  (`packages/plugin-v3/README.md:51`). `legacy/CLAUDE.md:151` still
+  (`packages/openclaw-plugin/README.md:51`). `legacy/CLAUDE.md:151` still
   references Phase A-I + HL as the active plan. BOOTSTRAP §2 flags
   "v1/v2/v3 three timelines + Phase A-I and Phase 1-5 two splits".
 
 - **G3 · Reflection trigger mechanism not settled across clients.**
   `packages/skill/SKILL.md:49` states reflection happens "On heartbeat /
   session end" (prompt-driven, relies on agent compliance).
-  `packages/plugin-v3/README.md:57` uses a `message-sending` hook to
+  `packages/openclaw-plugin/README.md:57` uses a `message-sending` hook to
   extract automatically + `agent-end` to prompt structured reflection
   (code-driven). `README.md:40-48` promises "automatic" reflection
   without naming the mechanism. Session end, heartbeat, idle timeout,
@@ -145,7 +145,7 @@ Listed as `G<n>` for reference in §1.4. Each entry cites evidence.
 
 - **G5 · Transport protocol: WebSocket claimed, HTTP shipped.**
   `legacy/docs/plans/2026-04-12-agentxp-v4-design.md:137` states
-  "Transport: WebSocket + signed JSON". `packages/plugin-v3/README.md:38`
+  "Transport: WebSocket + signed JSON". `packages/openclaw-plugin/README.md:38`
   shows `"relayUrl": "wss://relay.agentxp.io"`. Actual relay is HTTP:
   all `supernode/src/routes/*.ts` use Hono HTTP routes, smoke test uses
   `RELAY_URL=https://...` via fetch, README API section lists only

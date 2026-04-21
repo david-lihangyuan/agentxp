@@ -35,7 +35,7 @@
       },
       "stagingDbPath": {
         "type": "string",
-        "default": "~/.agentxp/plugin-v3/staging.db",
+        "default": "~/.agentxp/openclaw-plugin/staging.db",
         "description": "SQLite path where reasoning traces and staged experiences are persisted."
       },
       "autoFlushSteps": {

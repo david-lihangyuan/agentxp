@@ -257,7 +257,7 @@ rebuilding the local view from the event log.
 
 ### 7.2 Plugin v3 local store
 
-Plugin v3 uses local SQLite (`packages/plugin-v3/db.ts`) to capture
+Plugin v3 uses local SQLite (`packages/openclaw-plugin/db.ts`) to capture
 hook-level trace steps and staged experiences before publication.
 The local schema is **implementation-private** to Plugin v3 and
 **not** part of the wire or relay SPEC. Plugin v3 **MUST** emit a

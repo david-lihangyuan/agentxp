@@ -6,8 +6,9 @@
 // Six api.on(...) registrations across five OpenClaw hook names:
 //   session_start, before_tool_call (x2: block gate + tier-1 signal),
 //   after_tool_call, session_end, agent_end.
-import { mkdirSync } from 'node:fs'
-import { dirname } from 'node:path'
+import { existsSync, mkdirSync, renameSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { dirname, join } from 'node:path'
 
 import type { AgentKey } from '@agentxp/protocol'
 import { definePluginEntry, emptyPluginConfigSchema } from 'openclaw/plugin-sdk/core'
@@ -240,10 +241,48 @@ export function createAgentxpPluginRegister(
   return Object.assign(register, { handle })
 }
 
+// One-shot migration for the rc.1 -> rc.2 directory rename: the
+// plugin used to stage at ~/.agentxp/plugin-v3/ and now stages at
+// ~/.agentxp/openclaw-plugin/. We only migrate when the caller is
+// clearly using the default directory (parent is <home>/.agentxp
+// and target's basename is openclaw-plugin), the legacy sibling
+// exists, and the target does not — so users with a custom
+// stagingDbPath are untouched. Any failure is non-fatal: the plugin
+// falls back to a fresh directory and we log one line.
+//
+// Exported for tests, which pass an isolated `home` to avoid
+// touching the real user home directory.
+export function migrateLegacyAgentxpDir(
+  stagingDbPath: string,
+  home: string = homedir(),
+): void {
+  const targetDir = dirname(stagingDbPath)
+  const parent = dirname(targetDir)
+  const expectedParent = join(home, '.agentxp')
+  if (parent !== expectedParent) return
+  if (!targetDir.endsWith('openclaw-plugin')) return
+  const legacyDir = join(expectedParent, 'plugin-v3')
+  if (!existsSync(legacyDir)) return
+  if (existsSync(targetDir)) return
+  try {
+    renameSync(legacyDir, targetDir)
+    console.info(
+      `[agentxp] migrated ${legacyDir} -> ${targetDir} (rc.1 plugin-v3 -> openclaw-plugin).`,
+    )
+  } catch (err) {
+    console.warn(
+      `[agentxp] could not migrate ${legacyDir} to ${targetDir}: ` +
+        `${err instanceof Error ? err.message : String(err)}. ` +
+        `Starting with a fresh staging directory.`,
+    )
+  }
+}
+
 // Opens the staging DB at the configured path, creating the parent
 // directory if necessary. Exported for tests that want to exercise
 // the register-flow without standing up the full OpenClawPluginApi.
 export function openDbFromConfig(stagingDbPath: string): PluginDb {
+  migrateLegacyAgentxpDir(stagingDbPath)
   try {
     mkdirSync(dirname(stagingDbPath), { recursive: true })
   } catch (err) {

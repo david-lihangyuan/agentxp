@@ -94,7 +94,7 @@ Expected duration: 3–4 days.
 
 ---
 
-## M4 — Plugin v3 SKU (`@agentxp/openclaw-plugin`, internal path `packages/plugin-v3/`)
+## M4 — Plugin v3 SKU (`@agentxp/openclaw-plugin`, internal path `packages/openclaw-plugin/`)
 
 Scope: SPEC module #5. Reference: `docs/spec/03-modules-product.md §5`
 (including the §5.1 Host hook surface added 2026-04-18).
@@ -172,7 +172,7 @@ PR from `feat/v0.1-impl` into `main`.
 Scope: ship `@agentxp/openclaw-plugin` (renamed from the internal
 SKU `@agentxp/plugin-v3` in M7 Batch 1 after a registry-name
 collision) as a real OpenClaw plugin to npm public + GitHub. The
-workspace directory stays at `packages/plugin-v3/` for now.
+workspace directory stays at `packages/openclaw-plugin/` for now.
 Decision recorded in `docs/adr/ADR-004`. Split into two batches;
 Batch 1 must land before Batch 2 begins.
 
@@ -183,10 +183,10 @@ release and is superseded by ADR-004 only for subsequent work.
 ### Batch 1 — adapter + manifest + full lifecycle hook surface
 
 Artefacts:
-- `packages/plugin-v3/openclaw.plugin.json` manifest with
+- `packages/openclaw-plugin/openclaw.plugin.json` manifest with
   `configSchema` (operator pubkey, agent key, relay URL,
   visibility default)
-- `packages/plugin-v3/src/adapter.ts` exporting
+- `packages/openclaw-plugin/src/adapter.ts` exporting
   `definePluginEntry({ id: 'agentxp', register(api) {...} })`
 - Three new hook handlers: `onSessionStart`, `onBeforeToolCall`,
   `onAgentEnd`. The existing `onMessageSending` / `onToolCall` /
@@ -213,9 +213,9 @@ Checks:
 ### Batch 2 — memory supplement injection
 
 Artefacts:
-- `packages/plugin-v3/src/memory-corpus.ts` — re-implementation
+- `packages/openclaw-plugin/src/memory-corpus.ts` — re-implementation
   of the legacy corpus supplement against the SPEC §5 contract
-- `packages/plugin-v3/src/memory-prompt.ts` — re-implementation
+- `packages/openclaw-plugin/src/memory-prompt.ts` — re-implementation
   of phase-aware prompt supplement (stuck / evaluating / planning /
   executing)
 - Adapter wires both via `api.registerMemoryCorpusSupplement(...)` /
@@ -232,7 +232,7 @@ Checks:
 ### Batch 2.5 — `register()` wiring
 
 Artefacts:
-- `packages/plugin-v3/src/config.ts` — `resolvePluginConfig`
+- `packages/openclaw-plugin/src/config.ts` — `resolvePluginConfig`
   (reads `api.pluginConfig`, expands `~/`, validates
   `operatorPublicKey` hex, returns a typed `ResolvedPluginConfig`)
 - `adapter.ts#register()` now opens the staging DB at the configured
@@ -254,7 +254,7 @@ fallbacks that call the same staging path with `reason='auto_count'`
 or `'auto_idle'`.
 
 Artefacts:
-- `packages/plugin-v3/src/flush.ts` — `FlushController`
+- `packages/openclaw-plugin/src/flush.ts` — `FlushController`
   (per-session counter + idle timer). `autoFlushSteps` (default 20)
   and `autoFlushIdleMs` (default 120000) configure the thresholds.
 - `types.ts` — `SessionEndReason` extended with `'auto_count'` and
@@ -272,11 +272,11 @@ Checks:
 ### Batch 2.7 — background relay publisher
 
 Artefacts:
-- `packages/plugin-v3/src/identity.ts` — `loadAgentKey`
+- `packages/openclaw-plugin/src/identity.ts` — `loadAgentKey`
   supporting both on-disk layouts (skill single-file `agent.json`
   with `privateKey`; split `agent.key` hex seed + sibling
   `agent.json` metadata). Enforces `delegatedBy === operatorPublicKey`.
-- `packages/plugin-v3/src/publish-loop.ts` — `startPublishLoop`
+- `packages/openclaw-plugin/src/publish-loop.ts` — `startPublishLoop`
   (setInterval + reentrancy guard + unref'd timer + error
   swallowing via `onError`). Drains `staged_experiences` by calling
   the existing `publishStagedExperiences` on a timer.

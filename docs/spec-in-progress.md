@@ -24,7 +24,7 @@
 Decision: **C — Dual SKU parallel.**
 
 - `packages/skill/` (platform-agnostic, prompt-driven, on npm publish
-  path) and `packages/plugin-v3/` (OpenClaw-only, hook-driven) are both
+  path) and `packages/openclaw-plugin/` (OpenClaw-only, hook-driven) are both
   first-class MVP product lines. `packages/skill-hermes/` is treated as
   a platform port of the Skill SKU.
 - Implication for SPEC: `03-modules-product.md` splits into Skill-side
@@ -76,7 +76,7 @@ Decision: **C — hybrid, two-tier trigger.**
 - End-of-session layer: structured reflection at session boundary —
   defined as CLI exit / idle timeout / explicit `agentxp reflect`
   command (contract to be sharpened in `01-interfaces.md`).
-- Both SKUs (`packages/skill` and `packages/plugin-v3`) MUST honour
+- Both SKUs (`packages/skill` and `packages/openclaw-plugin`) MUST honour
   this two-tier contract; implementation mechanism differs by SKU per
   DP-1 (prompt for Skill, hook for Plugin).
 - Aligned with the Tier 1 / Tier 2 extraction distinction in
@@ -104,12 +104,12 @@ write contract for each:**
 | 2 | Relay core routes (events / search / identities) | `supernode/src/routes/{events,experiences,identities}.ts` |
 | 3 | Skill | `packages/skill/` |
 | 4 | Skill-Hermes (Python port of Skill) | `packages/skill-hermes/` |
-| 5 | Plugin v3 | `packages/plugin-v3/` |
+| 5 | Plugin v3 | `packages/openclaw-plugin/` |
 | 6 | Kind registry | `kind-registry/` |
 | 7 | Dashboard (observational UI only) | `supernode/src/routes/dashboard-*.ts` |
 | 8 | Pulse | `supernode/src/agentxp/pulse*.ts`, migration 002 |
 | 9 | Feedback loop (search_log + verification + pulse hooks) | Shipped 2026-04-18 |
-| 12 | L2 Reasoning Trace | `supernode/src/agentxp/trace-*.ts`, migration 007, `packages/protocol/src/types.ts:154 ReasoningTrace`, `packages/plugin-v3/db.ts` trace_steps |
+| 12 | L2 Reasoning Trace | `supernode/src/agentxp/trace-*.ts`, migration 007, `packages/protocol/src/types.ts:154 ReasoningTrace`, `packages/openclaw-plugin/db.ts` trace_steps |
 
 **Deferred modules — `04-deferred.md` records with reason, code stays running:**
 
@@ -125,7 +125,7 @@ write contract for each:**
 
 - **T3 · Plugin v3 npm publish in MVP = Y (no).**
   `03-modules-product.md §5` declares: *"workspace-only install for
-  MVP; npm publish deferred"*. `packages/plugin-v3/package.json` does
+  MVP; npm publish deferred"*. `packages/openclaw-plugin/package.json` does
   not need a publish config change in §4.3.
 - **T4 · Deferred code fate = y (stays).** #10 / #13 / #14 / #15 code
   remains in `supernode/` and `agents/` trees through §4 rewrite. Only

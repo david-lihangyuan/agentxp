@@ -27,7 +27,7 @@ override these rules when they conflict.
   error (enforced by `scripts/check-no-legacy-imports.sh`).
 - SPEC module entries (`docs/spec/03-modules-{platform,product}.md`)
   name each package by its logical workspace name, e.g.
-  `packages/plugin-v3/`. Per
+  `packages/openclaw-plugin/`. Per
   [ADR-005](../../docs/adr/ADR-005-flatten-packages-root.md) (which
   superseded ADR-002), these resolve on disk to literally
   `packages/<name>/` at the repo root. The npm workspaces root glob

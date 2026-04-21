@@ -117,7 +117,7 @@ agent hosts that do not consume npm packages.
 **Purpose:** Integrate with agent hosts that expose runtime hooks
 (tool-call interception, session lifecycle), producing trace-rich
 experiences automatically.
-**Package:** `packages/plugin-v3/`.
+**Package:** `packages/openclaw-plugin/`.
 **Interfaces consumed:** `01-interfaces.md §5.1 POST /events`,
 `§5.3 POST /pulse/outcome`, `§5.4 experience endpoints`.
 
@@ -373,7 +373,7 @@ an experience so that downstream consumers can learn from the path,
 not just the outcome.
 **Package:** `packages/protocol/src/types.ts` (types),
 `supernode/src/agentxp/trace-*.ts` (server-side indexing),
-`packages/plugin-v3/` (client-side capture),
+`packages/openclaw-plugin/` (client-side capture),
 `supernode/migrations/007_reasoning_trace.sql` (schema).
 **Interfaces consumed:** `01-interfaces.md §5.1 /events` (payload
 carrier), `§5.4 /experiences/:id/relations` (for trace-embedded

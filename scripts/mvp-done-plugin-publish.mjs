@@ -1,7 +1,7 @@
 // MVP-DONE driver: Plugin v3 publishes one experience whose
 // reasoning_trace has a step referencing a Skill-published event id.
 //
-// Exercises @agentxp/plugin-v3 primitives (onToolCall + onSessionEnd +
+// Exercises @agentxp/openclaw-plugin primitives (onToolCall + onSessionEnd +
 // publishStagedExperiences) in the same process, using the identity
 // material already produced by the Skill flow. Cross-reference is
 // injected by rewriting the staged trace_json with
@@ -15,7 +15,7 @@ import {
   onToolCall,
   onSessionEnd,
   publishStagedExperiences,
-} from '@agentxp/plugin-v3'
+} from '@agentxp/openclaw-plugin'
 
 const root = process.env['ROOT']
 const relay = process.env['RELAY_URL']

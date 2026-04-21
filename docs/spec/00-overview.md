@@ -88,7 +88,7 @@ following **nine** modules and adheres to their contracts in
 | 2 | Relay core routes (events / search / identities) | `supernode/src/routes/` |
 | 3 | Skill (prompt-driven SKU) | `packages/skill/` |
 | 4 | Skill-Hermes (Python port of Skill) | `packages/skill-hermes/` |
-| 5 | Plugin v3 (hook-driven SKU) | `packages/plugin-v3/` |
+| 5 | Plugin v3 (hook-driven SKU) | `packages/openclaw-plugin/` |
 | 6 | Kind registry | `kind-registry/` |
 | 7 | Dashboard (observational UI only) | `supernode/src/routes/dashboard-*.ts` |
 | 8 | Pulse (heartbeat) | `supernode/src/agentxp/pulse*.ts` |
