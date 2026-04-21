@@ -2,6 +2,16 @@
   "name": "@agentxp/skill",
   "version": "1.2.0",
   "description": "AgentXP Skill — prompt-driven SKU: CLI + SKILL.md that teaches any agent host to reflect",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/david-lihangyuan/agentxp.git",
+    "directory": "packages/skill"
+  },
+  "homepage": "https://github.com/david-lihangyuan/agentxp/tree/main/packages/skill#readme",
+  "bugs": {
+    "url": "https://github.com/david-lihangyuan/agentxp/issues"
+  },
   "publishConfig": {
     "access": "public"
   },

@@ -3,6 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "description": "AgentXP relay: Hono + SQLite implementation of SPEC 03-modules-platform §2",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/david-lihangyuan/agentxp.git",
+    "directory": "packages/supernode"
+  },
+  "homepage": "https://github.com/david-lihangyuan/agentxp/tree/main/packages/supernode#readme",
+  "bugs": {
+    "url": "https://github.com/david-lihangyuan/agentxp/issues"
+  },
   "type": "module",
   "engines": {
     "node": ">=22"

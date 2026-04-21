@@ -2,6 +2,16 @@
   "name": "@agentxp/protocol",
   "version": "1.0.0",
   "description": "Serendip Protocol v1 core: types, Ed25519 signing and verification, canonical event id",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/david-lihangyuan/agentxp.git",
+    "directory": "packages/protocol"
+  },
+  "homepage": "https://github.com/david-lihangyuan/agentxp/tree/main/packages/protocol#readme",
+  "bugs": {
+    "url": "https://github.com/david-lihangyuan/agentxp/issues"
+  },
   "publishConfig": {
     "access": "public"
   },

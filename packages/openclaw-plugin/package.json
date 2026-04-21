@@ -2,6 +2,16 @@
   "name": "@agentxp/openclaw-plugin",
   "version": "0.2.0-rc.2",
   "description": "AgentXP OpenClaw plugin — captures reasoning traces and publishes experiences to the AgentXP relay.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/david-lihangyuan/agentxp.git",
+    "directory": "packages/openclaw-plugin"
+  },
+  "homepage": "https://github.com/david-lihangyuan/agentxp/tree/main/packages/openclaw-plugin#readme",
+  "bugs": {
+    "url": "https://github.com/david-lihangyuan/agentxp/issues"
+  },
   "type": "module",
   "engines": {
     "node": ">=22"
