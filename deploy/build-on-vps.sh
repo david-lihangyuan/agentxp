@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Build @serendip/protocol + @serendip/supernode on the VPS.
+# Build @agentxp/protocol + @agentxp/supernode on the VPS.
 # Idempotent: safe to re-run after every rsync.
 #
 # Expected layout:
 #   /opt/agentxp-v0.1/             <- this script's cwd
 #     package.json (workspaces root)
-#     src/packages/protocol/
-#     src/packages/supernode/
+#     packages/protocol/
+#     packages/supernode/
 set -euo pipefail
 
 ROOT="/opt/agentxp-v0.1"
@@ -16,14 +16,14 @@ echo "==> node $(node --version)  npm $(npm --version)"
 echo "==> installing workspace dependencies"
 npm ci
 
-echo "==> building @serendip/protocol"
-npm run -w @serendip/protocol build
+echo "==> building @agentxp/protocol"
+npm run -w @agentxp/protocol build
 
-echo "==> building @serendip/supernode"
-npm run -w @serendip/supernode build
+echo "==> building @agentxp/supernode"
+npm run -w @agentxp/supernode build
 
 echo "==> smoke: dist artefacts present"
-test -f src/packages/protocol/dist/index.js
-test -f src/packages/supernode/dist/index.js
+test -f packages/protocol/dist/index.js
+test -f packages/supernode/dist/index.js
 
 echo "==> OK"

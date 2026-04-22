@@ -19,6 +19,7 @@ supernode.log
 
 # Ephemeral commit message scratch file (used by tooling to avoid
 # terminal-paste corruption on long multi-line commit messages)
+.git-commit-msg.tmp
 .git-commit-msg-tmp
 
 # Test-generated bundles

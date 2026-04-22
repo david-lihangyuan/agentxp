@@ -2,7 +2,7 @@
 
 - Date: 2026-04-18
 - Status: **PROVISIONAL** (AI-recommended default, adopted 2026-04-18)
-- Related: DP-3 in `docs/spec-in-progress.md`;
+- Related: DP-3 in `docs/archive/spec-in-progress.md`;
   DP-4 Module #3 & #5 in `docs/spec/03-modules-product.md`
 - Supersedes: —
 

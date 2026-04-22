@@ -1,7 +1,7 @@
 // MVP-DONE driver: Plugin v3 publishes one experience whose
 // reasoning_trace has a step referencing a Skill-published event id.
 //
-// Exercises @agentxp/plugin-v3 primitives (onToolCall + onSessionEnd +
+// Exercises @agentxp/openclaw-plugin primitives (onToolCall + onSessionEnd +
 // publishStagedExperiences) in the same process, using the identity
 // material already produced by the Skill flow. Cross-reference is
 // injected by rewriting the staged trace_json with
@@ -9,13 +9,13 @@
 // so the relay materialises a `trace_references` row per §12.
 import { readFileSync } from 'node:fs'
 import Database from 'better-sqlite3'
-import { hexToBytes } from '@serendip/protocol'
+import { hexToBytes } from '@agentxp/protocol'
 import {
   openPluginDb,
   onToolCall,
   onSessionEnd,
   publishStagedExperiences,
-} from '@agentxp/plugin-v3'
+} from '@agentxp/openclaw-plugin'
 
 const root = process.env['ROOT']
 const relay = process.env['RELAY_URL']
@@ -79,7 +79,8 @@ if (!row) throw new Error('no staged experience to patch')
 const trace = JSON.parse(row.trace_json)
 const lastIdx = trace.steps.length - 1
 trace.steps[lastIdx].references = [skillEvent]
-raw.prepare('UPDATE staged_experiences SET trace_json = ? WHERE id = ?')
+raw
+  .prepare('UPDATE staged_experiences SET trace_json = ? WHERE id = ?')
   .run(JSON.stringify(trace), row.id)
 raw.close()
 

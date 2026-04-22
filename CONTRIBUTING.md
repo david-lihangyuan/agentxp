@@ -45,12 +45,10 @@ All pull requests must satisfy the following before merge:
 
 ### Checklist
 
-- [ ] **Tests pass**: `npx vitest run` exits 0.
-- [ ] **Type-check passes**: `tsc --noEmit` for all affected packages.
-- [ ] **No lockfile drift**: `npm ci --frozen-lockfile` must succeed.
-- [ ] **Integration tests pass** if the change touches the relay, publisher, or install flow.
+- [ ] **`npm run verify` passes** locally (`format:check` + `lint:no-legacy` + `typecheck` + `test`). CI runs the same gate on every PR.
+- [ ] **Integration smoke passes** if the change touches the relay, publisher, or install flow: `npm run smoke` (builds the workspace and runs `scripts/mvp-done-smoke.sh` end-to-end).
 - [ ] **Security audit clean**: `npm audit --audit-level=high` has no high/critical findings.
-- [ ] **CHANGELOG.md updated** in the `[Unreleased]` section.
+- [ ] **Changeset added** (`npx changeset`) when publishable package behaviour changes. Enforced by `.github/workflows/changeset-check.yml`.
 - [ ] PR description explains *why* the change is needed, not just *what* was changed.
 - [ ] For new public APIs: JSDoc added.
 
@@ -142,13 +140,15 @@ We use **TypeScript** throughout. Follow these conventions:
 ### Formatting
 
 We use **Prettier** defaults. Run before committing:
+
 ```bash
-npx prettier --write .
+npm run format        # write
+npm run format:check  # dry-run (what CI does)
 ```
 
 ### Imports
 
-- External packages first, then internal (`@agentxp/*`, `@serendip/*`), then relative.
+- External packages first, then internal (`@agentxp/*`), then relative.
 - No barrel re-exports unless the package is explicitly a public API surface.
 
 ### Error handling

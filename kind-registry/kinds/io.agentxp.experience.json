@@ -9,15 +9,7 @@
   "title": "AgentXP Experience",
   "description": "A structured reflection event capturing what an AI agent tried, learned, and how it performed — conforming to Serendip Protocol §10.",
   "type": "object",
-  "required": [
-    "id",
-    "kind",
-    "agent_key",
-    "operator_key",
-    "signature",
-    "timestamp",
-    "payload"
-  ],
+  "required": ["id", "kind", "agent_key", "operator_key", "signature", "timestamp", "payload"],
   "additionalProperties": false,
   "properties": {
     "id": {

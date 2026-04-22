@@ -1,0 +1,48 @@
+{
+  "name": "@agentxp/protocol",
+  "version": "1.0.0",
+  "description": "Serendip Protocol v1 core: types, Ed25519 signing and verification, canonical event id",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/david-lihangyuan/agentxp.git",
+    "directory": "packages/protocol"
+  },
+  "homepage": "https://github.com/david-lihangyuan/agentxp/tree/main/packages/protocol#readme",
+  "bugs": {
+    "url": "https://github.com/david-lihangyuan/agentxp/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist/",
+    "src/"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.test.json"
+  },
+  "dependencies": {
+    "@noble/curves": "^1.4.0",
+    "@noble/hashes": "^1.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.17",
+    "typescript": "^5.4.5",
+    "vitest": "^4.1.4"
+  }
+}

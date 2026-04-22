@@ -1,0 +1,61 @@
+{
+  "name": "@agentxp/supernode",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AgentXP relay: Hono + SQLite implementation of SPEC 03-modules-platform §2",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/david-lihangyuan/agentxp.git",
+    "directory": "packages/supernode"
+  },
+  "homepage": "https://github.com/david-lihangyuan/agentxp/tree/main/packages/supernode#readme",
+  "bugs": {
+    "url": "https://github.com/david-lihangyuan/agentxp/issues"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./app": {
+      "types": "./dist/app.d.ts",
+      "default": "./dist/app.js"
+    },
+    "./testing": {
+      "types": "./src/testing.ts",
+      "default": "./src/testing.ts"
+    }
+  },
+  "bin": {
+    "supernode": "./dist/index.js"
+  },
+  "files": [
+    "dist/",
+    "src/"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@agentxp/protocol": "^1.0.0",
+    "@hono/node-server": "^1.13.7",
+    "better-sqlite3": "^11.7.0",
+    "hono": "^4.12.14"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.19.17",
+    "typescript": "^5.4.5",
+    "vitest": "^4.1.4"
+  }
+}

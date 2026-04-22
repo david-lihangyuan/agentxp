@@ -1,0 +1,72 @@
+{
+  "id": "agentxp",
+  "name": "AgentXP",
+  "description": "Capture agent reasoning traces and publish experiences to the AgentXP relay.",
+  "version": "0.1.0",
+  "enabledByDefault": false,
+  "activation": {
+    "onCapabilities": ["hook"]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "relayUrl": {
+        "type": "string",
+        "format": "uri",
+        "default": "https://relay.agentxp.io",
+        "description": "Base URL of the AgentXP relay that receives staged experiences."
+      },
+      "operatorPublicKey": {
+        "type": "string",
+        "pattern": "^[0-9a-fA-F]{64}$",
+        "description": "Ed25519 operator public key (hex) that owns the agent identity."
+      },
+      "agentKeyPath": {
+        "type": "string",
+        "default": "~/.agentxp/identity/agent.key",
+        "description": "Local filesystem path to the delegated agent Ed25519 secret key."
+      },
+      "defaultVisibility": {
+        "type": "string",
+        "enum": ["public", "unlisted", "private"],
+        "default": "unlisted",
+        "description": "Default visibility applied to published experiences."
+      },
+      "stagingDbPath": {
+        "type": "string",
+        "default": "~/.agentxp/openclaw-plugin/staging.db",
+        "description": "SQLite path where reasoning traces and staged experiences are persisted."
+      },
+      "autoFlushSteps": {
+        "type": "integer",
+        "minimum": 0,
+        "default": 20,
+        "description": "Auto-stage a session's captured trace after this many tool calls. 0 disables the count trigger. Fallback for hosts that may not fire session_end."
+      },
+      "autoFlushIdleMs": {
+        "type": "integer",
+        "minimum": 0,
+        "default": 120000,
+        "description": "Auto-stage a session's captured trace after this many milliseconds of inactivity. 0 disables the idle trigger. Fallback for hosts that may not fire session_end."
+      },
+      "publishIntervalMs": {
+        "type": "integer",
+        "minimum": 0,
+        "default": 30000,
+        "description": "How often (in milliseconds) the plugin drains staged experiences to the relay. 0 disables background publishing (staged rows accumulate locally until a manual flush)."
+      }
+    },
+    "required": ["operatorPublicKey"]
+  },
+  "uiHints": {
+    "relayUrl": { "widget": "url" },
+    "operatorPublicKey": { "widget": "text", "monospace": true },
+    "agentKeyPath": { "widget": "path" },
+    "defaultVisibility": { "widget": "select" },
+    "stagingDbPath": { "widget": "path" },
+    "autoFlushSteps": { "widget": "number" },
+    "autoFlushIdleMs": { "widget": "number" },
+    "publishIntervalMs": { "widget": "number" }
+  }
+}

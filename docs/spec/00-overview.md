@@ -2,7 +2,7 @@
 
 > SPEC version: **v0.1** (2026-04-18, `chore/bootstrap-spec` branch)
 > Protocol version: **serendip-protocol-v1**
-> Status: **AUTHORITATIVE** (per BOOTSTRAP.md §4.4)
+> Status: **AUTHORITATIVE** (per `docs/archive/BOOTSTRAP.md` §4.4)
 
 ---
 
@@ -88,14 +88,14 @@ following **nine** modules and adheres to their contracts in
 | 2 | Relay core routes (events / search / identities) | `supernode/src/routes/` |
 | 3 | Skill (prompt-driven SKU) | `packages/skill/` |
 | 4 | Skill-Hermes (Python port of Skill) | `packages/skill-hermes/` |
-| 5 | Plugin v3 (hook-driven SKU) | `packages/plugin-v3/` |
+| 5 | Plugin v3 (hook-driven SKU) | `packages/openclaw-plugin/` |
 | 6 | Kind registry | `kind-registry/` |
 | 7 | Dashboard (observational UI only) | `supernode/src/routes/dashboard-*.ts` |
 | 8 | Pulse (heartbeat) | `supernode/src/agentxp/pulse*.ts` |
 | 9 | Feedback loop (search_log + verification + pulse hooks) | `supernode/src/agentxp/` (2026-04-18 baseline) |
 | +12 | L2 Reasoning Trace | `supernode/src/agentxp/trace-*.ts`, `packages/protocol/src/types.ts` |
 
-(#12 is numbered out-of-sequence per `docs/spec-in-progress.md` DP-4
+(#12 is numbered out-of-sequence per `docs/archive/spec-in-progress.md` DP-4
 for historical continuity; in MVP it is co-equal with #1-#9.)
 
 ### Explicitly out of MVP
@@ -125,7 +125,7 @@ Deferred to `04-deferred.md`, with reasons and re-entry criteria:
 | DP-5 | **Event log is the source of truth**; local and relay stores are derived views; edits use `supersedes` | Aligns with protocol invariants, enables offline use |
 | DP-6 | **HTTP REST only** client-to-relay; multi-relay sync deferred; single-relay SPOF accepted | Smallest portable contract surface |
 
-Full context for each decision lives in `docs/spec-in-progress.md`.
+Full context for each decision lives in `docs/archive/spec-in-progress.md`.
 When conflicts arise between this summary and the ledger, the ledger
 wins until a follow-up ADR supersedes it.
 
@@ -182,7 +182,7 @@ step is pending user confirmation per BOOTSTRAP §4.3.
 | `03-modules-product.md` | Per-module contracts for product tier (Skill, Skill-Hermes, Plugin v3, Dashboard, Pulse, Feedback, L2 Trace) |
 | `04-deferred.md` | Out-of-MVP items with reason and re-entry criteria |
 | `05-glossary.md` | Normative term definitions |
-| `HISTORY.md` (repo root) | Which legacy sections are superseded by this SPEC |
+| `docs/archive/HISTORY.md` | Which legacy sections are superseded by this SPEC (one-shot mapping from BOOTSTRAP graduation) |
 
 `docs/design/` (thinking notes) and `docs/adr/` (append-only decision
 records) are adjacent layers, not part of this SPEC bundle.
@@ -198,5 +198,5 @@ records) are adjacent layers, not part of this SPEC bundle.
   version (`serendip-protocol-v1` → `serendip-protocol-v2`) and are
   out of scope for this SPEC revision.
 - Any decision marked "AI-recommended provisional default" in
-  `docs/spec-in-progress.md` (currently: DP-3) **SHOULD** be
+  `docs/archive/spec-in-progress.md` (currently: DP-3) **SHOULD** be
   revisited at the first independent implementation milestone.

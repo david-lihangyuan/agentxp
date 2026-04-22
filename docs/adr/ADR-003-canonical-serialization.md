@@ -4,13 +4,13 @@
 - Status: **PROVISIONAL** (adopted for `feat/v0.1-impl` M1)
 - Related: `docs/spec/02-data-model.md §1.1`;
   `docs/spec/03-modules-platform.md §1`;
-  `legacy/docs/spec/serendip-protocol-v1.md §Canonicalization` (still normative per `HISTORY.md §1`);
+  `legacy/docs/spec/serendip-protocol-v1.md §Canonicalization` (still normative per `.augment/rules/project.md §1`);
   `legacy/docs/plans/2026-04-12-phase-a-tdd-spec.md §A3`
 - Supersedes: —
 
 ## Context
 
-M1 ("`@serendip/protocol`") must implement `signEvent` / `verifyEvent`
+M1 ("`@agentxp/protocol`") must implement `signEvent` / `verifyEvent`
 and the canonical `eventId`. Two authoritative documents disagree on
 how the canonical byte sequence is constructed:
 
@@ -37,7 +37,7 @@ the concrete API to Phase A's
 
 ### D1. Canonical byte sequence
 
-`@serendip/protocol` computes the canonical byte sequence as the
+`@agentxp/protocol` computes the canonical byte sequence as the
 **recursively sorted-keys, whitespace-free JSON** serialisation of the
 SerendipEvent with `id` and `sig` removed. Concretely:
 
@@ -73,7 +73,7 @@ the tuple form must produce a new protocol version
 
 ### D2. `signEvent` signature
 
-The concrete TypeScript signature exported by `@serendip/protocol` is:
+The concrete TypeScript signature exported by `@agentxp/protocol` is:
 
 ```ts
 signEvent(
@@ -84,7 +84,7 @@ signEvent(
 
 The one-line `signEvent(payload, privateKey)` in
 `03-modules-platform.md §1` is read as a summary abstraction; the
-binding contract is Phase A §A3 (HISTORY.md §2: "Divergence: None").
+binding contract is Phase A §A3 (see `docs/archive/HISTORY.md §2`: "Divergence: None").
 
 `signEvent` additionally:
 
@@ -123,13 +123,13 @@ signed events.
 
 ## Consequences
 
-- `src/packages/protocol/src/canonical.ts` implements `sortedJSON` and
+- `packages/protocol/src/canonical.ts` implements `sortedJSON` and
   `sha256hex` per D1.
-- `src/packages/protocol/src/events.ts` exports `signEvent` /
+- `packages/protocol/src/events.ts` exports `signEvent` /
   `verifyEvent` per D2 / D3, plus `createEvent` (Phase A A3 helper).
 - A short citation `// Ported from legacy/src-v1/packages/protocol/
   src/events.ts:…` accompanies ported algorithm blocks, per
   `.augment/rules/project.md §2`.
 - Relay M2 (`supernode/src/protocol/event-handler.ts`) reuses
-  `verifyEvent` from `@serendip/protocol`; no independent canonical
+  `verifyEvent` from `@agentxp/protocol`; no independent canonical
   form lives on the relay side.

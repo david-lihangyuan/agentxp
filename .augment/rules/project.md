@@ -7,30 +7,33 @@ override these rules when they conflict.
 
 ## 1. Documentation layers (physical separation)
 
-- `docs/spec/` — **AUTHORITATIVE**. The only path code under `src/`
-  MAY reference for behavioural contracts.
+- `docs/spec/` — **AUTHORITATIVE**. The only path code under
+  `packages/` MAY reference for behavioural contracts.
 - `docs/ops/` — Operational runbooks. MAY be referenced by SPEC
   `Legacy Reference` fields; not a contract source.
 - `docs/adr/` — Architecture Decision Records. Every decision that
   diverges from or refines the SPEC lands here.
 - `legacy/` — Historical snapshots. **Read-only reference only.**
   One exception: `legacy/docs/spec/serendip-protocol-v1.md` is still
-  normative per `HISTORY.md §1`. Cite it by filename:line; do not
-  move or edit it.
+  normative (it defines the Serendip protocol canonicalization used
+  by `packages/protocol/`). Cite it by filename:line; do not move
+  or edit it.
 - `legacy/src-v1/` — Pre-SPEC source snapshot. **MUST NOT be
-  imported** from `src/`. See `legacy/src-v1/README.md`.
+  imported** from `packages/`. See `legacy/src-v1/README.md`.
 
 ## 2. Rules of engagement
 
-- Code under `src/` MUST only import from `src/` or declared npm
-  dependencies. Importing from `legacy/src-v1/` is a project-level
-  error (treat as build failure once a guard is in place).
+- Code under `packages/` MUST only import from `packages/` or declared
+  npm dependencies. Importing from `legacy/src-v1/` is a project-level
+  error (enforced by `scripts/check-no-legacy-imports.sh`).
 - SPEC module entries (`docs/spec/03-modules-{platform,product}.md`)
   name each package by its logical workspace name, e.g.
-  `packages/plugin-v3/`. Per `docs/adr/ADR-002-monorepo-layout.md`,
-  these resolve on disk to `src/packages/<name>/`. The npm workspaces
-  root glob is `src/packages/*`; the npm name is `@agentxp/<name>`
-  unless a SPEC module specifies otherwise.
+  `packages/openclaw-plugin/`. Per
+  [ADR-005](../../docs/adr/ADR-005-flatten-packages-root.md) (which
+  superseded ADR-002), these resolve on disk to literally
+  `packages/<name>/` at the repo root. The npm workspaces root glob
+  is `packages/*`; the npm name is `@agentxp/<name>` unless a SPEC
+  module specifies otherwise.
 - When implementing a module documented in
   `docs/spec/03-modules-{platform,product}.md`, the `Legacy Reference`
   field identifies the relevant legacy source. Algorithmic porting
@@ -47,12 +50,15 @@ override these rules when they conflict.
 ## 3. Legacy policy
 
 - Files under `legacy/` are preserved byte-for-byte except for
-  byte-identical dedupe (see `HISTORY.md §6`, DP-8).
-- `HISTORY.md` is the canonical index mapping `legacy/` -> SPEC.
+  byte-identical dedupe (historical record in
+  `docs/archive/HISTORY.md §6`, DP-8).
+- `docs/archive/HISTORY.md` is the one-shot index mapping pre-SPEC
+  `legacy/` documents to the v0.1 SPEC; consult it only for
+  provenance questions, not day-to-day work.
 - Re-entering a deferred module follows the gate defined in
   `docs/spec/04-deferred.md §6`.
-- When a `src/` file would benefit from reading a legacy algorithm,
-  always read the legacy file first, then write the new
+- When a `packages/` file would benefit from reading a legacy
+  algorithm, always read the legacy file first, then write the new
   implementation from scratch against the SPEC contract. Do not
   copy-paste.
 
@@ -76,8 +82,8 @@ This project has **graduated from BOOTSTRAP** as of
 commit `f4bd032` (archive pre-SPEC src to legacy/src-v1/). From this
 point:
 
-- `BOOTSTRAP.md` is retained for reproducibility only; do not re-run
-  its flow.
+- `docs/archive/BOOTSTRAP.md` is retained for reproducibility only;
+  do not re-run its flow.
 - The SPEC under `docs/spec/` is the ground truth.
-- Implementation proceeds per BOOTSTRAP §4.2 (TDD against SPEC +
-  `Legacy Reference` in `src/`).
+- Implementation proceeds per `docs/archive/BOOTSTRAP.md §4.2` (TDD
+  against SPEC + `Legacy Reference` in `packages/`).

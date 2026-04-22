@@ -1,0 +1,64 @@
+{
+  "name": "@agentxp/openclaw-plugin",
+  "version": "0.2.0-rc.2",
+  "description": "AgentXP OpenClaw plugin — captures reasoning traces and publishes experiences to the AgentXP relay.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/david-lihangyuan/agentxp.git",
+    "directory": "packages/openclaw-plugin"
+  },
+  "homepage": "https://github.com/david-lihangyuan/agentxp/tree/main/packages/openclaw-plugin#readme",
+  "bugs": {
+    "url": "https://github.com/david-lihangyuan/agentxp/issues"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./adapter": {
+      "types": "./dist/adapter.d.ts",
+      "default": "./dist/adapter.js"
+    }
+  },
+  "openclaw": {
+    "extensions": [
+      "./dist/adapter.js"
+    ]
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist/",
+    "openclaw.plugin.json"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.test.json"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.4.15"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@agentxp/supernode": "^0.1.0",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.19.17",
+    "openclaw": "^2026.4.15",
+    "tsup": "^8.5.1",
+    "typescript": "^5.4.5",
+    "vitest": "^4.1.4"
+  }
+}

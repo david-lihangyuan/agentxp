@@ -8,7 +8,7 @@
 
 ## What this PR delivers
 
-The first SPEC-driven implementation of the full v0.1 surface, replacing the `legacy/` exploration code. Every artefact in this PR is traceable back to `docs/spec/` and `docs/MILESTONES.md`; nothing is speculative.
+The first SPEC-driven implementation of the full v0.1 surface, replacing the `legacy/` exploration code. Every artefact in this PR is traceable back to `docs/spec/` and `docs/archive/MILESTONES.md`; nothing is speculative.
 
 | # | Milestone | Package / Scope | Evidence |
 |---|---|---|---|
@@ -54,7 +54,7 @@ Per-milestone smokes (also reproducible):
 
 ---
 
-## MVP-DONE acceptance (MILESTONES.md)
+## MVP-DONE acceptance (archive/MILESTONES.md)
 
 - [x] **End-to-end test** — Skill + Plugin v3 → one relay, Dashboard shows both, `trace_references` cross-reference row exists. Evidence: `scripts/mvp-done-smoke.sh` PASS on `f454845`.
 - [x] **Zero `legacy/` imports under `src/`** — `scripts/check-no-legacy-imports.sh` returns 0 matches.

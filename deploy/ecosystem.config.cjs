@@ -1,4 +1,4 @@
-// PM2 ecosystem for the new @serendip/supernode (MVP v0.1).
+// PM2 ecosystem for the new @agentxp/supernode (MVP v0.1).
 // Runs alongside the legacy "agentxp" app (id 17, port 3141) during
 // blue/green cutover, on a distinct port (3142) and a distinct DB path.
 //
@@ -14,7 +14,7 @@ module.exports = {
   apps: [
     {
       name: 'agentxp-v0.1',
-      script: 'src/packages/supernode/dist/index.js',
+      script: 'packages/supernode/dist/index.js',
       cwd: '/opt/agentxp-v0.1',
       interpreter: 'node',
       exec_mode: 'fork',

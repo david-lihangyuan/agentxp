@@ -1,7 +1,7 @@
 // Registers an operator + delegates an agent key on a live relay.
 // Used only by scripts/m3-smoke.sh for MILESTONES M3 Check 2 evidence.
 import { readFileSync } from 'node:fs'
-import { createEvent, signEvent, hexToBytes } from '@serendip/protocol'
+import { createEvent, signEvent, hexToBytes } from '@agentxp/protocol'
 import { ensureAgentKey } from '@agentxp/skill'
 
 const root = process.env['ROOT']
@@ -32,7 +32,10 @@ async function publish(event) {
 const reg = await signEvent(
   createEvent(
     'identity.register',
-    { type: 'operator', data: { pubkey: operator.publicKey, registered_at: Math.floor(Date.now() / 1000) } },
+    {
+      type: 'operator',
+      data: { pubkey: operator.publicKey, registered_at: Math.floor(Date.now() / 1000) },
+    },
     [],
   ),
   operatorAsAgent,

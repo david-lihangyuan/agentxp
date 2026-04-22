@@ -51,7 +51,7 @@ clause means no constraint at the MVP tier.
 **Purpose:** Canonical TypeScript types, Ed25519 signing and
 verification, and event-id canonicalisation for Serendip
 Protocol v1.
-**Package:** `packages/protocol/` (npm: `@serendip/protocol`).
+**Package:** `packages/protocol/` (npm: `@agentxp/protocol`).
 **Interfaces consumed:** none (library only).
 **Data shapes defined:** all types in `02-data-model.md §1–§5`.
 

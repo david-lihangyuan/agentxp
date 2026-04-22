@@ -50,7 +50,7 @@ etc.), prefer the `superpowers` version by default — it is the primary
 workflow library referenced throughout this project. Use `agent-skills` for
 the areas superpowers does not cover:
 
-| BOOTSTRAP.md §3/§4 calls | Source |
+| `docs/archive/BOOTSTRAP.md` §3/§4 calls | Source |
 |---|---|
 | `brainstorming`, `writing-plans`, `executing-plans`, `test-driven-development`, `verification-before-completion`, `requesting-code-review`, `receiving-code-review`, `writing-skills`, `using-git-worktrees`, `subagent-driven-development`, `dispatching-parallel-agents`, `systematic-debugging`, `finishing-a-development-branch`, `using-superpowers` | `~/.superpowers/skills/` (via `~/.superpowers/bin/sp`) |
 | `spec-driven-development`, `planning-and-task-breakdown`, `incremental-implementation`, `documentation-and-adrs`, `code-review-and-quality` | `~/.agent-skills/skills/` (via `cat`) |

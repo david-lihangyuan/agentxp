@@ -1,0 +1,42 @@
+# Changeset Check — PR gate.
+#
+# Fails if a PR touches any code under packages/ without also adding
+# a .changeset/*.md file. Docs-only or workflow-only PRs can either
+# skip this check (add the "no-release" label) or include an empty
+# changeset created with `npx changeset --empty`.
+#
+# Changesets are how this repo declares "which packages change at
+# what semver level" — see docs/RELEASING.md.
+
+name: Changeset Check
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+jobs:
+  changeset-check:
+    name: Verify PR has a changeset
+    runs-on: ubuntu-latest
+    # Skip when PR is explicitly labelled "no-release".
+    if: "!contains(github.event.pull_request.labels.*.name, 'no-release')"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        # Repo uses npm install (no tracked lockfile — see .gitignore).
+        run: npm install --no-audit --no-fund
+
+      - name: Run changeset status
+        # Exits non-zero when packages have changed vs. main without
+        # a corresponding .changeset/*.md entry.
+        run: npx changeset status --since=origin/main

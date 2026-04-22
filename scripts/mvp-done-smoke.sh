@@ -13,8 +13,8 @@ export HOME="$ROOT/home"
 export ROOT
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-SKILL_BIN="$REPO/src/packages/skill/dist/cli.js"
-SUPERNODE_ENTRY="$REPO/src/packages/supernode/dist/index.js"
+SKILL_BIN="$REPO/packages/skill/dist/cli.js"
+SUPERNODE_ENTRY="$REPO/packages/supernode/dist/index.js"
 
 PORT=13145
 export PORT
@@ -86,11 +86,12 @@ echo "$REFS" | grep -q "\"stale\":0" \
   || { echo "FAIL: reference marked stale — referent did not resolve"; exit 1; }
 echo "ok: trace_references row exists (source=$PLUGIN_EVENT_ID → ref=$SKILL_EVENT_ID, stale=0)"
 
-echo "=== 6. zero legacy/ imports under src/ ==="
-if grep -rn --include="*.ts" --include="*.mjs" --include="*.js" "from ['\"].*legacy" "$REPO/src/" ; then
-  echo "FAIL: src/ imports from legacy/"
+echo "=== 6. zero legacy/ imports under packages/ ==="
+# Delegate to the canonical lint script (same check CI runs on every PR).
+# Post-ADR-005 the source tree lives under packages/, not src/.
+if ! bash "$REPO/scripts/check-no-legacy-imports.sh" ; then
+  echo "FAIL: packages/ imports from legacy/"
   exit 1
 fi
-echo "ok: no src/ -> legacy/ imports"
 
 echo "=== PASS ==="

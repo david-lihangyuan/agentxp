@@ -3,9 +3,14 @@ node_modules
 dist
 coverage
 
+# Python / uv environments (skill-hermes)
+.venv
+**/.venv
+
 # Lockfiles
 bun.lock
 package-lock.json
+uv.lock
 
 # Documentation is hand-formatted (markdown tables, spec prose)
 *.md
@@ -19,3 +24,6 @@ package-lock.json
 # Untracked / generated
 .bun
 data
+
+# Historical snapshots — preserved byte-for-byte per project rules
+legacy
