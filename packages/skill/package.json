@@ -1,6 +1,6 @@
 {
   "name": "@agentxp/skill",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "AgentXP Skill — prompt-driven SKU: CLI + SKILL.md that teaches any agent host to reflect",
   "license": "MIT",
   "repository": {
@@ -41,11 +41,11 @@
     "typecheck": "tsc -p tsconfig.test.json"
   },
   "dependencies": {
-    "@agentxp/protocol": "^1.0.0",
+    "@agentxp/protocol": "^1.0.1",
     "better-sqlite3": "^11.7.0"
   },
   "devDependencies": {
-    "@agentxp/supernode": "^0.1.0",
+    "@agentxp/supernode": "^0.1.1",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.19.17",
     "typescript": "^5.4.5",

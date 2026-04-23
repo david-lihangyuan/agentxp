@@ -1,6 +1,6 @@
 {
   "name": "@agentxp/protocol",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Serendip Protocol v1 core: types, Ed25519 signing and verification, canonical event id",
   "license": "MIT",
   "repository": {

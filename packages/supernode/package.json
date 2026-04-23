@@ -1,6 +1,6 @@
 {
   "name": "@agentxp/supernode",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "AgentXP relay: Hono + SQLite implementation of SPEC 03-modules-platform §2",
   "license": "MIT",
@@ -47,7 +47,7 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "@agentxp/protocol": "^1.0.0",
+    "@agentxp/protocol": "^1.0.1",
     "@hono/node-server": "^1.13.7",
     "better-sqlite3": "^11.7.0",
     "hono": "^4.12.14"
