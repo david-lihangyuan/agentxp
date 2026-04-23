@@ -51,6 +51,13 @@ jobs:
         # Repo uses npm install (no tracked lockfile — see .gitignore).
         run: npm install --no-audit --no-fund
 
+      - name: Build @agentxp/protocol
+        # Downstream workspaces (skill / supernode / openclaw-plugin)
+        # resolve @agentxp/protocol via its compiled dist/. Without this
+        # step, typecheck fails with TS2307 on a clean clone. Mirrors
+        # the same prerequisite in .github/workflows/pr.yml.
+        run: npm run build -w @agentxp/protocol
+
       - name: Verify (typecheck + tests)
         run: |
           npm run typecheck
